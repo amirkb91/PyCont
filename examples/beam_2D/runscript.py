@@ -1,6 +1,3 @@
-import sys
-
-sys.path.append("/home/akb110/Codes/PyCont")
 from core.problem import Prob
 from core.logger import Logger
 from core.continuation import ConX

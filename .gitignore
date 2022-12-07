@@ -2,6 +2,7 @@
 __pycache__/
 .vscode/
 results/
+core.egg-info/
 *.out
 *.h5
 *.png

@@ -1,6 +1,6 @@
 {
   "restart": { "file": "", "index": 79, "fixF": false, "F": 60 },
-  "plot": true,
+  "plot": false,
   "continuation": {
     "method": "psa",
     "formula": "peeters",
@@ -20,9 +20,9 @@
     "fmax": 80
   },
   "shooting": {
-    "npts": 500,
-    "npts_fail": 500,
-    "nperiod": 3,
+    "npts": 100,
+    "npts_fail": 100,
+    "nperiod": 1,
     "rho": 1.0,
     "rel_tol": 1e-6,
     "period": "full",
