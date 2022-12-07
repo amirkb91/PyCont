@@ -1,0 +1,11 @@
+.idea/
+__pycache__/
+.vscode/
+results/
+*.out
+*.h5
+*.png
+*.pdf
+*.m
+*.asv
+*.fig

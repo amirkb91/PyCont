@@ -1,0 +1,32 @@
+{
+  "restart": { "file": "", "index": 11, "fixF": false, "F": 60 },
+  "plot": true,
+  "continuation": {
+    "method": "psa",
+    "formula": "keller",
+    "dir": 1,
+    "npts": 5000,
+    "tol": 1e-3,
+    "itermin": 1,
+    "iteropt": 4,
+    "itermax": 8,
+    "s0": 1e-3,
+    "nadapt": 2,
+    "smin": 1e-7,
+    "smax": 1e-2,
+    "betacontrol": false,
+    "betamax": 174,
+    "fmin": 140,
+    "fmax": 200
+  },
+  "shooting": {
+    "npts": 500,
+    "npts_fail": 1000,
+    "rho": 1.0,
+    "rel_tol": 1e-6,
+    "period": "full",
+    "beam_type": "SE2_3"
+  },
+  "phasecond": { "idx": "87-173" },
+  "firstpoint": { "tol": 0.0001, "itermax": 30 }
+}
