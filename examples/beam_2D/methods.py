@@ -4,8 +4,8 @@ import subprocess
 import numpy as np
 
 
-def initialguess_eig():
-    # Continuation variables initial guess from eigenvalues
+def beam_2d_eig():
+    # Run eigen solver and store initial solution
     eigfile = "/home/akb110/Codes/beam_cpp/examples/cclamped/cclamped_eig.h5"
     eigdata = h5py.File(eigfile, "r")
     eig = np.array(eigdata["/Eigenvectors"])
@@ -23,7 +23,7 @@ def initialguess_eig():
     return X0, T0
 
 
-def zerofunction(T, X, par):
+def beam_2d_sim(T, X, par):
     """
     User-defined zero function
     Here the function is the C++ simulation

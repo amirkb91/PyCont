@@ -22,6 +22,6 @@ class StartingPoint:
         if self.prob.parameters["restart"]["fixF"]:
             self.T0 = np.array([1 / self.prob.parameters["restart"]["F"]])
 
-    def initial_guess(self, guessfunction):
+    def clean_start(self, fxn):
         # User supplied function provides initial guess
-        self.X0, self.T0 = guessfunction()
+        self.X0, self.T0 = fxn()

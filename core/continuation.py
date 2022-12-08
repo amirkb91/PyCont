@@ -70,9 +70,7 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(
-                    self.T0, self.X0, self.prob.parameters
-                )
+                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.beam_2d_sim(self.T0, self.X0, self.prob.parameters)
                 if not zerof_cvg:
                     raise Exception("Zero function failed.")
 
@@ -134,9 +132,7 @@ class ConX:
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
-            [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(
-                self.T0, self.X0, self.prob.parameters
-            )
+            [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.beam_2d_sim(self.T0, self.X0, self.prob.parameters)
             residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
             print(f"{1} \t {residual:.5e}")
             print("First point is restarted solution.")
@@ -186,9 +182,7 @@ class ConX:
             itershoot = 0
             while True:
                 # find residual
-                [H, Mm0, dHdt, outputs, zerof_cvg] = self.prob.zerofunction(
-                    T, X, self.prob.parameters
-                )
+                [H, Mm0, dHdt, outputs, zerof_cvg] = self.prob.beam_2d_sim(T, X, self.prob.parameters)
 
                 if not zerof_cvg:
                     cvg = False
@@ -285,9 +279,7 @@ class ConX:
             itercorrect = 0
             while True:
                 # find residual
-                [H, Mm0, dHdt, pose, outputs, cvg] = self.prob.zerofunction(
-                    T, X, self.prob.parameters
-                )
+                [H, Mm0, dHdt, pose, outputs, cvg] = self.prob.beam_2d_sim(T, X, self.prob.parameters)
 
                 if not cvg:
                     print("Zero function failed to converge.")

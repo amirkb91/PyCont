@@ -13,5 +13,5 @@ class Prob:
         else:
             raise Exception("Continuation parameter file does not exist!")
 
-    def add_zerofunction(self, zerofunction):
-        self.zerofunction = zerofunction
+    def add_zerofunction(self, fxn):
+        self.zerofunction = fxn
