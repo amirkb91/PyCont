@@ -17,7 +17,9 @@
     "betacontrol": false,
     "betamax": 174,
     "fmin": 50,
-    "fmax": 80
+    "fmax": 80,
+    "NNM": 1,
+    "eig_scale": 1e-4
   },
   "shooting": {
     "npts": 100,

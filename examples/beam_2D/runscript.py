@@ -3,19 +3,19 @@ from core.logger import Logger
 from core.continuation import ConX
 from core.startingpoint import StartingPoint
 
-from methods import beam_2d_sim, beam_2d_eig
+from methods import BeamCpp
 
 # Problem object
 prob = Prob()
-prob.read_parameters("contparameters.json")
-prob.add_zerofunction(beam_2d_sim)
+prob.read_contparams("contparameters.json")
+prob.add_zerofunction(BeamCpp.run_sim)
 
 # Continuation starting point object
 start = StartingPoint(prob)
-if prob.parameters["restart"]["file"]:
+if prob.cont_params["restart"]["file"]:
     start.restart()
 else:
-    start.clean_start(beam_2d_eig)
+    start.new_start(BeamCpp.run_eig)
 
 # Logger object
 log = Logger(prob)

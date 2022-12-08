@@ -64,7 +64,7 @@ class Logger:
 
         # save to disk and plot if required
         self.savetodisk()
-        if self.solidx > 1 and self.prob.parameters["plot"]:
+        if self.solidx > 1 and self.prob.cont_params["plot"]:
             self.solplot()
 
     def savetodisk(self):
@@ -74,7 +74,7 @@ class Logger:
         savefile["/Energy"] = self.outputs["energy"]
         savefile["/Tangent"] = self.soltgt
         savefile["/POSE"] = self.solpose
-        savefile["/Parameters"] = json.dumps(self.prob.parameters)
+        savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
         # np.savetxt("solXT.out", np.vstack([self.solX, self.solT]))
         # np.savetxt("energy.out", self.outputs["energy"])
@@ -95,8 +95,8 @@ class Logger:
             self.ax1.ticklabel_format(useOffset=False, axis="y")
             # self.ax1.set_xlim(1e-10, 1e4)
             # self.ax1.set_ylim(
-            #     self.prob.parameters["continuation"]["fmin"],
-            #     self.prob.parameters["continuation"]["fmax"],
+            #     self.prob.cont_params["continuation"]["fmin"],
+            #     self.prob.cont_params["continuation"]["fmax"],
             # )
             (self.line1,) = self.ax1.plot(
                 self.outputs["energy"], 1 / self.solT, marker=".", fillstyle="none"

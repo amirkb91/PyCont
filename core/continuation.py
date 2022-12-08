@@ -15,9 +15,9 @@ class ConX:
     def solve(self):
         # check if period within range
         if (
-            not self.prob.parameters["continuation"]["fmin"]
+            not self.prob.cont_params["continuation"]["fmin"]
             <= 1 / self.T0[0]
-            <= self.prob.parameters["continuation"]["fmax"]
+            <= self.prob.cont_params["continuation"]["fmax"]
         ):
             raise Exception("Starting period outside of continuation frequency range")
 
@@ -27,17 +27,17 @@ class ConX:
         # compute first point of the branch
         self.first_point()
 
-        if self.prob.parameters["continuation"]["method"].lower() == "seq":
+        if self.prob.cont_params["continuation"]["method"].lower() == "seq":
             # sequential continuation
             self.seqcont()
-        elif self.prob.parameters["continuation"]["method"].lower() == "psa":
+        elif self.prob.cont_params["continuation"]["method"].lower() == "psa":
             # pseudo-arc length continuation
             self.psacont()
 
     def phase_condition(self):
         # parse and sort phase condition indices. range defined in json file is inclusive
         self.h_idx = []
-        idx = self.prob.parameters["phasecond"]["idx"]
+        idx = self.prob.cont_params["phasecond"]["idx"]
         if idx:
             idx = idx.split(",")
             for i in range(len(idx)):
@@ -58,26 +58,26 @@ class ConX:
     def first_point(self):
         print("Shooting first point.")
         print("Iter \t Residual")
-        restart = self.prob.parameters["restart"]["file"]
-        fixF = self.prob.parameters["restart"]["fixF"]
+        restart = self.prob.cont_params["restart"]["file"]
+        fixF = self.prob.cont_params["restart"]["fixF"]
 
         if not restart or (restart and fixF):
             iter = 0
             while True:
                 iter += 1
-                if iter > self.prob.parameters["firstpoint"]["itermax"]:
+                if iter > self.prob.cont_params["firstpoint"]["itermax"]:
                     raise Exception(
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.beam_2d_sim(self.T0, self.X0, self.prob.parameters)
+                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
                 if not zerof_cvg:
                     raise Exception("Zero function failed.")
 
                 residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
                 print(f"{iter} \t {residual:.5e}")
 
-                if residual < self.prob.parameters["firstpoint"]["tol"]:
+                if residual < self.prob.cont_params["firstpoint"]["tol"]:
                     print("First point converged.")
                     print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
                     break
@@ -132,7 +132,7 @@ class ConX:
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
-            [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.beam_2d_sim(self.T0, self.X0, self.prob.parameters)
+            [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
             residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
             print(f"{1} \t {residual:.5e}")
             print("First point is restarted solution.")
@@ -156,8 +156,8 @@ class ConX:
 
         # default values for first iteration
         itercont = 1  # point 0 is first point which is found already
-        step = self.prob.parameters["continuation"]["s0"]
-        dir = self.prob.parameters["continuation"]["dir"]
+        step = self.prob.cont_params["continuation"]["s0"]
+        dir = self.prob.cont_params["continuation"]["dir"]
 
         # continuation loop
         while True:
@@ -165,7 +165,7 @@ class ConX:
             print(f"Continuation point {itercont}, freq = {1/T[0]:.3f}:")
             print(f"step: s = {step:.3e}.")
 
-            if itercont > self.prob.parameters["continuation"]["npts"]:
+            if itercont > self.prob.cont_params["continuation"]["npts"]:
                 print("Maximum number of continuation points reached.")
                 break
 
@@ -174,7 +174,7 @@ class ConX:
             _T = T.copy()
             T -= step * dir
 
-            if 1 / T > self.prob.parameters["continuation"]["fmax"]:
+            if 1 / T > self.prob.cont_params["continuation"]["fmax"]:
                 print("Maximum frequency reached.")
                 break
 
@@ -182,7 +182,7 @@ class ConX:
             itershoot = 0
             while True:
                 # find residual
-                [H, Mm0, dHdt, outputs, zerof_cvg] = self.prob.beam_2d_sim(T, X, self.prob.parameters)
+                [H, Mm0, dHdt, outputs, zerof_cvg] = self.prob.run_sim(T, X)
 
                 if not zerof_cvg:
                     cvg = False
@@ -193,14 +193,14 @@ class ConX:
                 print(f"{itershoot} \t {residual:.5e}")
 
                 if (
-                    residual < self.prob.parameters["continuation"]["tol"]
-                    and itershoot >= self.prob.parameters["continuation"]["itermin"]
+                    residual < self.prob.cont_params["continuation"]["tol"]
+                    and itershoot >= self.prob.cont_params["continuation"]["itermin"]
                 ):
                     cvg = True
                     print("Solution converged.")
                     break
 
-                if itershoot >= self.prob.parameters["continuation"]["itermax"]:
+                if itershoot >= self.prob.cont_params["continuation"]["itermax"]:
                     cvg = False
                     print("Max number of iterations reached without convergence.")
                     break
@@ -215,7 +215,7 @@ class ConX:
 
             # adaptive step size for next point
             if (
-                itercont >= self.prob.parameters["continuation"]["nadapt"]
+                itercont >= self.prob.cont_params["continuation"]["nadapt"]
                 or not zerof_cvg
             ):
                 step = self.cont_step(step, itershoot, cvg)
@@ -231,9 +231,9 @@ class ConX:
     def psacont(self):
         print("Pseudo-arc length continuation started.")
         # formulation chosen
-        frml = self.prob.parameters["continuation"]["formula"].lower()
+        frml = self.prob.cont_params["continuation"]["formula"].lower()
         print(f"{frml.title()} formulation.")
-        if self.prob.parameters["continuation"]["betacontrol"]:
+        if self.prob.cont_params["continuation"]["betacontrol"]:
             print("beta control is active.")
 
         # start from first point solution
@@ -243,10 +243,10 @@ class ConX:
 
         # default values for first iteration
         itercont = 1  # point 0 is first point which is found already
-        step = self.prob.parameters["continuation"]["s0"]
+        step = self.prob.cont_params["continuation"]["s0"]
 
         # continuation direction
-        dir = self.prob.parameters["continuation"]["dir"]
+        dir = self.prob.cont_params["continuation"]["dir"]
         if dir == 1:
             # decreasing T (increasing F)
             stepsign = -np.sign(tgt[-1])
@@ -260,7 +260,7 @@ class ConX:
             print(f"Continuation point {itercont}, freq = {1/T[0]:.3f}:")
             print(f"Step: s = {step:.3e}. sign = {stepsign}.")
 
-            if itercont > self.prob.parameters["continuation"]["npts"]:
+            if itercont > self.prob.cont_params["continuation"]["npts"]:
                 print("Maximum number of continuation points reached.")
                 break
 
@@ -271,7 +271,7 @@ class ConX:
             X += tgt[:-1] * step * stepsign
             T += tgt[-1] * step * stepsign
 
-            if 1 / T > self.prob.parameters["continuation"]["fmax"]:
+            if 1 / T > self.prob.cont_params["continuation"]["fmax"]:
                 print("Maximum frequency reached.")
                 break
 
@@ -279,7 +279,7 @@ class ConX:
             itercorrect = 0
             while True:
                 # find residual
-                [H, Mm0, dHdt, pose, outputs, cvg] = self.prob.beam_2d_sim(T, X, self.prob.parameters)
+                [H, Mm0, dHdt, pose, outputs, cvg] = self.prob.run_sim(T, X)
 
                 if not cvg:
                     print("Zero function failed to converge.")
@@ -290,14 +290,14 @@ class ConX:
                 print(f"{itercorrect} \t {residual:.5e} \t {residual_abs:.5e}")
                 residual = residual_abs
                 if (
-                    residual < self.prob.parameters["continuation"]["tol"]
-                    and itercorrect >= self.prob.parameters["continuation"]["itermin"]
+                    residual < self.prob.cont_params["continuation"]["tol"]
+                    and itercorrect >= self.prob.cont_params["continuation"]["itermin"]
                 ):
                     cvg = True
                     print("Solution converged.")
                     break
 
-                if itercorrect >= self.prob.parameters["continuation"]["itermax"]:
+                if itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                     cvg = False
                     print("Max number of iterations reached without convergence.")
                     break
@@ -365,8 +365,8 @@ class ConX:
                 beta = np.array([np.degrees(np.arccos(tgt.T @ tgt_prev))])
                 print(f"Beta = {beta[0]:.2f} deg")
                 if (
-                    self.prob.parameters["continuation"]["betacontrol"]
-                    and beta[0] > self.prob.parameters["continuation"]["betamax"]
+                    self.prob.cont_params["continuation"]["betacontrol"]
+                    and beta[0] > self.prob.cont_params["continuation"]["betamax"]
                 ):
                     print(
                         "Beta exceeds maximum angle, roll back and reduce continuation step."
@@ -399,25 +399,25 @@ class ConX:
                 T = _T.copy()
 
             # adaptive step size for next point
-            itercontcheck = itercont > self.prob.parameters["continuation"]["nadapt"]
+            itercontcheck = itercont > self.prob.cont_params["continuation"]["nadapt"]
             if itercontcheck or not cvg:
                 step = self.cont_step(step, itercorrect, cvg)
 
     def cont_step(self, step, itercorrect, cvg):
         if cvg:
-            step *= self.prob.parameters["continuation"]["iteropt"] / itercorrect
+            step *= self.prob.cont_params["continuation"]["iteropt"] / itercorrect
 
-            if step > self.prob.parameters["continuation"]["smax"]:
-                step = self.prob.parameters["continuation"]["smax"]
+            if step > self.prob.cont_params["continuation"]["smax"]:
+                step = self.prob.cont_params["continuation"]["smax"]
                 print("Maximum step size reached.")
 
-            elif step < self.prob.parameters["continuation"]["smin"]:
-                step = self.prob.parameters["continuation"]["smin"]
+            elif step < self.prob.cont_params["continuation"]["smin"]:
+                step = self.prob.cont_params["continuation"]["smin"]
                 print("Minimum step size reached.")
 
         else:
             print("Continuation step halving.")
             step /= 2
-            if step < self.prob.parameters["continuation"]["smin"]:
+            if step < self.prob.cont_params["continuation"]["smin"]:
                 raise Exception("Step size below smin, continuation cannot proceed.")
         return step

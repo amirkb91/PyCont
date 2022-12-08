@@ -21,7 +21,7 @@ data = h5py.File(str(file), "r")
 X = data["/X"][:, solno]
 T = data["/T"][solno]
 
-# read parameters from solution file
+# read cont_params from solution file
 par = data["/Parameters"]
 par = json.loads(par[()])
 rho = par["shooting"]["rho"]
@@ -33,7 +33,7 @@ beam_type = par["shooting"]["beam_type"]
 case = "cclamped"
 path2cpp = "/home/akb110/Codes/beam_cpp/examples/" + case + "/"
 exec_cpp = "/home/akb110/Codes/beam_cpp/cmake-build-release/examples/" + case
-paramfile = "parameters.json"
+paramfile = "cont_params.json"
 eigenfile = case + "_eig"
 ouputfile = case + "_out"
 inputdata = h5py.File(path2cpp + eigenfile + ".h5", "r+")
