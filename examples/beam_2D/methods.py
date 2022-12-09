@@ -5,7 +5,6 @@ import numpy as np
 
 
 class BeamCpp:
-
     cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_eig"
     cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_sim"
     cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/beam_2D/"
@@ -13,12 +12,17 @@ class BeamCpp:
 
     cpp_params = json.load(open(cpp_path + cpp_paramfile))
     eig_file = cpp_params["EigenSolverParameters"]["Logger"]["file_name"]
-    sim_file = cpp_params["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
+    simout_file = cpp_params["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
+    ic_file = cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
+
+    free_dof = None
+    ndof_all = None
+    ndof_fix = None
 
     @classmethod
     def run_eig(cls, cont_params):
         # Run eigen solver and store initial solution
-        # Run sim solver to get model data
+        # Run sim solver to get config data
         cpprun = subprocess.run(
             "cd " + cls.cpp_path + "&&" + cls.cppeig_exe + " " + cls.cpp_paramfile +
             "&&" + cls.cppsim_exe + " " + cls.cpp_paramfile,
@@ -28,27 +32,27 @@ class BeamCpp:
         )
 
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
-        simdata = h5py.File(cls.cpp_path + cls.sim_file + ".h5", "r")
+        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+
+        cls.free_dof = np.array(simdata["/Model_0/free_dof"])
+        cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
+        cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
+
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
         frq = eigdata["/eigen_analysis/Frequencies"]
         eig[np.abs(eig) < 1e-10] = 0.0
-        free_dof = np.array(simdata["/Model_0/free_dof"])
-
         nnm = cont_params["continuation"]["NNM"]
         scale = cont_params["continuation"]["eig_scale"]
         x0 = scale * eig[:, nnm - 1]
-        x0 = x0[free_dof]
+        x0 = x0[cls.free_dof]
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1]
 
         return X0, T0
 
-    def run_sim(self, T, X, par):
-        """
-        User-defined zero function
-        Here the function is the C++ simulation
-        """
+    @classmethod
+    def run_sim(cls, T, X, par):
         # unpack run cont_params
         ns = par["shooting"]["npts"]
         ns_fail = par["shooting"]["npts_fail"]
@@ -57,35 +61,18 @@ class BeamCpp:
         rel_tol = par["shooting"]["rel_tol"]
         beam_type = par["shooting"]["beam_type"]
 
-        # path and file names, open eigen file to write INC and VEL
-        path2cpp = "/home/akb110/Codes/beam_cpp/examples/cclamped/"
-        exec_cpp = "/home/akb110/Codes/beam_cpp/cmake-build-release/examples/cclamped"
-        paramfile = "cont_params.json"
-        eigenfile = "cclamped_eig"
-        ouputfile = "cclamped_out"
-        inputdata = h5py.File(path2cpp + eigenfile + ".h5", "r+")
-        ndof_all = inputdata["number_of_dofs"][0][0]
-
-        # clear existing data in eigen file
-        if "Config/INC" in inputdata:
-            del inputdata["Config/INC"]
-        del inputdata["Config/VELOCITY"]
-        inputdata.create_dataset("Config/INC", shape=(ndof_all,), dtype=np.dtype("float64"))
-        inputdata.create_dataset(
-            "Config/VELOCITY", shape=(ndof_all,), dtype=np.dtype("float64")
-        )
-
-        # add X to eigen file (INC, VEL)
+        # get INC and VEL from X
         lenX_2 = len(X) // 2
         inc = X[:lenX_2]
         vel = X[lenX_2:]
-        # add zeros for bc nodes
-        inc = np.pad(inc, (6, 0), "constant")
-        vel = np.pad(vel, (6, 0), "constant")
-        # store in inputdata to use as initial condition
-        inputdata["/Config/INC"][:] = inc
-        inputdata["/Config/VELOCITY"][:] = vel
-        inputdata.close()
+        inc = np.pad(inc, ((cls.ndof_fix, 0), (0, 0)), "constant")
+        vel = np.pad(vel, ((cls.ndof_fix, 0), (0, 0)), "constant")
+
+        # write initial conditions to ic_file
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata["/Config/INC"] = inc
+        icdata["/Config/VELOCITY"] = vel
+        icdata.close()
 
         # edit C++ parameter file
         cpp_parameter = json.load(open(path2cpp + paramfile))

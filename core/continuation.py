@@ -3,9 +3,11 @@ import numpy as np
 
 class ConX:
     # rcond for least squares SVD solver: ratio of largest SV
-    svd_cutoff = None
+    svd_rcond = None
 
     def __init__(self, prob, start, log):
+        self.h = None
+        self.nphase = None
         self.prob = prob
         self.X0 = start.X0
         self.T0 = start.T0
@@ -13,14 +15,6 @@ class ConX:
         self.log = log
 
     def solve(self):
-        # check if period within range
-        if (
-            not self.prob.cont_params["continuation"]["fmin"]
-            <= 1 / self.T0[0]
-            <= self.prob.cont_params["continuation"]["fmax"]
-        ):
-            raise Exception("Starting period outside of continuation frequency range")
-
         # calculate phase condition matrix h
         self.phase_condition()
 
@@ -36,24 +30,24 @@ class ConX:
 
     def phase_condition(self):
         # parse and sort phase condition indices. range defined in json file is inclusive
-        self.h_idx = []
+        h_idx = []
         idx = self.prob.cont_params["phasecond"]["idx"]
         if idx:
             idx = idx.split(",")
             for i in range(len(idx)):
                 if "-" in idx[i]:
                     idxrange = idx[i].split("-")
-                    self.h_idx.extend(
+                    h_idx.extend(
                         list(range(int(idxrange[0]), int(idxrange[1]) + 1))
                     )
                 else:
-                    self.h_idx.append(int(idx[i]))
-            self.h_idx = sorted(set(self.h_idx))
+                    h_idx.append(int(idx[i]))
+            h_idx = sorted(set(h_idx))
 
         # create phase condition matrix h
-        self.nphase = len(self.h_idx)
+        self.nphase = len(h_idx)
         self.h = np.zeros((self.nphase, len(self.X0)))
-        self.h[list(range(self.nphase)), self.h_idx] = 1.0
+        self.h[list(range(self.nphase)), h_idx] = 1.0
 
     def first_point(self):
         print("Shooting first point.")
@@ -70,7 +64,7 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
+                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
                 if not zerof_cvg:
                     raise Exception("Zero function failed.")
 
