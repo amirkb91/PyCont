@@ -64,11 +64,12 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
+                [H, M, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
                 if not zerof_cvg:
                     raise Exception("Zero function failed.")
 
-                residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
+                # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
+                residual = np.linalg.norm(H)
                 print(f"{iter} \t {residual:.5e}")
 
                 if residual < self.prob.cont_params["firstpoint"]["tol"]:
@@ -81,7 +82,7 @@ class ConX:
                     # Jacobian comprised of monodromy, phase condition, and orthogonality to linear solution
                     J = np.block(
                         [
-                            [Mm0, dHdt.reshape(-1, 1)],
+                            [M, dHdt.reshape(-1, 1)],
                             [self.h, np.zeros((self.nphase, 1))],
                             [self.X0.reshape(-1, 1).T, np.zeros(1)],
                         ]
@@ -89,21 +90,21 @@ class ConX:
                     # +1 zero for orthogonality to linear solution
                     hx = np.matmul(self.h, self.X0)
                     H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                    dxt = np.linalg.lstsq(J, -H, rcond=self.svd_cutoff)[0]
+                    dxt = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
                     self.T0 += dxt[-1]
                     dx = dxt[:-1, :]
-                    self.X0[:] += dx[:, 0]
+                    self.X0[:] += dx
 
                 elif restart and fixF:
                     # update X0 - ortho to restart solution?
                     ortho = True
                     if not ortho:
-                        J = np.concatenate((Mm0, self.h), axis=0)
+                        J = np.concatenate((M, self.h), axis=0)
                         hx = np.matmul(self.h, self.X0)
                         H = np.vstack([H, hx.reshape(-1, 1)])
                     else:
                         J = np.concatenate(
-                            (Mm0, self.h, self.X0.reshape(-1, 1).T), axis=0
+                            (M, self.h, self.X0.reshape(-1, 1).T), axis=0
                         )
                         hx = np.matmul(self.h, self.X0)
                         H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -114,7 +115,7 @@ class ConX:
             # set one component to 1 and solve overdetermined system using pseudo inverse
             J = np.block(
                 [
-                    [Mm0, dHdt.reshape(-1, 1)],
+                    [M, dHdt.reshape(-1, 1)],
                     [self.h, np.zeros((self.nphase, 1))],
                     [np.zeros([1, len(self.X0)]), np.ones(1)],
                 ]
@@ -126,7 +127,7 @@ class ConX:
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
-            [H, Mm0, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
+            [H, M, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
             residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
             print(f"{1} \t {residual:.5e}")
             print("First point is restarted solution.")

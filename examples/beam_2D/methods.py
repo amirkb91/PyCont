@@ -78,55 +78,45 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
-        json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
 
-        # run C++ sim
-        cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
-            shell=True,
-            stdout=open(cls.cpp_path + "cpp.out", "w"),
-            stderr=open(cls.cpp_path + "cpp.err", "w"),
-        )
-
-        # if C++ hasn't converged, try one more time with more samples, else reduce continuation step
-        cvg = True
-        if cpprun.returncode != 0:
-            print("C++ high samlpe.")
-            cpp_parameter["Solver_parameters"]["number_of_steps"] = ns_fail
-            json.dump(cpp_parameter, open(path2cpp + "_" + paramfile, "w"), indent=2)
-            cpprun2 = subprocess.run(
-                "cd " + path2cpp + "&&" + exec_cpp + " _" + paramfile,
+        runtwice = False
+        while True:
+            json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
+            cpprun = subprocess.run(
+                "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
                 shell=True,
-                stdout=open(path2cpp + "cpp.out", "w"),
-                stderr=open(path2cpp + "cpp.err", "w"),
+                stdout=open(cls.cpp_path + "cpp.out", "w"),
+                stderr=open(cls.cpp_path + "cpp.err", "w"),
             )
-            if cpprun2.returncode != 0:
+            if cpprun.returncode == 0:
+                cvg = True
+                break
+            else:
+                if runtwice:
+                    break
                 cvg = False
+                cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = ns_fail * nperiod
+                runtwice = True
 
         if cvg:
             # read periodicity and gradients
-            outputdata = h5py.File(path2cpp + ouputfile + ".h5", "r")
-            inc_out = outputdata["/Periodicity/INC"]
-            vel_out = outputdata["/Periodicity/VELOCITY"]
-            H = np.concatenate([inc_out[6:], vel_out[6:]])
-            Mm0 = outputdata["/Sensitivity/Monodromy_m0"][:]
-            dHdt = nperiod * np.concatenate([Mm0[6:ndof_all, -1], Mm0[ndof_all + 6:, -1]])
-            Mm0 = np.delete(Mm0, -1, axis=1)  # stored inside dHdt so delete
-            Mm0 = np.block(
-                [
-                    [Mm0[6:ndof_all, 6:ndof_all], Mm0[6:ndof_all, ndof_all + 6:]],
-                    [Mm0[ndof_all + 6:, 6:ndof_all], Mm0[ndof_all + 6:, ndof_all + 6:]],
-                ]
-            )
+            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+            periodicity_inc = simdata["/Periodicity/INC"]
+            periodicity_vel = simdata["/Periodicity/VELOCITY"]
+            H = np.concatenate([periodicity_inc[cls.ndof_fix:], periodicity_vel[cls.ndof_fix:]])
+            M = simdata["/Sensitivity/Monodromy"][:]
+            dHdt = nperiod * M[:, -1]
+            M = np.delete(M, -1, axis=1)
+            M = M - np.eye(len(M))
 
             # additional user requested outputs
-            pose = outputdata["/Config/POSE"][:]
-            energy = outputdata["/energy"][:, -1][0]
+            pose = simdata["/Config/POSE"][:]
+            energy = simdata["/Model_0/energy"][:, -1][0]
             outputs = {"energy": np.array([energy])}
 
-            outputdata.close()
+            simdata.close()
 
         else:
-            H = Mm0 = dHdt = pose = outputs = None
+            H = M = dHdt = pose = outputs = None
 
-        return H, Mm0, dHdt, pose, outputs, cvg
+        return H, M, dHdt, pose, outputs, cvg
