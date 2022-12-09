@@ -28,15 +28,17 @@ class BeamCpp:
         )
 
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
+        simdata = h5py.File(cls.cpp_path + cls.sim_file + ".h5", "r")
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
         frq = eigdata["/eigen_analysis/Frequencies"]
         eig[np.abs(eig) < 1e-10] = 0.0
+        free_dof = np.array(simdata["/Model_0/free_dof"])
 
         nnm = cont_params["continuation"]["NNM"]
         scale = cont_params["continuation"]["eig_scale"]
-        x0 = eig[:, nnm - 1] * scale
-        x0 = x0[6:]  # remove boundary nodes
-        v0 = np.zeros(len(x0))
+        x0 = scale * eig[:, nnm - 1]
+        x0 = x0[free_dof]
+        v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1]
 
