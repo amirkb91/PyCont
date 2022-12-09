@@ -99,24 +99,19 @@ class BeamCpp:
                 runtwice = True
 
         if cvg:
-            # read periodicity and gradients
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            periodicity_inc = simdata["/Periodicity/INC"]
-            periodicity_vel = simdata["/Periodicity/VELOCITY"]
-            H = np.concatenate([periodicity_inc[cls.ndof_fix:], periodicity_vel[cls.ndof_fix:]])
+            periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
+            periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
+            H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = nperiod * M[:, -1]
             M = np.delete(M, -1, axis=1)
             M = M - np.eye(len(M))
-
-            # additional user requested outputs
             pose = simdata["/Config/POSE"][:]
             energy = simdata["/Model_0/energy"][:, -1][0]
-            outputs = {"energy": np.array([energy])}
-
             simdata.close()
 
         else:
-            H = M = dHdt = pose = outputs = None
+            H = M = dHdt = pose = energy = None
 
-        return H, M, dHdt, pose, outputs, cvg
+        return H, M, dHdt, pose, energy, cvg
