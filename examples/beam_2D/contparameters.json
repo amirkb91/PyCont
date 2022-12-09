@@ -25,10 +25,7 @@
     "npts": 100,
     "npts_fail": 100,
     "nperiod": 1,
-    "rho": 1.0,
-    "rel_tol": 1e-6,
-    "period": "full",
-    "beam_type": "SE2_3"
+    "rel_tol": 1e-6
   },
   "phasecond": { "idx": "87-173" },
   "firstpoint": { "tol": 1e-5, "itermax": 30 }

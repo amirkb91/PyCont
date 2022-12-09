@@ -57,9 +57,7 @@ class BeamCpp:
         ns = par["shooting"]["npts"]
         ns_fail = par["shooting"]["npts_fail"]
         nperiod = par["shooting"]["nperiod"]
-        rho = par["shooting"]["rho"]
         rel_tol = par["shooting"]["rel_tol"]
-        beam_type = par["shooting"]["beam_type"]
 
         # get INC and VEL from X
         lenX_2 = len(X) // 2
@@ -75,25 +73,19 @@ class BeamCpp:
         icdata.close()
 
         # edit C++ parameter file
-        cpp_parameter = json.load(open(path2cpp + paramfile))
-        cpp_parameter["output_file"] = ouputfile
-        cpp_parameter["input_state"] = eigenfile
-        cpp_parameter["beam_type"] = beam_type
-        cpp_parameter["Solver_parameters"]["number_of_steps"] = ns * nperiod
-        cpp_parameter["Solver_parameters"]["time"] = T[0] * nperiod
-        cpp_parameter["Solver_parameters"]["rho"] = rho
-        cpp_parameter["Solver_parameters"]["rel_tol_res_forces"] = rel_tol
-        cpp_parameter["Sensitivity"]["pose"] = True
-        cpp_parameter["Sensitivity"]["velocity"] = True
-        cpp_parameter["Sensitivity"]["period"] = True
-        json.dump(cpp_parameter, open(path2cpp + "_" + paramfile, "w"), indent=2)
+        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = ns * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T[0] * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
+            cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
+        json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
 
         # run C++ sim
         cpprun = subprocess.run(
-            "cd " + path2cpp + "&&" + exec_cpp + " _" + paramfile,
+            "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
             shell=True,
-            stdout=open(path2cpp + "cpp.out", "w"),
-            stderr=open(path2cpp + "cpp.err", "w"),
+            stdout=open(cls.cpp_path + "cpp.out", "w"),
+            stderr=open(cls.cpp_path + "cpp.err", "w"),
         )
 
         # if C++ hasn't converged, try one more time with more samples, else reduce continuation step
