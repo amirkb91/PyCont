@@ -13,10 +13,10 @@ class Logger:
         self.sol_T = []
         self.sol_tgt = []
         self.sol_pose = []
+        self.sol_vel = []
         self.sol_energy = []
         self.sol_beta = []
         self.fig = None
-        self.foldername = os.path.basename(os.getcwd())
 
     def store(self, **sol_data):
         self.store_index += 1
@@ -29,6 +29,8 @@ class Logger:
                 self.sol_tgt.append(value)
             elif key == "sol_pose":
                 self.sol_pose.append(value)
+            elif key == "sol_vel":
+                self.sol_vel.append(value)
             elif key == "sol_energy":
                 self.sol_energy.append(value)
             elif key == "sol_beta":
@@ -44,7 +46,8 @@ class Logger:
         savefile["/X"] = np.asarray(self.sol_X).T
         savefile["/T"] = np.asarray(self.sol_T).T
         savefile["/Tangent"] = np.asarray(self.sol_tgt).T
-        savefile["/POSE"] = np.transpose(np.asarray(self.sol_pose), (1, 2, 0))
+        savefile["/Config/POSE"] = np.transpose(np.asarray(self.sol_pose), (1, 2, 0))
+        savefile["/Config/VELOCITY"] = np.transpose(np.asarray(self.sol_vel), (1, 2, 0))
         savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)

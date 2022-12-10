@@ -64,7 +64,7 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, M, dHdt, pose, energy, cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
+                [H, M, dHdt, pose, vel, energy, cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
                 if not cvg:
                     raise Exception("Zero function failed.")
 
@@ -136,7 +136,7 @@ class ConX:
 
         # store solution in logger
         self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose.copy(),
-                       sol_energy=energy.copy())
+                       sol_vel=vel.copy(), sol_energy=energy.copy())
 
     def seqcont(self):
         print("Sequential continuation started.")

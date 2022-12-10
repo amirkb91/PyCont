@@ -100,6 +100,7 @@ class BeamCpp:
 
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+            energy = simdata["/Model_0/energy"][:, -1][0]
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
             periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -107,11 +108,13 @@ class BeamCpp:
             dHdt = nperiod * M[:, -1]
             M = np.delete(M, -1, axis=1)
             M = M - np.eye(len(M))
+
             pose = simdata["/Config/POSE"][:]
-            energy = simdata["/Model_0/energy"][:, -1][0]
+            vel = simdata["/Config/VELOCITY"][:]
+
             simdata.close()
 
         else:
-            H = M = dHdt = pose = energy = None
+            H = M = dHdt = pose = vel = energy = None
 
-        return H, M, dHdt, pose, energy, cvg
+        return H, M, dHdt, pose, vel, energy, cvg
