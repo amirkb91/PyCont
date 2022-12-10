@@ -64,8 +64,8 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, M, dHdt, pose, outputs, zerof_cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
-                if not zerof_cvg:
+                [H, M, dHdt, pose, energy, cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
+                if not cvg:
                     raise Exception("Zero function failed.")
 
                 # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
@@ -123,24 +123,20 @@ class ConX:
             Z = np.vstack(
                 [np.zeros((len(self.X0), 1)), np.zeros((self.nphase, 1)), np.ones(1)]
             )
-            self.tgt0 = np.linalg.lstsq(J, Z, rcond=self.svd_cutoff)[0][:, 0]
+            self.tgt0 = np.linalg.lstsq(J, Z, rcond=self.svd_rcond)[0][:, 0]
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
-            [H, M, dHdt, pose, outputs, zerof_cvg] = self.prob.run_sim(self.T0, self.X0)
-            residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
+            [H, M, dHdt, pose, energy, cvg] = self.prob.run_sim(self.T0, self.X0)
+            # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
+            residual = np.linalg.norm(H)
             print(f"{1} \t {residual:.5e}")
             print("First point is restarted solution.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
         # store solution in logger
-        self.log.store(
-            solX=self.X0.copy(),
-            solT=self.T0.copy(),
-            soltgt=self.tgt0.copy(),
-            solpose=pose.copy(),
-            out=outputs.copy(),
-        )
+        self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose.copy(),
+                       sol_energy=energy.copy())
 
     def seqcont(self):
         print("Sequential continuation started.")
@@ -157,7 +153,7 @@ class ConX:
         # continuation loop
         while True:
             print("\n**************************************\n")
-            print(f"Continuation point {itercont}, freq = {1/T[0]:.3f}:")
+            print(f"Continuation point {itercont}, freq = {1 / T[0]:.3f}:")
             print(f"step: s = {step:.3e}.")
 
             if itercont > self.prob.cont_params["continuation"]["npts"]:
@@ -188,8 +184,8 @@ class ConX:
                 print(f"{itershoot} \t {residual:.5e}")
 
                 if (
-                    residual < self.prob.cont_params["continuation"]["tol"]
-                    and itershoot >= self.prob.cont_params["continuation"]["itermin"]
+                        residual < self.prob.cont_params["continuation"]["tol"]
+                        and itershoot >= self.prob.cont_params["continuation"]["itermin"]
                 ):
                     cvg = True
                     print("Solution converged.")
@@ -210,8 +206,8 @@ class ConX:
 
             # adaptive step size for next point
             if (
-                itercont >= self.prob.cont_params["continuation"]["nadapt"]
-                or not zerof_cvg
+                    itercont >= self.prob.cont_params["continuation"]["nadapt"]
+                    or not zerof_cvg
             ):
                 step = self.cont_step(step, itershoot, cvg)
 
@@ -252,7 +248,7 @@ class ConX:
         # continuation loop
         while True:
             print("\n**************************************\n")
-            print(f"Continuation point {itercont}, freq = {1/T[0]:.3f}:")
+            print(f"Continuation point {itercont}, freq = {1 / T[0]:.3f}:")
             print(f"Step: s = {step:.3e}. sign = {stepsign}.")
 
             if itercont > self.prob.cont_params["continuation"]["npts"]:
@@ -285,8 +281,8 @@ class ConX:
                 print(f"{itercorrect} \t {residual:.5e} \t {residual_abs:.5e}")
                 residual = residual_abs
                 if (
-                    residual < self.prob.cont_params["continuation"]["tol"]
-                    and itercorrect >= self.prob.cont_params["continuation"]["itermin"]
+                        residual < self.prob.cont_params["continuation"]["tol"]
+                        and itercorrect >= self.prob.cont_params["continuation"]["itermin"]
                 ):
                     cvg = True
                     print("Solution converged.")
@@ -360,8 +356,8 @@ class ConX:
                 beta = np.array([np.degrees(np.arccos(tgt.T @ tgt_prev))])
                 print(f"Beta = {beta[0]:.2f} deg")
                 if (
-                    self.prob.cont_params["continuation"]["betacontrol"]
-                    and beta[0] > self.prob.cont_params["continuation"]["betamax"]
+                        self.prob.cont_params["continuation"]["betacontrol"]
+                        and beta[0] > self.prob.cont_params["continuation"]["betamax"]
                 ):
                     print(
                         "Beta exceeds maximum angle, roll back and reduce continuation step."
@@ -380,14 +376,8 @@ class ConX:
                     stepsign = np.sign(stepsign * tgt.T @ tgt_prev)
 
                 # store solution in logger
-                self.log.store(
-                    solX=X.copy(),
-                    solT=T.copy(),
-                    soltgt=tgt.copy(),
-                    solpose=pose.copy(),
-                    out=outputs.copy(),
-                    beta=beta.copy(),
-                )
+                self.log.store(solX=X.copy(), solT=T.copy(), soltgt=tgt.copy(), solpose=pose.copy(), out=outputs.copy(),
+                               beta=beta.copy())
             else:
                 # revert as convergence failed
                 X = _X.copy()
