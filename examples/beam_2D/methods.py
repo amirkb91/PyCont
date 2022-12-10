@@ -44,10 +44,10 @@ class BeamCpp:
         nnm = cont_params["continuation"]["NNM"]
         scale = cont_params["continuation"]["eig_scale"]
         x0 = scale * eig[:, nnm - 1]
-        x0 = x0[cls.free_dof]
+        x0 = x0[cls.free_dof][:, 0]
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
-        T0 = 1 / frq[nnm - 1]
+        T0 = 1 / frq[nnm - 1, 0]
 
         return X0, T0
 
@@ -63,18 +63,18 @@ class BeamCpp:
         lenX_2 = len(X) // 2
         inc = X[:lenX_2]
         vel = X[lenX_2:]
-        inc = np.pad(inc, ((cls.ndof_fix, 0), (0, 0)), "constant")
-        vel = np.pad(vel, ((cls.ndof_fix, 0), (0, 0)), "constant")
+        inc = np.pad(inc, (cls.ndof_fix, 0), "constant")
+        vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
 
         # write initial conditions to ic_file
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata["/Config/INC"] = inc
-        icdata["/Config/VELOCITY"] = vel
+        icdata["/Config/INC"] = inc.reshape(-1, 1)
+        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
         icdata.close()
 
         # edit C++ parameter file
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = ns * nperiod
-        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T[0] * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T * nperiod
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]

@@ -91,9 +91,9 @@ class ConX:
                     hx = np.matmul(self.h, self.X0)
                     H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
                     dxt = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
-                    self.T0 += dxt[-1]
-                    dx = dxt[:-1, :]
-                    self.X0[:] += dx
+                    self.T0 += dxt[-1, 0]
+                    dx = dxt[:-1, 0]
+                    self.X0 += dx
 
                 elif restart and fixF:
                     # update X0 - ortho to restart solution?

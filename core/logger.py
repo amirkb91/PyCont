@@ -22,7 +22,7 @@ class Logger:
         self.store_index += 1
         for key, value in sol_data.items():
             if key == "sol_X":
-                self.sol_X.append(value[:, 0])
+                self.sol_X.append(value)
             elif key == "sol_T":
                 self.sol_T.append(value)
             elif key == "sol_tgt":
@@ -36,16 +36,17 @@ class Logger:
 
         # save to disk and plot if required
         self.savetodisk()
-        if self.solidx > 1 and self.prob.cont_params["plot"]:
-            self.solplot()
+        # if self.solidx > 1 and self.prob.cont_params["plot"]:
+        #     self.solplot()
 
     def savetodisk(self):
         savefile = h5py.File("continuation_sol.h5", "w")
         savefile["/X"] = np.asarray(self.sol_X).T
         savefile["/T"] = np.asarray(self.sol_T).T
-        savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/Tangent"] = np.asarray(self.sol_tgt).T
         savefile["/POSE"] = np.transpose(np.asarray(self.sol_pose), (1, 2, 0))
+        savefile["/Energy"] = np.asarray(self.sol_energy).T
+        savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
 
