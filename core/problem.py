@@ -6,6 +6,7 @@ class Prob:
     def __init__(self):
         self.cont_params = None
         self.zerofunction = None
+        self.updatefunction = None
 
     def read_contparams(self, cont_paramfile):
         if os.path.exists(cont_paramfile):
@@ -15,3 +16,6 @@ class Prob:
 
     def add_zerofunction(self, fxn):
         self.zerofunction = fxn
+
+    def add_updatefunction(self, fxn):
+        self.updatefunction = fxn

@@ -9,6 +9,7 @@ from methods import BeamCpp
 prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_zerofunction(BeamCpp.run_sim)
+prob.add_updatefunction(BeamCpp.config_update)
 
 # Continuation starting point object
 start = StartingPoint(prob)

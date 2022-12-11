@@ -49,6 +49,10 @@ class BeamCpp:
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
 
+        pose0 = eigdata["/eigen_analysis/Config_ref"][:, 0]
+        vel0 = np.zeros(cls.ndof_all)
+        cls.config_update(pose0, vel0)
+
         return X0, T0
 
     @classmethod
@@ -67,9 +71,13 @@ class BeamCpp:
         vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
 
         # write initial conditions to ic_file
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
+        if "/Config/INC" in icdata:
+            del icdata["Config/INC"]
+        if "/Config/VELOCITY" in icdata:
+            del icdata["Config/VELOCITY"]
         icdata["/Config/INC"] = inc.reshape(-1, 1)
-        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
+        icdata["/Config/VELOCITY"] = np.array(icdata["/Config/VELOCITY_ref"]) + vel.reshape(-1, 1)
         icdata.close()
 
         # edit C++ parameter file
@@ -118,3 +126,12 @@ class BeamCpp:
             H = M = dHdt = pose = vel = energy = None
 
         return H, M, dHdt, pose, vel, energy, cvg
+
+    @classmethod
+    def config_update(cls, pose0, vel0):
+        # update beam configuration by writing initial conditions: pose and velocity
+        # store as velocity_ref to later add the velocity increments
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata["/Config/POSE"] = pose0.reshape(-1, 1)
+        icdata["/Config/VELOCITY_ref"] = vel0.reshape(-1, 1)
+        icdata.close()
