@@ -1,9 +1,9 @@
 {
   "restart": { "file": "", "index": 79, "fixF": false, "F": 60 },
-  "plot": false,
+  "plot": true,
   "continuation": {
     "method": "psa",
-    "formula": "peeters",
+    "formula": "keller",
     "dir": 1,
     "npts": 5000,
     "tol": 1e-3,
@@ -22,8 +22,8 @@
     "eig_scale": 1e-4
   },
   "shooting": {
-    "npts": 1000,
-    "npts_fail": 1000,
+    "npts": 100,
+    "npts_fail": 100,
     "nperiod": 1,
     "rel_tol": 1e-8
   },
