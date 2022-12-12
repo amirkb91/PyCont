@@ -11,6 +11,8 @@ class ConX:
         self.prob = prob
         self.X0 = start.X0
         self.T0 = start.T0
+        self.pose0 = start.pose0
+        self.vel0 = start.vel0
         self.tgt0 = start.tgt0
         self.log = log
 
@@ -134,6 +136,10 @@ class ConX:
             print("First point is restarted solution.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
+        # pose0 and vel0
+        self.pose0 = pose[:, 0]
+        self.vel0 = vel[:, 0]
+
         # store solution in logger
         self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose.copy(),
                        sol_vel=vel.copy(), sol_energy=energy.copy())
@@ -228,15 +234,13 @@ class ConX:
             print("beta control is active.")
 
         # start from first point solution
-        X = self.X0.copy()
         T = self.T0.copy()
         tgt = self.tgt0.copy()
+        pose = self.pose0.copy()
+        vel = self.vel0.copy()
 
-        # default values for first iteration
-        itercont = 1  # point 0 is first point which is found already
+        # continuation step and direction
         step = self.prob.cont_params["continuation"]["s0"]
-
-        # continuation direction
         dir = self.prob.cont_params["continuation"]["dir"]
         if dir == 1:
             # decreasing T (increasing F)
@@ -246,9 +250,10 @@ class ConX:
             stepsign = np.sign(tgt[-1])
 
         # continuation loop
+        itercont = 1
         while True:
             print("\n**************************************\n")
-            print(f"Continuation point {itercont}, freq = {1 / T[0]:.3f}:")
+            print(f"Continuation point {itercont}, freq = {1 / T:.3f}:")
             print(f"Step: s = {step:.3e}. sign = {stepsign}.")
 
             if itercont > self.prob.cont_params["continuation"]["npts"]:
