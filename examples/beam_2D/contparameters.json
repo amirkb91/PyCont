@@ -3,7 +3,7 @@
   "plot": false,
   "continuation": {
     "method": "psa",
-    "formula": "peeters",
+    "formula": "keller",
     "dir": 1,
     "npts": 5000,
     "tol": 1e-3,
@@ -13,19 +13,19 @@
     "s0": 1e-3,
     "nadapt": 4,
     "smin": 1e-5,
-    "smax": 1e-3,
+    "smax": 1e-2,
     "betacontrol": false,
-    "betamax": 174,
+    "betamax": 20,
     "fmin": 50,
     "fmax": 80,
     "NNM": 1,
     "eig_scale": 1e-4
   },
   "shooting": {
-    "npts": 150,
-    "npts_fail": 150,
+    "npts": 200,
+    "npts_fail": 200,
     "nperiod": 1,
-    "rel_tol": 1e-6
+    "rel_tol": 1e-8
   },
   "phasecond": { "idx": "87-173" },
   "firstpoint": { "tol": 1e-5, "itermax": 30 }
