@@ -66,7 +66,7 @@ class ConX:
                         "Max number of iterations reached without convergence."
                     )
 
-                [H, M, dHdt, pose, vel, energy, cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
+                [H, M, dHdt, pose_time, vel_time, energy, cvg] = self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
                 if not cvg:
                     raise Exception("Zero function failed.")
 
@@ -137,12 +137,12 @@ class ConX:
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
         # pose0 and vel0
-        self.pose0 = pose[:, 0]
-        self.vel0 = vel[:, 0]
+        self.pose0 = pose_time[:, 0]
+        self.vel0 = vel_time[:, 0]
 
         # store solution in logger
-        self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose.copy(),
-                       sol_vel=vel.copy(), sol_energy=energy.copy())
+        self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose_time.copy(),
+                       sol_vel=vel_time.copy(), sol_energy=energy.copy())
 
     def seqcont(self):
         print("Sequential continuation started.")
@@ -233,7 +233,7 @@ class ConX:
         if self.prob.cont_params["continuation"]["betacontrol"]:
             print("beta control is active.")
 
-        # start from first point solution
+        # first point solution
         T = self.T0.copy()
         tgt = self.tgt0.copy()
         pose = self.pose0.copy()
@@ -260,70 +260,57 @@ class ConX:
                 print("Maximum number of continuation points reached.")
                 break
 
-            # prediction
-            # store in case we need to change back if not converged
-            _X = X.copy()
-            _T = T.copy()
-            X += tgt[:-1] * step * stepsign
-            T += tgt[-1] * step * stepsign
+            # prediction step along tangent (n.b. X is 0 as pose is updated)
+            X_pred = tgt[:-1] * step * stepsign
+            T_pred = T + tgt[-1] * step * stepsign
 
-            if 1 / T > self.prob.cont_params["continuation"]["fmax"]:
+            # update config with pose and vel
+            self.prob.updatefunction(pose, vel)
+
+            if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
                 print("Maximum frequency reached.")
                 break
 
-            # correction
+            # correction step
             itercorrect = 0
             while True:
-                # find residual
-                [H, Mm0, dHdt, pose, outputs, cvg] = self.prob.run_sim(T, X)
-
+                # calculate residual
+                [H, M, dHdt, pose_time, vel_time, energy, cvg] = self.prob.zerofunction(T_pred, X_pred,
+                                                                                        self.prob.cont_params)
                 if not cvg:
                     print("Zero function failed to converge.")
                     break
 
-                residual = np.linalg.norm(H) / np.linalg.norm(X)
-                residual_abs = np.linalg.norm(H)
-                print(f"{itercorrect} \t {residual:.5e} \t {residual_abs:.5e}")
-                residual = residual_abs
-                if (
-                        residual < self.prob.cont_params["continuation"]["tol"]
-                        and itercorrect >= self.prob.cont_params["continuation"]["itermin"]
-                ):
+                # residual = np.linalg.norm(H) / np.linalg.norm(X)
+                residual = np.linalg.norm(H)
+                print(f"{itercorrect} \t {residual:.5e}")
+
+                if (residual < self.prob.cont_params["continuation"]["tol"]
+                        and itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                     cvg = True
                     print("Solution converged.")
                     break
-
                 if itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                     cvg = False
                     print("Max number of iterations reached without convergence.")
                     break
 
-                # correction
+                # apply corrections orthogonal to tangent
                 itercorrect += 1
                 J = np.block(
                     [
-                        [Mm0, dHdt.reshape(-1, 1)],
+                        [M, dHdt.reshape(-1, 1)],
                         [self.h, np.zeros((self.nphase, 1))],
                         [tgt],
                     ]
                 )
-                hx = np.matmul(self.h, X)
-
-                # we can't subtract the X in the Lie group setting. So for now just use the
-                # peeters correction update
-                # if frml == "keller":
-                #     # all corrected solution lie on plane orthogonal to tangent
-                #     N = (X - _X).T @ tgt[:-1] + (T - _T)[0] * tgt[-1] - step * stepsign
-                #     H = np.vstack([H, hx.reshape(-1, 1), N])
-                # elif frml == "peeters":
-                #     # all delta corrections are orthogonal to tangent
-                #     H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+                hx = np.matmul(self.h, X_pred)
                 H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
 
-                dxt = np.linalg.lstsq(J, -H, rcond=self.svd_cutoff)[0]
-                T += dxt[-1]
-                dx = dxt[:-1, :]
-                X[:] += dx[:, 0]
+                dxt = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
+                T_pred += dxt[-1, 0]
+                dx = dxt[:-1, 0]
+                X_pred += dx
 
             if cvg:
                 # First, compare beta against betamax (if user requested)
@@ -334,7 +321,7 @@ class ConX:
                 if frml == "keller":
                     J = np.block(
                         [
-                            [Mm0, dHdt.reshape(-1, 1)],
+                            [M, dHdt.reshape(-1, 1)],
                             [self.h, np.zeros((self.nphase, 1))],
                             [tgt_prev],
                         ]
@@ -342,19 +329,19 @@ class ConX:
                 elif frml == "peeters":
                     J = np.block(
                         [
-                            [Mm0, dHdt.reshape(-1, 1)],
+                            [M, dHdt.reshape(-1, 1)],
                             [self.h, np.zeros((self.nphase, 1))],
-                            [np.zeros([1, len(self.X0)]), np.ones(1)],
+                            [np.zeros([1, len(X_pred)]), np.ones(1)],
                         ]
                     )
                 Z = np.vstack(
                     [
-                        np.zeros((len(self.X0), 1)),
+                        np.zeros((len(X_pred), 1)),
                         np.zeros((self.nphase, 1)),
                         np.ones(1),
                     ]
                 )
-                tgt = np.linalg.lstsq(J, Z, rcond=self.svd_cutoff)[0][:, 0]
+                tgt = np.linalg.lstsq(J, Z, rcond=self.svd_rcond)[0][:, 0]
                 tgt /= np.linalg.norm(tgt)
 
                 # angle between tangents
@@ -376,17 +363,18 @@ class ConX:
                 # only if cvg and also passed the beta check
                 itercont += 1
 
+                # update pose and vel and T
+                pose = pose_time[:, 0]
+                vel = vel_time[:, 0]
+                T = T_pred
+
                 # obtain sign of next step
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt.T @ tgt_prev)
 
                 # store solution in logger
-                self.log.store(solX=X.copy(), solT=T.copy(), soltgt=tgt.copy(), solpose=pose.copy(), out=outputs.copy(),
-                               beta=beta.copy())
-            else:
-                # revert as convergence failed
-                X = _X.copy()
-                T = _T.copy()
+                self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt.copy(), sol_pose=pose_time.copy(),
+                               sol_vel=vel_time.copy(), sol_energy=energy.copy(), sol_beta=beta.copy())
 
             # adaptive step size for next point
             itercontcheck = itercont > self.prob.cont_params["continuation"]["nadapt"]
