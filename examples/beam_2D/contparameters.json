@@ -1,32 +1,42 @@
 {
-  "restart": { "file": "", "index": 79, "fixF": false, "F": 60 },
+  "restart": {
+    "file": "",
+    "index": 79,
+    "fixF": false,
+    "F": 60
+  },
   "plot": true,
   "continuation": {
     "method": "psa",
     "formula": "keller",
     "dir": 1,
     "npts": 5000,
-    "tol": 1e-3,
+    "tol": 0.001,
     "itermin": 1,
-    "iteropt": 5,
-    "itermax": 10,
-    "s0": 1e-3,
+    "iteropt": 4,
+    "itermax": 7,
+    "s0": 0.001,
     "nadapt": 2,
-    "smin": 1e-5,
-    "smax": 2e-3,
+    "smin": 1e-05,
+    "smax": 0.01,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 50,
-    "fmax": 80,
-    "NNM": 1,
-    "eig_scale": 1e-4
+    "fmin": 140,
+    "fmax": 200,
+    "NNM": 2,
+    "eig_scale": 0.0001
   },
   "shooting": {
     "npts": 100,
     "npts_fail": 100,
-    "nperiod": 1,
-    "rel_tol": 1e-8
+    "nperiod": 3,
+    "rel_tol": 1e-08
   },
-  "phasecond": { "idx": "87-173" },
-  "firstpoint": { "tol": 1e-5, "itermax": 30 }
+  "phasecond": {
+    "idx": "87-173"
+  },
+  "firstpoint": {
+    "tol": 1e-05,
+    "itermax": 30
+  }
 }

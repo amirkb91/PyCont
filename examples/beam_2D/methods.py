@@ -18,6 +18,7 @@ class BeamCpp:
     free_dof = None
     ndof_all = None
     ndof_fix = None
+    ndof_free = None
 
     @classmethod
     def run_eig(cls, cont_params):
@@ -37,6 +38,7 @@ class BeamCpp:
         cls.free_dof = np.array(simdata["/Model_0/free_dof"])
         cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
         cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
+        cls.ndof_free = len(cls.free_dof)
 
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
         frq = eigdata["/eigen_analysis/Frequencies"]
@@ -49,9 +51,9 @@ class BeamCpp:
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
 
-        pose0 = eigdata["/eigen_analysis/Config_ref"][:, 0]
-        vel0 = np.zeros(cls.ndof_all)
-        cls.config_update(pose0, vel0)
+        # create empty ic file
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata.close()
 
         return X0, T0
 
@@ -64,9 +66,8 @@ class BeamCpp:
         rel_tol = par["shooting"]["rel_tol"]
 
         # get INC and VEL from X
-        lenX_2 = len(X) // 2
-        inc = X[:lenX_2]
-        vel = X[lenX_2:]
+        inc = X[:cls.ndof_free]
+        vel = X[cls.ndof_free:]
         inc = np.pad(inc, (cls.ndof_fix, 0), "constant")
         vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
 
@@ -77,7 +78,7 @@ class BeamCpp:
         if "/Config/VELOCITY" in icdata:
             del icdata["Config/VELOCITY"]
         icdata["/Config/INC"] = inc.reshape(-1, 1)
-        icdata["/Config/VELOCITY"] = np.array(icdata["/Config/VELOCITY_ref"]) + vel.reshape(-1, 1)
+        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
         icdata.close()
 
         # edit C++ parameter file
@@ -121,17 +122,14 @@ class BeamCpp:
             vel = simdata["/Config/VELOCITY"][:]
 
             simdata.close()
-
         else:
             H = M = dHdt = pose = vel = energy = None
 
         return H, M, dHdt, pose, vel, energy, cvg
 
     @classmethod
-    def config_update(cls, pose0, vel0):
-        # update beam configuration by writing initial conditions: pose and velocity
-        # store as velocity_ref to later add the velocity increments
+    def config_update(cls, pose0):
+        # update beam configuration by writing initial conditions
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
         icdata["/Config/POSE"] = pose0.reshape(-1, 1)
-        icdata["/Config/VELOCITY_ref"] = vel0.reshape(-1, 1)
         icdata.close()

@@ -12,7 +12,6 @@ class ConX:
         self.X0 = start.X0
         self.T0 = start.T0
         self.pose0 = start.pose0
-        self.vel0 = start.vel0
         self.tgt0 = start.tgt0
         self.log = log
 
@@ -122,9 +121,8 @@ class ConX:
             print("First point is restarted solution.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
-        # pose0 and vel0
+        # pose0
         self.pose0 = pose_time[:, 0]
-        self.vel0 = vel_time[:, 0]
 
         # store solution in logger
         self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose_time.copy(),
@@ -220,12 +218,13 @@ class ConX:
             print("beta control is active.")
 
         # first point solution
+        len_V = len(self.X0) // 2
         T = self.T0.copy()
+        V = self.X0[len_V:].copy()
         tgt = self.tgt0.copy()
         pose = self.pose0.copy()
-        vel = self.vel0.copy()
-        # update config with pose and vel
-        self.prob.updatefunction(pose, vel)
+        # update config
+        self.prob.updatefunction(pose)
 
         # continuation step and direction
         step = self.prob.cont_params["continuation"]["s0"]
@@ -248,9 +247,11 @@ class ConX:
                 print("Maximum number of continuation points reached.")
                 break
 
-            # prediction step along tangent (n.b. X is 0 as pose is updated)
-            X_pred = tgt[:-1] * step * stepsign
+            # prediction step along tangent (n.b. INC is 0 as pose is updated)
+            INC_pred = tgt[:len_V] * step * stepsign
+            VEL_pred = V + tgt[len_V:-1] * step * stepsign
             T_pred = T + tgt[-1] * step * stepsign
+            X_pred = np.concatenate((INC_pred, VEL_pred))
             if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
                 print("Maximum frequency reached.")
                 break
@@ -315,9 +316,9 @@ class ConX:
                     if frml == "peeters":
                         stepsign = np.sign(stepsign * tgt_next.T @ tgt)
                     pose = pose_time[:, 0]
-                    vel = vel_time[:, 0]
-                    self.prob.updatefunction(pose, vel)
+                    self.prob.updatefunction(pose)
                     T = T_pred
+                    V = X_pred[len_V:]
                     tgt = tgt_next
 
                     # store solution in logger
