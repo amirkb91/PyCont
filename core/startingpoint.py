@@ -8,7 +8,7 @@ class StartingPoint:
         self.X0 = None
         self.T0 = None
         self.pose0 = None
-        self.vel0 = None
+        self.energy0 = None
         self.tgt0 = None
 
     def restart(self):

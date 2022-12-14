@@ -1,6 +1,5 @@
 import numpy as np
 import h5py
-import os
 import json
 import matplotlib.pyplot as plt
 
@@ -36,14 +35,14 @@ class Logger:
             elif key == "sol_beta":
                 self.sol_beta.append(value)
 
-        if self.store_index % 1 == 0:
+        if self.store_index % self.prob.cont_params["Logger"]["save_frequency"] == 0:
             # save to disk and plot if required
             self.savetodisk()
-            if self.prob.cont_params["plot"]:
+            if self.prob.cont_params["continuation"]["plot"]:
                 self.solplot()
 
     def savetodisk(self):
-        savefile = h5py.File("solution.h5", "w")
+        savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")
         savefile["/X"] = np.asarray(self.sol_X).T
         savefile["/T"] = np.asarray(self.sol_T).T
         savefile["/Tangent"] = np.asarray(self.sol_tgt).T

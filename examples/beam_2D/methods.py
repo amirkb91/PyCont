@@ -43,8 +43,8 @@ class BeamCpp:
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
         frq = eigdata["/eigen_analysis/Frequencies"]
         eig[np.abs(eig) < 1e-10] = 0.0
-        nnm = cont_params["continuation"]["NNM"]
-        scale = cont_params["continuation"]["eig_scale"]
+        nnm = cont_params["first_point"]["eig_start"]["NNM"]
+        scale = cont_params["first_point"]["eig_start"]["scale"]
         x0 = scale * eig[:, nnm - 1]
         x0 = x0[cls.free_dof][:, 0]
         v0 = np.zeros_like(x0)
@@ -60,10 +60,11 @@ class BeamCpp:
     @classmethod
     def run_sim(cls, T, X, par):
         # unpack run cont_params
-        ns = par["shooting"]["npts"]
-        ns_fail = par["shooting"]["npts_fail"]
+        nsteps = par["shooting"]["nsteps_per_period"]
         nperiod = par["shooting"]["nperiod"]
         rel_tol = par["shooting"]["rel_tol"]
+        fine_factor = 2
+        nsteps_fine = nsteps * fine_factor
 
         # get INC and VEL from X
         inc = X[:cls.ndof_free]
@@ -82,7 +83,7 @@ class BeamCpp:
         icdata.close()
 
         # edit C++ parameter file
-        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = ns * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps * nperiod
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T * nperiod
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
@@ -104,7 +105,8 @@ class BeamCpp:
                 if runtwice:
                     break
                 cvg = False
-                cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = ns_fail * nperiod
+                print(f"Time Sim failed - Running with {fine_factor}x points")
+                cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps_fine * nperiod
                 runtwice = True
 
         if cvg:

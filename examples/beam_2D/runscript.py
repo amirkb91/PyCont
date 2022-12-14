@@ -13,7 +13,7 @@ prob.add_updatefunction(BeamCpp.config_update)
 
 # Continuation starting point object
 start = StartingPoint(prob)
-if prob.cont_params["restart"]["file"]:
+if prob.cont_params["first_point"]["restart"]["file_name"]:
     start.restart()
 else:
     start.new_start(BeamCpp.run_eig)

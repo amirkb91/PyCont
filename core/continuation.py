@@ -12,6 +12,7 @@ class ConX:
         self.X0 = start.X0
         self.T0 = start.T0
         self.pose0 = start.pose0
+        self.energy0 = start.energy0
         self.tgt0 = start.tgt0
         self.log = log
 
@@ -32,7 +33,7 @@ class ConX:
     def phase_condition(self):
         # parse and sort phase condition indices. range defined in json file is inclusive
         h_idx = []
-        idx = self.prob.cont_params["phasecond"]["idx"]
+        idx = self.prob.cont_params["continuation"]["phase_cond_index"]
         if idx:
             idx = idx.split(",")
             for i in range(len(idx)):
@@ -51,13 +52,13 @@ class ConX:
     def first_point(self):
         print("Shooting first point.")
         print("Iter \t Residual")
-        restart = self.prob.cont_params["restart"]["file"]
-        fixF = self.prob.cont_params["restart"]["fixF"]
+        restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
+        fixF = self.prob.cont_params["first_point"]["restart"]["fixF"]
 
         if not restart or (restart and fixF):
-            iter = 0
+            iter_ = 0
             while True:
-                if iter > self.prob.cont_params["firstpoint"]["itermax"]:
+                if iter_ > self.prob.cont_params["first_point"]["itermax"]:
                     raise Exception("Max number of iterations reached without convergence.")
 
                 [H, M, dHdt, pose_time, vel_time, energy, cvg] = self.prob.zerofunction(self.T0, self.X0,
@@ -67,14 +68,14 @@ class ConX:
 
                 # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
                 residual = np.linalg.norm(H)
-                print(f"{iter} \t {residual:.5e}")
+                print(f"{iter_} \t {residual:.5e}")
 
-                if residual < self.prob.cont_params["firstpoint"]["tol"]:
+                if residual < self.prob.cont_params["continuation"]["tol"]:
                     print("First point converged.")
                     print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
                     break
 
-                iter += 1
+                iter_ += 1
                 if not restart:
                     # update X0, T0
                     # Jacobian comprised of monodromy, phase condition, and orthogonality to linear solution
@@ -101,7 +102,7 @@ class ConX:
                         J = np.concatenate((M, self.h, self.X0.reshape(-1, 1).T), axis=0)
                         hx = np.matmul(self.h, self.X0)
                         H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                    dx = np.linalg.lstsq(J, -H, rcond=self.svd_cutoff)[0]
+                    dx = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
                     self.X0[:] += dx[:, 0]
 
             # find tangent: set one component to 1 and solve overdetermined system
@@ -121,8 +122,9 @@ class ConX:
             print("First point is restarted solution.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
-        # pose0
+        # pose0 and energy0
         self.pose0 = pose_time[:, 0]
+        self.energy0 = energy
 
         # store solution in logger
         self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose_time.copy(),
@@ -138,7 +140,7 @@ class ConX:
         # default values for first iteration
         itercont = 1  # point 0 is first point which is found already
         step = self.prob.cont_params["continuation"]["s0"]
-        dir = self.prob.cont_params["continuation"]["dir"]
+        direction = self.prob.cont_params["continuation"]["dir"]
 
         # continuation loop
         while True:
@@ -153,7 +155,7 @@ class ConX:
             # increment period. seq doesn't turn so direction is fixed throughout
             # store in case we need to change back if not converged
             _T = T.copy()
-            T -= step * dir
+            T -= step * direction
 
             if 1 / T > self.prob.cont_params["continuation"]["fmax"]:
                 print("Maximum frequency reached.")
@@ -191,7 +193,7 @@ class ConX:
                 J = np.concatenate((Mm0, self.h), axis=0)
                 hx = np.matmul(self.h, X)
                 H = np.vstack([H, hx.reshape(-1, 1)])
-                dx = np.linalg.lstsq(J, -H, rcond=self.svd_cutoff)[0]
+                dx = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
                 X[:] += dx[:, 0]
 
             # adaptive step size for next point
@@ -211,11 +213,10 @@ class ConX:
 
     def psacont(self):
         print("Pseudo-arc length continuation started.")
-        # formulation chosen
-        frml = self.prob.cont_params["continuation"]["formula"].lower()
-        print(f"{frml.title()} formulation.")
+        frml = self.prob.cont_params["continuation"]["tangent"].lower()
+        print(f"{frml.title()} tangent formulation.")
         if self.prob.cont_params["continuation"]["betacontrol"]:
-            print("beta control is active.")
+            print("++ Beta control is active. ++")
 
         # first point solution
         len_V = len(self.X0) // 2
@@ -223,16 +224,18 @@ class ConX:
         V = self.X0[len_V:].copy()
         tgt = self.tgt0.copy()
         pose = self.pose0.copy()
+        energy = self.energy0.copy()
+
         # update config
         self.prob.updatefunction(pose)
 
         # continuation step and direction
         step = self.prob.cont_params["continuation"]["s0"]
-        dir = self.prob.cont_params["continuation"]["dir"]
-        if dir == 1:
+        direction = self.prob.cont_params["continuation"]["dir"]
+        if direction == 1:
             # decreasing T (increasing F)
             stepsign = -np.sign(tgt[-1])
-        elif dir == -1:
+        elif direction == -1:
             # increasing T (decreasing F)
             stepsign = np.sign(tgt[-1])
 
@@ -240,8 +243,9 @@ class ConX:
         itercont = 1
         while True:
             print("\n**************************************\n")
-            print(f"Continuation point {itercont}, freq = {1 / T:.3f}:")
-            print(f"Step: s = {step:.3e}. sign = {stepsign}.")
+            print(f"Continuation point {itercont}")
+            print(f"Freq = {1/T:.2f} -- Energy = {energy:.2f}")
+            print(f"Step = {stepsign * step:.3e}")
             print("Iter \t Residual")
             if itercont > self.prob.cont_params["continuation"]["npts"]:
                 print("Maximum number of continuation points reached.")
