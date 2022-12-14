@@ -25,8 +25,9 @@ class BeamCpp:
         # Run eigen solver and store initial solution
         # Run sim solver to get config data
         cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cppeig_exe + " " + cls.cpp_paramfile +
-            "&&" + cls.cppsim_exe + " " + cls.cpp_paramfile,
+            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
+            cls.cppeig_exe + " " + cls.cpp_paramfile + "&&" +
+            cls.cppsim_exe + " " + cls.cpp_paramfile,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -103,7 +104,7 @@ class BeamCpp:
                 break
             else:
                 if runtwice:
-                    break
+                    raise SystemExit("Time Sim failed.")
                 cvg = False
                 print(f"Time Sim failed - Running with {fine_factor}x points")
                 cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps_fine * nperiod

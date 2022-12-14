@@ -11,7 +11,7 @@
     "s0": 0.001,
     "nadapt": 2,
     "smin": 1e-05,
-    "smax": 0.01,
+    "smax": 0.005,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 40,
@@ -20,8 +20,8 @@
     "plot": true
   },
   "shooting": {
-    "nsteps_per_period": 100,
-    "nperiod": 1,
+    "nsteps_per_period": 300,
+    "nperiod": 3,
     "rel_tol": 1e-08
   },
   "first_point": {
@@ -38,7 +38,7 @@
     }
   },
   "Logger": {
-    "file_name": "solution",
+    "file_name": "Arch_NNM1",
     "save_frequency": 1
   }
 }
