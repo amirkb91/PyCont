@@ -7,7 +7,7 @@ class StartingPoint:
         self.prob = prob
         self.X0 = None
         self.T0 = None
-        self.pose0 = None
+        self.pose_base0 = None
         self.energy0 = None
         self.tgt0 = None
 
@@ -26,4 +26,4 @@ class StartingPoint:
 
     def new_start(self, fxn):
         # User supplied function provides initial guess
-        self.X0, self.T0 = fxn(self.prob.cont_params)
+        self.X0, self.T0, self.pose_base0 = fxn(self.prob.cont_params)

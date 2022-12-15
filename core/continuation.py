@@ -11,7 +11,7 @@ class ConX:
         self.prob = prob
         self.X0 = start.X0
         self.T0 = start.T0
-        self.pose0 = start.pose0
+        self.pose_base0 = start.pose_base0
         self.energy0 = start.energy0
         self.tgt0 = start.tgt0
         self.log = log
@@ -61,7 +61,7 @@ class ConX:
                 if iter_ > self.prob.cont_params["first_point"]["itermax"]:
                     raise Exception("Max number of iterations reached without convergence.")
 
-                [H, M, dHdt, pose_time, vel_time, energy, cvg] = self.prob.zerofunction(self.T0, self.X0,
+                [H, M, dHdt, pose_time, vel_time, self.energy0, cvg] = self.prob.zerofunction(self.T0, self.X0,
                                                                                         self.prob.cont_params)
                 if not cvg:
                     raise Exception("Zero function failed.")
@@ -122,13 +122,12 @@ class ConX:
             print("First point is restarted solution.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
-        # pose0 and energy0
-        self.pose0 = pose_time[:, 0]
-        self.energy0 = energy
-
         # store solution in logger
-        self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose=pose_time.copy(),
-                       sol_vel=vel_time.copy(), sol_energy=energy.copy())
+        self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose_time=pose_time.copy(),
+                       sol_vel_time=vel_time.copy(), sol_pose_base=self.pose_base0.copy(), sol_energy=self.energy0.copy())
+
+        # update pose_base0 for next step
+        self.pose_base0 = pose_time[:, 0]
 
     def seqcont(self):
         print("Sequential continuation started.")
@@ -223,11 +222,8 @@ class ConX:
         T = self.T0.copy()
         V = self.X0[len_V:].copy()
         tgt = self.tgt0.copy()
-        pose = self.pose0.copy()
+        pose_base = self.pose_base0.copy()
         energy = self.energy0.copy()
-
-        # update config
-        self.prob.updatefunction(pose)
 
         # continuation step and direction
         step = self.prob.cont_params["continuation"]["s0"]
@@ -251,7 +247,10 @@ class ConX:
                 print("Maximum number of continuation points reached.")
                 break
 
-            # prediction step along tangent (n.b. INC is 0 as pose is updated)
+            # update config
+            self.prob.updatefunction(pose_base)
+
+            # prediction step along tangent (n.b. INC is 0 as pose_base is updated)
             INC_pred = tgt[:len_V] * step * stepsign
             VEL_pred = V + tgt[len_V:-1] * step * stepsign
             T_pred = T + tgt[-1] * step * stepsign
@@ -315,20 +314,21 @@ class ConX:
                     print("Beta exceeds maximum angle, roll back and halve continuation step.")
                     cvg = False
                 else:
-                    # passed check, finalise
+                    # passed check, finalise and update for next step
                     itercont += 1
                     if frml == "peeters":
                         stepsign = np.sign(stepsign * tgt_next.T @ tgt)
-                    pose = pose_time[:, 0]
-                    self.prob.updatefunction(pose)
                     T = T_pred
                     V = X_pred[len_V:]
                     tgt = tgt_next
 
                     # store solution in logger
                     self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
-                                   sol_pose=pose_time.copy(), sol_vel=vel_time.copy(), sol_energy=energy.copy(),
-                                   sol_beta=beta.copy())
+                                   sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
+                                   sol_pose_base=pose_base.copy(), sol_energy=energy.copy(), sol_beta=beta.copy())
+
+                    # pose_base for next step
+                    pose_base = pose_time[:, 0]
 
             # adaptive step size for next point
             if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg:

@@ -51,12 +51,12 @@ class BeamCpp:
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
+        pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
-        # create empty ic file
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata.close()
+        # update config
+        cls.config_update(pose_base0)
 
-        return X0, T0
+        return X0, T0, pose_base0
 
     @classmethod
     def run_sim(cls, T, X, par):
@@ -131,8 +131,8 @@ class BeamCpp:
         return H, M, dHdt, pose, vel, energy, cvg
 
     @classmethod
-    def config_update(cls, pose0):
+    def config_update(cls, pose):
         # update beam configuration by writing initial conditions
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata["/Config/POSE"] = pose0.reshape(-1, 1)
+        icdata["/Config/POSE"] = pose.reshape(-1, 1)
         icdata.close()
