@@ -7,6 +7,5 @@ core.egg-info/
 *.h5
 *.png
 *.pdf
-*.m
 *.asv
 *.fig

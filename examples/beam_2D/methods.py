@@ -90,7 +90,7 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
 
-        runtwice = False
+        run_twice = False
         while True:
             json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
             cpprun = subprocess.run(
@@ -103,12 +103,13 @@ class BeamCpp:
                 cvg = True
                 break
             else:
-                if runtwice:
-                    raise SystemExit("Time Sim failed.")
                 cvg = False
-                print(f"Time Sim failed - Running with {fine_factor}x points")
-                cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps_fine * nperiod
-                runtwice = True
+                if run_twice:
+                    print(f"Time Sim failed - Running with {fine_factor}x points")
+                    cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps_fine * nperiod
+                    run_twice = False
+                else:
+                    break
 
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")

@@ -61,9 +61,9 @@ class ConX:
                 if iter_ > self.prob.cont_params["first_point"]["itermax"]:
                     raise Exception("Max number of iterations reached without convergence.")
 
-                [H, M, dHdt, pose_time, vel_time, self.energy0, cvg] = self.prob.zerofunction(self.T0, self.X0,
+                [H, M, dHdt, pose_time, vel_time, self.energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
                                                                                         self.prob.cont_params)
-                if not cvg:
+                if not cvg_zerof:
                     raise Exception("Zero function failed.")
 
                 # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
@@ -263,9 +263,10 @@ class ConX:
             itercorrect = 0
             while True:
                 # calculate residual
-                [H, M, dHdt, pose_time, vel_time, energy, cvg] = self.prob.zerofunction(T_pred, X_pred,
+                [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = self.prob.zerofunction(T_pred, X_pred,
                                                                                         self.prob.cont_params)
-                if not cvg:
+                if not cvg_zerof:
+                    cvg_cont = False
                     print("Zero function failed to converge.")
                     break
 
@@ -275,11 +276,11 @@ class ConX:
 
                 if (residual < self.prob.cont_params["continuation"]["tol"]
                         and itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
-                    cvg = True
+                    cvg_cont = True
                     print("Solution converged.")
                     break
                 if itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
-                    cvg = False
+                    cvg_cont = False
                     print("Max number of iterations reached without convergence.")
                     break
 
@@ -296,23 +297,29 @@ class ConX:
                 dx = dxt[:-1, 0]
                 X_pred += dx
 
-            if cvg:
-                # check beta if requested, cvg=False if check fails
-                # J is already calculated above for frml=="keller"
+            if cvg_cont:
+                # find new tangent with final converged solution
                 if frml == "peeters":
                     J = np.block([
                         [M, dHdt.reshape(-1, 1)],
                         [self.h, np.zeros((self.nphase, 1))],
                         [np.zeros([1, len(X_pred)]), np.ones(1)]])
+                elif frml == "keller":  # not same as correction above as derivatives changed before "break"
+                    J = np.block([
+                        [M, dHdt.reshape(-1, 1)],
+                        [self.h, np.zeros((self.nphase, 1))],
+                        [tgt]])
                 Z = np.vstack([np.zeros((len(X_pred), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
                 tgt_next = np.linalg.lstsq(J, Z, rcond=self.svd_rcond)[0][:, 0]
                 tgt_next /= np.linalg.norm(tgt_next)
+
+                # calculate beta and check against betamax if requested, fail convergence if check fails
                 beta = np.array([np.degrees(np.arccos(tgt_next.T @ tgt))])
                 print(f"Beta = {beta[0]:.2f} deg")
                 if (self.prob.cont_params["continuation"]["betacontrol"]
                         and beta[0] > self.prob.cont_params["continuation"]["betamax"]):
-                    print("Beta exceeds maximum angle, roll back and halve continuation step.")
-                    cvg = False
+                    print("Beta exceeds maximum angle, roll back and reduce continuation step.")
+                    cvg_cont = False
                 else:
                     # passed check, finalise and update for next step
                     itercont += 1
@@ -321,34 +328,36 @@ class ConX:
                     T = T_pred
                     V = X_pred[len_V:]
                     tgt = tgt_next
+                    energy = energy_next
 
                     # store solution in logger
                     self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
                                    sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
-                                   sol_pose_base=pose_base.copy(), sol_energy=energy.copy(), sol_beta=beta.copy())
+                                   sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
                     # pose_base for next step
                     pose_base = pose_time[:, 0]
 
             # adaptive step size for next point
-            if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg:
-                step = self.cont_step(step, itercorrect, cvg)
+            if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
+                step = self.cont_step(step, itercorrect, cvg_cont)
 
     def cont_step(self, step, itercorrect, cvg):
         if cvg:
-            step *= self.prob.cont_params["continuation"]["iteropt"] / itercorrect
+            if itercorrect == self.prob.cont_params["continuation"]["iteropt"] or itercorrect == 0:
+                step *= np.sqrt(2)
+            else:
+                step *= self.prob.cont_params["continuation"]["iteropt"] / itercorrect
 
             if step > self.prob.cont_params["continuation"]["smax"]:
                 step = self.prob.cont_params["continuation"]["smax"]
                 print("Maximum step size reached.")
-
             elif step < self.prob.cont_params["continuation"]["smin"]:
                 step = self.prob.cont_params["continuation"]["smin"]
                 print("Minimum step size reached.")
-
         else:
-            print("Continuation step halving.")
-            step /= 2
+            print("Continuation step reducing.")
+            step /= np.sqrt(2)
             if step < self.prob.cont_params["continuation"]["smin"]:
                 raise Exception("Step size below smin, continuation cannot proceed.")
         return step

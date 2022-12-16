@@ -5,30 +5,30 @@
     "dir": -1,
     "npts": 5000,
     "tol": 0.001,
-    "itermin": 1,
+    "itermin": 0,
     "iteropt": 4,
     "itermax": 7,
     "s0": 0.001,
     "nadapt": 2,
-    "smin": 1e-05,
+    "smin": 1e-06,
     "smax": 0.01,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 40,
-    "fmax": 80,
-    "phase_cond_index": "87-173",
+    "fmin": 50,
+    "fmax": 150,
+    "phase_cond_index": "90-179",
     "plot": true
   },
   "shooting": {
-    "nsteps_per_period": 100,
-    "nperiod": 1,
+    "nsteps_per_period": 500,
+    "nperiod": 2,
     "rel_tol": 1e-08
   },
   "first_point": {
     "itermax": 30,
     "eig_start": {
-      "NNM": 1,
-      "scale": 0.0001
+      "NNM": 2,
+      "scale": 0.001
     },
     "restart": {
       "file_name": "",
@@ -38,7 +38,7 @@
     }
   },
   "Logger": {
-    "file_name": "Arch_NNM1",
+    "file_name": "Cantilever_NNM2_VK",
     "save_frequency": 1
   }
 }
