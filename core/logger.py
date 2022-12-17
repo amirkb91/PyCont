@@ -2,6 +2,8 @@ import numpy as np
 import h5py
 import json
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+from matplotlib import ticker
 
 
 class Logger:
@@ -68,34 +70,53 @@ class Logger:
 
         if not self.fig:
             if betaplot:
-                self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2, figsize=(10, 7))
+                self.fig = plt.figure(figsize=(11, 9))
+                self.gs = GridSpec(2, 2)
+                self.ax1 = self.fig.add_subplot(self.gs[:, 0])
+                self.ax2 = self.fig.add_subplot(self.gs[0, 1])
+                self.ax3 = self.fig.add_subplot(self.gs[1, 1])
             else:
                 self.fig, (self.ax1) = plt.subplots(1, 1, figsize=(6, 4.5))
+
             # Frequency energy plot
             self.ax1.grid()
             self.ax1.set_xscale("log")
             self.ax1.set_xlabel("Energy (J)")
             self.ax1.set_ylabel("Frequency (Hz)")
             self.ax1.ticklabel_format(useOffset=False, axis="y")
-            # self.ax1.set_xlim(1e-6, 1e4)
-            # self.ax1.set_ylim(self.prob.cont_params["continuation"]["fmin"],
-            #                   self.prob.cont_params["continuation"]["fmax"])
+            self.ax1.set_xlim(1e-4, 1e4)
+            self.ax1.set_ylim(self.prob.cont_params["continuation"]["fmin"],
+                              self.prob.cont_params["continuation"]["fmax"])
             (self.line1,) = self.ax1.plot(Energy, 1 / T, marker=".", fillstyle="none")
+            # Frequency energy plot zoom
+            self.ax2.grid()
+            self.ax2.set_xscale("log")
+            self.ax2.set_xlabel("Energy (J)")
+            self.ax2.set_ylabel("Frequency (Hz)")
+            self.ax2.ticklabel_format(useOffset=False, axis="y")
+            self.ax2.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.1f}"))
+            self.ax2.xaxis.set_minor_formatter(ticker.ScalarFormatter())
+            self.ax2.xaxis.set_minor_formatter(ticker.StrMethodFormatter("{x:.1f}"))
+            self.ax2.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.2f}"))
+            (self.line2,) = self.ax2.plot(Energy, 1 / T, marker=".", fillstyle="none", color="green")
             # beta plot
             if betaplot:
-                self.ax2.grid()
-                self.ax2.set_xlabel("Continuation Step")
-                self.ax2.set_ylabel("beta (deg)")
-                self.ax2.set_xlim(1, beta_xaxis)
-                self.ax2.set_ylim(-5, 185)
-                (self.line2,) = self.ax2.plot(range(1, len(beta) + 1), beta, marker=".", fillstyle="none", color="red")
+                self.ax3.grid()
+                self.ax3.set_xlabel("Continuation Step")
+                self.ax3.set_ylabel("beta (deg)")
+                self.ax3.set_xlim(1, beta_xaxis)
+                self.ax3.set_ylim(-5, 185)
+                self.ax3.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))
+                (self.line3,) = self.ax3.plot(range(1, len(beta) + 1), beta, marker=".", fillstyle="none", color="red")
             plt.pause(0.01)
+
         else:
             self.line1.set_data(Energy, 1 / T)
-            self.ax1.relim()
-            self.ax1.autoscale()
+            self.line2.set_data(Energy[-10:], 1 / T[-10:])
+            self.ax2.relim()
+            self.ax2.autoscale()
             if betaplot:
-                self.line2.set_data(range(1, len(beta) + 1), beta)
-                self.ax2.set_xlim(1, beta_xaxis * np.ceil(len(beta) / beta_xaxis))
+                self.line3.set_data(range(1, len(beta) + 1), beta)
+                self.ax3.set_xlim(1, beta_xaxis * np.ceil(len(beta) / beta_xaxis))
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()

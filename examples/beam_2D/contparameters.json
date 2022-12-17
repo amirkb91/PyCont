@@ -14,14 +14,14 @@
     "smax": 0.01,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 50,
-    "fmax": 150,
+    "fmin": 40,
+    "fmax": 60,
     "phase_cond_index": "90-179",
     "plot": true
   },
   "shooting": {
     "nsteps_per_period": 500,
-    "nperiod": 2,
+    "nperiod": 1,
     "rel_tol": 1e-08
   },
   "first_point": {
