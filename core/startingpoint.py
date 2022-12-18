@@ -5,7 +5,6 @@ import numpy as np
 class StartingPoint:
     def __init__(self, prob):
         self.prob = prob
-        self.startfunction = None
         self.X0 = None
         self.T0 = None
         self.pose_base0 = None
@@ -14,12 +13,13 @@ class StartingPoint:
 
     def get_startingpoint(self):
         if self.prob.cont_params["first_point"]["restart"]["file_name"]:
-            self.startfunction(self.prob.cont_params)
             self.restart()
         else:
             self.new_start()
 
     def restart(self):
+        # run icfunction to initialise config data
+        [*_] = self.prob.icfunction(self.prob.cont_params)
         restartsol = h5py.File(self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+")
         index = self.prob.cont_params["first_point"]["restart"]["index"]
         self.X0 = restartsol["/X"][:, index]
@@ -30,7 +30,7 @@ class StartingPoint:
 
         # If different frequency is specified
         if self.prob.cont_params["first_point"]["restart"]["fixF"]:
-            self.T0 = np.array([1 / self.prob.cont_params["restart"]["F"]])
+            self.T0 = np.float64(1 / self.prob.cont_params["first_point"]["restart"]["F"])
 
     def new_start(self):
         # User supplied function provides initial guess

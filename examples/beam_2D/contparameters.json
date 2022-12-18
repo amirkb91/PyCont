@@ -21,7 +21,7 @@
   },
   "shooting": {
     "nsteps_per_period": 500,
-    "nperiod": 1,
+    "nperiod": 2,
     "rel_tol": 1e-08
   },
   "first_point": {
@@ -38,7 +38,7 @@
     }
   },
   "Logger": {
-    "file_name": "Cantilever_NNM2_VK_restart",
+    "file_name": "Cantilever_NNM2_VK",
     "save_frequency": 1
   }
 }

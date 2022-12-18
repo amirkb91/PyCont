@@ -93,7 +93,7 @@ class ConX:
 
                 elif restart and fixF:
                     # update X0 - ortho to restart solution?
-                    ortho = True
+                    ortho = False
                     if not ortho:
                         J = np.concatenate((M, self.h), axis=0)
                         hx = np.matmul(self.h, self.X0)
@@ -103,7 +103,7 @@ class ConX:
                         hx = np.matmul(self.h, self.X0)
                         H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
                     dx = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
-                    self.X0[:] += dx[:, 0]
+                    self.X0 += dx[:, 0]
 
             # find tangent: set one component to 1 and solve overdetermined system
             J = np.block([
@@ -115,13 +115,13 @@ class ConX:
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
+            self.prob.updatefunction(self.pose_base0)
             [H, M, dHdt, pose_time, vel_time, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
                                                                                                 self.prob.cont_params)
-            [H, M, dHdt, pose, energy, cvg] = self.prob.run_sim(self.T0, self.X0)
             # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
             residual = np.linalg.norm(H)
-            print(f"{1} \t {residual:.5e}")
-            print("First point is restarted solution.")
+            print(f"{0} \t {residual:.5e}")
+            print("RESTARTING from previous run.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
         # store solution in logger
