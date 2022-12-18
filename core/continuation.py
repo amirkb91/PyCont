@@ -56,9 +56,9 @@ class ConX:
         fixF = self.prob.cont_params["first_point"]["restart"]["fixF"]
 
         if not restart or (restart and fixF):
-            iter_ = 0
+            iter_firstpoint = 0
             while True:
-                if iter_ > self.prob.cont_params["first_point"]["itermax"]:
+                if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                     raise Exception("Max number of iterations reached without convergence.")
 
                 [H, M, dHdt, pose_time, vel_time, self.energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
@@ -68,14 +68,14 @@ class ConX:
 
                 # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
                 residual = np.linalg.norm(H)
-                print(f"{iter_} \t {residual:.5e}")
+                print(f"{iter_firstpoint} \t {residual:.5e}")
 
                 if residual < self.prob.cont_params["continuation"]["tol"]:
                     print("First point converged.")
                     print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
                     break
 
-                iter_ += 1
+                iter_firstpoint += 1
                 if not restart:
                     # update X0, T0
                     # Jacobian comprised of monodromy, phase condition, and orthogonality to linear solution
@@ -115,6 +115,8 @@ class ConX:
             self.tgt0 /= np.linalg.norm(self.tgt0)
 
         elif restart and not fixF:
+            [H, M, dHdt, pose_time, vel_time, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
+                                                                                                self.prob.cont_params)
             [H, M, dHdt, pose, energy, cvg] = self.prob.run_sim(self.T0, self.X0)
             # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
             residual = np.linalg.norm(H)

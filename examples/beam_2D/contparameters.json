@@ -32,13 +32,13 @@
     },
     "restart": {
       "file_name": "",
-      "index": 0,
+      "index": 50,
       "fixF": false,
       "F": 60
     }
   },
   "Logger": {
-    "file_name": "Cantilever_NNM2_VK",
+    "file_name": "Cantilever_NNM2_VK_restart",
     "save_frequency": 1
   }
 }

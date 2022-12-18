@@ -5,20 +5,18 @@ from core.startingpoint import StartingPoint
 
 from methods import BeamCpp
 
-# Problem object
+# Problem
 prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_zerofunction(BeamCpp.run_sim)
+prob.add_icfunction(BeamCpp.run_eig)
 prob.add_updatefunction(BeamCpp.config_update)
 
-# Continuation starting point object
+# Continuation starting point
 start = StartingPoint(prob)
-if prob.cont_params["first_point"]["restart"]["file_name"]:
-    start.restart()
-else:
-    start.new_start(BeamCpp.run_eig)
+start.get_startingpoint()
 
-# Logger object
+# Logger
 log = Logger(prob)
 
 # Solve continuation on problem
