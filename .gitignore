@@ -1,7 +1,7 @@
 .idea/
 __pycache__/
 .vscode/
-results/
+Results/
 core.egg-info/
 *.out
 *.h5
