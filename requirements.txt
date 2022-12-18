@@ -1,6 +1,6 @@
 pip==22.3.1
 h5py==3.6.0
-matplotlib==3.5.1
+matplotlib==3.6.2
 mplcursors==0.5.1
 numpy==1.23.5
 scipy==1.9.3
