@@ -122,5 +122,6 @@ class Logger:
             if self.betaplot:
                 self.ln[2][0].set_data(range(1, len(beta) + 1), beta)
                 self.ax[2].set_xlim(1, beta_xaxis * np.ceil(len(beta) / beta_xaxis))
+        self.fig.tight_layout()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()

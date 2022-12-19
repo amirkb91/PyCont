@@ -2,7 +2,7 @@ import h5py
 import json
 import subprocess
 import sys
-from examples.beam_2D.methods import BeamCpp
+from examples.beam_2D.beamcpp import BeamCpp
 
 # inputs
 solno = int(input("Solution Index: "))
