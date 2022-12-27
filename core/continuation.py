@@ -1,10 +1,8 @@
 import numpy as np
+import scipy.linalg as spl
 
 
 class ConX:
-    # rcond for least squares SVD solver: ratio of largest SV
-    svd_rcond = None
-
     def __init__(self, prob, start, log):
         self.h = None
         self.nphase = None
@@ -66,8 +64,8 @@ class ConX:
                 if not cvg_zerof:
                     raise Exception("Zero function failed.")
 
-                # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
-                residual = np.linalg.norm(H)
+                # residual = spl.norm(H) / spl.norm(self.X0)
+                residual = spl.norm(H)
                 print(f"{iter_firstpoint} \t {residual:.5e}")
 
                 if residual < self.prob.cont_params["continuation"]["tol"]:
@@ -86,7 +84,7 @@ class ConX:
                     # +1 zero for orthogonality to linear solution
                     hx = np.matmul(self.h, self.X0)
                     H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                    dxt = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
+                    dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
                     self.T0 += dxt[-1, 0]
                     dx = dxt[:-1, 0]
                     self.X0 += dx
@@ -102,7 +100,7 @@ class ConX:
                         J = np.concatenate((M, self.h, self.X0.reshape(-1, 1).T), axis=0)
                         hx = np.matmul(self.h, self.X0)
                         H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                    dx = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
+                    dx = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
                     self.X0 += dx[:, 0]
 
             # find tangent: set one component to 1 and solve overdetermined system
@@ -111,15 +109,15 @@ class ConX:
                 [self.h, np.zeros((self.nphase, 1))],
                 [np.zeros([1, len(self.X0)]), np.ones(1)]])
             Z = np.vstack([np.zeros((len(self.X0), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
-            self.tgt0 = np.linalg.lstsq(J, Z, rcond=self.svd_rcond)[0][:, 0]
-            self.tgt0 /= np.linalg.norm(self.tgt0)
+            self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
+            self.tgt0 /= spl.norm(self.tgt0)
 
         elif restart and not fixF:
             self.prob.updatefunction(self.pose_base0)
             [H, M, dHdt, pose_time, vel_time, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
                                                                                                 self.prob.cont_params)
-            # residual = np.linalg.norm(H) / np.linalg.norm(self.X0)
-            residual = np.linalg.norm(H)
+            # residual = spl.norm(H) / spl.norm(self.X0)
+            residual = spl.norm(H)
             print(f"{0} \t {residual:.5e}")
             print("RESTARTING from previous run.")
             print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
@@ -173,7 +171,7 @@ class ConX:
                     print("Zero function failed to converge.")
                     break
 
-                residual = np.linalg.norm(H) / np.linalg.norm(X)
+                residual = spl.norm(H) / spl.norm(X)
                 print(f"{itershoot} \t {residual:.5e}")
 
                 if (
@@ -194,7 +192,7 @@ class ConX:
                 J = np.concatenate((Mm0, self.h), axis=0)
                 hx = np.matmul(self.h, X)
                 H = np.vstack([H, hx.reshape(-1, 1)])
-                dx = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
+                dx = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
                 X[:] += dx[:, 0]
 
             # adaptive step size for next point
@@ -272,8 +270,8 @@ class ConX:
                     print("Zero function failed to converge.")
                     break
 
-                # residual = np.linalg.norm(H) / np.linalg.norm(X_pred)
-                residual = np.linalg.norm(H)
+                # residual = spl.norm(H) / spl.norm(X_pred)
+                residual = spl.norm(H)
                 print(f"{itercorrect} \t {residual:.5e}")
 
                 if (residual < self.prob.cont_params["continuation"]["tol"]
@@ -294,7 +292,7 @@ class ConX:
                     [tgt]])
                 hx = np.matmul(self.h, X_pred)
                 H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                dxt = np.linalg.lstsq(J, -H, rcond=self.svd_rcond)[0]
+                dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
                 T_pred += dxt[-1, 0]
                 dx = dxt[:-1, 0]
                 X_pred += dx
@@ -312,8 +310,8 @@ class ConX:
                         [self.h, np.zeros((self.nphase, 1))],
                         [tgt]])
                 Z = np.vstack([np.zeros((len(X_pred), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
-                tgt_next = np.linalg.lstsq(J, Z, rcond=self.svd_rcond)[0][:, 0]
-                tgt_next /= np.linalg.norm(tgt_next)
+                tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
+                tgt_next /= spl.norm(tgt_next)
 
                 # calculate beta and check against betamax if requested, fail convergence if check fails
                 beta = np.array([np.degrees(np.arccos(tgt_next.T @ tgt))])

@@ -2,7 +2,7 @@
   "continuation": {
     "method": "psa",
     "tangent": "keller",
-    "dir": -1,
+    "dir": 1,
     "npts": 5000,
     "tol": 0.001,
     "itermin": 0,
@@ -11,24 +11,24 @@
     "s0": 0.001,
     "nadapt": 2,
     "smin": 1e-06,
-    "smax": 0.01,
+    "smax": 0.002,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 40,
-    "fmax": 60,
-    "phase_cond_index": "90-179",
+    "fmin": 50,
+    "fmax": 80,
+    "phase_cond_index": "87-173",
     "plot": true
   },
   "shooting": {
-    "nsteps_per_period": 500,
+    "nsteps_per_period": 200,
     "nperiod": 2,
     "rel_tol": 1e-08
   },
   "first_point": {
     "itermax": 30,
     "eig_start": {
-      "NNM": 2,
-      "scale": 0.001
+      "NNM": 1,
+      "scale": 0.0001
     },
     "restart": {
       "file_name": "",
@@ -38,7 +38,7 @@
     }
   },
   "Logger": {
-    "file_name": "Cantilever_NNM2_VK",
+    "file_name": "cclamped_NNM1_SE",
     "save_frequency": 1
   }
 }
