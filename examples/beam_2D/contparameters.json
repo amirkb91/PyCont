@@ -21,7 +21,7 @@
   },
   "shooting": {
     "nsteps_per_period": 200,
-    "nperiod": 2,
+    "nperiod": 1,
     "rel_tol": 1e-08
   },
   "first_point": {

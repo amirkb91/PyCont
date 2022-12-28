@@ -1,6 +1,6 @@
 from core.problem import Prob
 from core.logger import Logger
-from core.continuation import ConX
+from core.solver.continuation import ConX
 from core.startingpoint import StartingPoint
 
 from beamcpp import BeamCpp
