@@ -51,10 +51,9 @@ class Logger:
                 self.sol_beta.append(value)
 
         # save to disk and plot if required
-        if self.store_index % self.prob.cont_params["Logger"]["save_frequency"] == 0:
-            self.savetodisk()
-            if self.plot:
-                self.solplot()
+        self.savetodisk()
+        if self.plot:
+            self.solplot()
 
     def savetodisk(self):
         savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")

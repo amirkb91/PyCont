@@ -19,8 +19,8 @@ T = data["/T"][solno]
 # read parameters from solution file and modify
 par = data["/Parameters"]
 par = json.loads(par[()])
-par["shooting"]["nperiod"] = nperiod
-par["shooting"]["nsteps_per_period"] = nsteps
+par["shooting"]["nperiod_singleshooting"] = nperiod
+par["shooting"]["nsteps_per"] = nsteps
 
 # prescribe pose_base to ic file and run sim
 BeamCpp.run_eig(par)  # To get nodal data

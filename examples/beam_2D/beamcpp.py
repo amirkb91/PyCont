@@ -61,8 +61,8 @@ class BeamCpp:
     @classmethod
     def run_sim(cls, T, X, par):
         # unpack run cont_params
-        nsteps = par["shooting"]["nsteps_per_period"]
-        nperiod = par["shooting"]["nperiod"]
+        nperiod = par["shooting"]["nperiod_singleshooting"]
+        nsteps = par["shooting"]["nsteps_per"]
         rel_tol = par["shooting"]["rel_tol"]
         fine_factor = 2
         nsteps_fine = nsteps * fine_factor
