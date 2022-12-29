@@ -53,7 +53,7 @@ class BeamCpp:
         T0 = 1 / frq[nnm - 1, 0]
         pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
-        # update config
+        # update config with undeformed pose
         cls.config_update(pose_base0)
 
         return X0, T0, pose_base0

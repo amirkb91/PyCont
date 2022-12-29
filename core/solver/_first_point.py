@@ -14,8 +14,8 @@ def first_point(self):
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            [H, M, dHdt, pose_time, vel_time, self.energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
-                                                                                                self.prob.cont_params)
+            [H, M, dHdt, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
+                self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
@@ -68,7 +68,7 @@ def first_point(self):
 
     elif restart and not fixF:
         self.prob.updatefunction(self.pose_base0)
-        [H, M, dHdt, pose_time, vel_time, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
+        [H, M, dHdt, self.pose_time0, self.vel_time0, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
                                                                                        self.prob.cont_params)
         residual = spl.norm(H)
         print(f"{0} \t {residual:.5e}")
@@ -76,8 +76,9 @@ def first_point(self):
         print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
     # store solution in logger
-    self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(), sol_pose_time=pose_time.copy(),
-                   sol_vel_time=vel_time.copy(), sol_pose_base=self.pose_base0.copy(), sol_energy=self.energy0.copy())
+    self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(),
+                   sol_pose_time=self.pose_time0.copy(), sol_vel_time=self.vel_time0.copy(),
+                   sol_pose_base=self.pose_base0.copy(), sol_energy=self.energy0.copy())
 
     # update pose_base0 for next step
-    self.pose_base0 = pose_time[:, 0]
+    self.pose_base0 = self.pose_time0[:, 0]
