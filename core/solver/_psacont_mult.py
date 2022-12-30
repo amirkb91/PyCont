@@ -10,12 +10,16 @@ def psacont_mult(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # first point of partitions
+    # partition the first point
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
-    delta_S = 1
+    delta_S = 1 / npartition
+    nsteps = np.shape(self.pose_time0)[1] - 1  # n time steps of first point solution
+    sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
 
-    [H, M, dHdt, pose_time, vel_time, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
-                                                                                   self.prob.cont_params)
+    pose_base = self.pose_time0[:, sol_index]
+    V = self.vel_time0[6:, sol_index]
+    T = self.T0 * delta_S
+
 
 
 

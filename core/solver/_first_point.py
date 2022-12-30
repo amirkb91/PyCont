@@ -68,8 +68,8 @@ def first_point(self):
 
     elif restart and not fixF:
         self.prob.updatefunction(self.pose_base0)
-        [H, M, dHdt, self.pose_time0, self.vel_time0, energy0, cvg_zerof] = self.prob.zerofunction(self.T0, self.X0,
-                                                                                       self.prob.cont_params)
+        [H, M, dHdt, self.pose_time0, self.vel_time0, energy0, cvg_zerof] = \
+            self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
         residual = spl.norm(H)
         print(f"{0} \t {residual:.5e}")
         print("RESTARTING from previous run.")
