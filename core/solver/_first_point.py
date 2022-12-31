@@ -16,6 +16,7 @@ def first_point(self):
 
             [H, M, dHdt, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
+            M = M - np.eye(len(M))
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
@@ -31,7 +32,6 @@ def first_point(self):
             if not restart:
                 # update X0, T0
                 # Jacobian comprised of monodromy, phase condition, and orthogonality to linear solution
-                M = M - np.eye(len(M))
                 J = np.block([
                     [M, dHdt.reshape(-1, 1)],
                     [self.h, np.zeros((self.nphase, 1))],
@@ -47,7 +47,6 @@ def first_point(self):
             elif restart and fixF:
                 # update X0 - ortho to restart solution?
                 ortho = False
-                M = M - np.eye(len(M))
                 if not ortho:
                     J = np.concatenate((M, self.h), axis=0)
                     hx = np.matmul(self.h, self.X0)

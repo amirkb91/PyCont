@@ -11,7 +11,8 @@ def psacont(self):
         print("++ Beta control is active. ++")
 
     # first point solution
-    len_V = len(self.X0) // 2
+    dofdata = self.prob.doffunction()
+    len_V = dofdata["ndof_free"]
     T = self.T0.copy()
     V = self.X0[len_V:].copy()
     tgt = self.tgt0.copy()

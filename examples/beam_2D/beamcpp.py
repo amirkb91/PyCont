@@ -59,12 +59,17 @@ class BeamCpp:
         return X0, T0, pose_base0
 
     @classmethod
-    def run_sim(cls, T, X, par):
+    def run_sim(cls, T, X, par, mult=False):
         # unpack run cont_params
+        npartition = par["shooting"]["npartition_multipleshooting"]
         nperiod = par["shooting"]["nperiod_singleshooting"]
-        nsteps = par["shooting"]["nsteps_per"]
+        nsteps = par["shooting"]["nsteps_per_period"]
         rel_tol = par["shooting"]["rel_tol"]
         fine_factor = 2
+        # modify nsteps if multiple shooting
+        if mult:
+            nsteps //= npartition
+            nperiod = 1
         nsteps_fine = nsteps * fine_factor
 
         # get INC and VEL from X

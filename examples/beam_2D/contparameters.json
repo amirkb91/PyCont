@@ -23,7 +23,7 @@
     "method": "multiple",
     "npartition_multipleshooting": 4,
     "nperiod_singleshooting": 1,
-    "nsteps_per": 100,
+    "nsteps_per_period": 100,
     "rel_tol": 1e-08
   },
   "first_point": {

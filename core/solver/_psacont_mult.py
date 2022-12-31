@@ -21,15 +21,20 @@ def psacont_mult(self):
     T = self.T0 * delta_S
 
     # find tangent matrix
-    N = 2 * dofdata["ndof_free"]
-    J = np.zeros((npartition * N, npartition * N + 1))
-    for ii in range(npartition):
-        self.prob.updatefunction(pose_base[:, ii])
-        X = np.concatenate((np.zeros_like(V[:, ii]), V[:, ii]))
+    twoN = 2 * dofdata["ndof_free"]
+    J = np.zeros((npartition * twoN, npartition * twoN + 1))
+    for ipart in range(npartition):
+        self.prob.updatefunction(pose_base[:, ipart])
+        X = np.concatenate((np.zeros_like(V[:, ipart]), V[:, ipart]))
         [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
-            self.prob.zerofunction(T, X, self.prob.cont_params)
-        J[ii * N:(ii + 1) * N, ii * N:(ii + 1) * N] = M
-        J[ii * N:(ii + 1) * N, (ii + 1) % 4 * N:(((ii + 1) % 4) + 1) * N] = -np.eye(N)
+            self.prob.zerofunction(T, X, self.prob.cont_params, mult=True)
+        i = ipart * twoN
+        i1 = (ipart + 1) * twoN
+        j = (ipart + 1) % npartition * twoN
+        j1 = ((ipart + 1) % npartition + 1) * twoN
+        J[i:i1, i:i1] = M
+        J[i:i1, j:j1] = -np.eye(twoN)
+        J[i:i1, -1] = dHdt
 
 
 
