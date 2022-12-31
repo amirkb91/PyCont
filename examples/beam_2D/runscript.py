@@ -11,6 +11,7 @@ prob.read_contparams("contparameters.json")
 prob.add_zerofunction(BeamCpp.run_sim)
 prob.add_icfunction(BeamCpp.run_eig)
 prob.add_updatefunction(BeamCpp.config_update)
+prob.add_doffunction(BeamCpp.get_dofdata)
 
 # Continuation starting point
 start = StartingPoint(prob)

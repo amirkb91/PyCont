@@ -53,6 +53,7 @@ def psacont(self):
             # calculate residual and block Jacobian
             [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
                 self.prob.zerofunction(T_pred, X_pred, self.prob.cont_params)
+            M = M - np.eye(len(M))
             J = np.block([
                 [M, dHdt.reshape(-1, 1)],
                 [self.h, np.zeros((self.nphase, 1))],

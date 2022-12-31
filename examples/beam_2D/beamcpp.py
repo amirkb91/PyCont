@@ -36,7 +36,7 @@ class BeamCpp:
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
 
-        cls.free_dof = np.array(simdata["/Model_0/free_dof"])
+        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:,0]
         cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
         cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
         cls.ndof_free = len(cls.free_dof)
@@ -47,7 +47,7 @@ class BeamCpp:
         nnm = cont_params["first_point"]["eig_start"]["NNM"]
         scale = cont_params["first_point"]["eig_start"]["scale"]
         x0 = scale * eig[:, nnm - 1]
-        x0 = x0[cls.free_dof][:, 0]
+        x0 = x0[cls.free_dof]
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
@@ -120,7 +120,6 @@ class BeamCpp:
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = nperiod * M[:, -1]
             M = np.delete(M, -1, axis=1)
-            M = M - np.eye(len(M))
 
             pose = simdata["/Config/POSE"][:]
             vel = simdata["/Config/VELOCITY"][:]
@@ -137,3 +136,8 @@ class BeamCpp:
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
         icdata["/Config/POSE"] = pose.reshape(-1, 1)
         icdata.close()
+
+    @classmethod
+    def get_dofdata(cls):
+        return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
+                "ndof_free": cls.ndof_free}

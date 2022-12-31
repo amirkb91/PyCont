@@ -10,15 +10,26 @@ def psacont_mult(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # partition the first point
+    # partition the starting orbit with Poincare sections
+    dofdata = self.prob.doffunction()
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
     delta_S = 1 / npartition
     nsteps = np.shape(self.pose_time0)[1] - 1  # n time steps of first point solution
     sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
-
     pose_base = self.pose_time0[:, sol_index]
-    V = self.vel_time0[6:, sol_index]
+    V = self.vel_time0[dofdata["free_dof"]][:, sol_index]
     T = self.T0 * delta_S
+
+    # find tangent matrix
+    N = 2 * dofdata["ndof_free"]
+    J = np.zeros((npartition * N, npartition * N + 1))
+    for ii in range(npartition):
+        self.prob.updatefunction(pose_base[:, ii])
+        X = np.concatenate((np.zeros_like(V[:, ii]), V[:, ii]))
+        [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
+            self.prob.zerofunction(T, X, self.prob.cont_params)
+        J[ii * N:(ii + 1) * N, ii * N:(ii + 1) * N] = M
+        J[ii * N:(ii + 1) * N, (ii + 1) % 4 * N:(((ii + 1) % 4) + 1) * N] = -np.eye(N)
 
 
 

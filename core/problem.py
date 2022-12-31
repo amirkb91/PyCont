@@ -8,6 +8,7 @@ class Prob:
         self.zerofunction = None
         self.icfunction = None
         self.updatefunction = None
+        self.doffunction = None
 
     def read_contparams(self, cont_paramfile):
         if os.path.exists(cont_paramfile):
@@ -23,3 +24,6 @@ class Prob:
 
     def add_updatefunction(self, fxn):
         self.updatefunction = fxn
+
+    def add_doffunction(self, fxn):
+        self.doffunction = fxn
