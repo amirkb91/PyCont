@@ -10,8 +10,12 @@ def psacont_mult(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # partition the starting orbit with Poincare sections
+    # dof data
     dofdata = self.prob.doffunction()
+    N = dofdata["ndof_free"]
+    twoN = 2 * dofdata["ndof_free"]
+
+    # partition the starting orbit with Poincare sections
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
     delta_S = 1 / npartition
     nsteps = np.shape(self.pose_time0)[1] - 1  # n time steps of first point solution
@@ -20,14 +24,12 @@ def psacont_mult(self):
     V = self.vel_time0[dofdata["free_dof"]][:, sol_index]
     T = self.T0 * delta_S
 
-    # find tangent matrix
-    twoN = 2 * dofdata["ndof_free"]
+    # find tangent matrix: set time component to 1 and solve overdetermined system
     J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
     for ipart in range(npartition):
         self.prob.updatefunction(pose_base[:, ipart])
         X = np.concatenate((np.zeros_like(V[:, ipart]), V[:, ipart]))
-        [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
-            self.prob.zerofunction(T, X, self.prob.cont_params, mult=True)
+        [_, M, dHdt, _, _, _, _] = self.prob.zerofunction(T, X, self.prob.cont_params, mult=True)
         i = ipart * twoN
         i1 = (ipart + 1) * twoN
         j = (ipart + 1) % npartition * twoN
@@ -44,24 +46,13 @@ def psacont_mult(self):
     tgt = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
     tgt /= spl.norm(tgt)
 
-
-
-
-
-    # first point solution
-    len_V = len(self.X0) // 2
-    T = self.T0.copy()
-    V = self.X0[len_V:].copy()
-    tgt = self.tgt0.copy()
-    pose_base = self.pose_base0.copy()
-    energy = self.energy0.copy()
-
     # continuation step and direction
     step = self.prob.cont_params["continuation"]["s0"]
     direction = self.prob.cont_params["continuation"]["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # continuation loop
+    energy = self.energy0.copy()
     itercont = 1
     while True:
         print("\n**************************************\n")
@@ -73,15 +64,13 @@ def psacont_mult(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # update config
-        self.prob.updatefunction(pose_base)
-
         # prediction step along tangent (INC is 0 as pose_base is updated)
-        INC_pred = tgt[:len_V] * step * stepsign
-        VEL_pred = V + tgt[len_V:-1] * step * stepsign
         T_pred = T + tgt[-1] * step * stepsign
+        tgt_reshape = np.reshape(tgt[:-1], (twoN, npartition))
+        INC_pred = tgt_reshape[:N, :] * step * stepsign
+        VEL_pred = V + tgt_reshape[N:, :] * step * stepsign
         X_pred = np.concatenate((INC_pred, VEL_pred))
-        if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
+        if delta_S / T_pred > self.prob.cont_params["continuation"]["fmax"]:
             print("Maximum frequency reached.")
             break
 
