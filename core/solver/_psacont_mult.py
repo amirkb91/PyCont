@@ -22,7 +22,7 @@ def psacont_mult(self):
 
     # find tangent matrix
     twoN = 2 * dofdata["ndof_free"]
-    J = np.zeros((npartition * twoN, npartition * twoN + 1))
+    J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
     for ipart in range(npartition):
         self.prob.updatefunction(pose_base[:, ipart])
         X = np.concatenate((np.zeros_like(V[:, ipart]), V[:, ipart]))
@@ -32,9 +32,17 @@ def psacont_mult(self):
         i1 = (ipart + 1) * twoN
         j = (ipart + 1) % npartition * twoN
         j1 = ((ipart + 1) % npartition + 1) * twoN
+        k = npartition * twoN + ipart * self.nphase
+        k1 = npartition * twoN + (ipart + 1) * self.nphase
         J[i:i1, i:i1] = M
         J[i:i1, j:j1] = -np.eye(twoN)
         J[i:i1, -1] = dHdt
+        J[k:k1, i:i1] = self.h
+    J[-1, -1] = 1
+    Z = np.zeros((np.shape(J)[0], 1))
+    Z[-1] = 1
+    tgt = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
+    tgt /= spl.norm(tgt)
 
 
 
