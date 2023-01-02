@@ -9,3 +9,4 @@ core.egg-info/
 *.pdf
 *.asv
 *.fig
+*.csv

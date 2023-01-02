@@ -59,7 +59,7 @@ class BeamCpp:
         return X0, T0, pose_base0
 
     @classmethod
-    def run_sim(cls, T, X, par, mult=False):
+    def run_sim(cls, T, X, par, mult=False, target=None):
         # unpack run cont_params
         npartition = par["shooting"]["npartition_multipleshooting"]
         nperiod = par["shooting"]["nperiod_singleshooting"]
@@ -121,13 +121,17 @@ class BeamCpp:
             energy = simdata["/Model_0/energy"][:, -1][0]
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
             periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
-            H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = nperiod * M[:, -1]
             M = np.delete(M, -1, axis=1)
-
             pose = simdata["/Config/POSE"][:]
             vel = simdata["/Config/VELOCITY"][:]
+            if target is None:
+                H = np.concatenate([periodicity_inc, periodicity_vel])
+            else:
+                # multiple shooting: periodicity calculated with respect to X_target
+                H = cls.periodicity(pose[:, -1], vel[:, -1], target)
+                pass
 
             simdata.close()
         else:
@@ -146,3 +150,10 @@ class BeamCpp:
     def get_dofdata(cls):
         return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
                 "ndof_free": cls.ndof_free}
+
+    @classmethod
+    def periodicity(cls, pose, vel, target):
+        # get angles from quaternion pose
+        a=12
+
+        return 0

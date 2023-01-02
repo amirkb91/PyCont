@@ -17,18 +17,18 @@ def psacont_mult(self):
 
     # partition the starting orbit with Poincare sections
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
+    nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
     delta_S = 1 / npartition
-    nsteps = np.shape(self.pose_time0)[1] - 1  # n time steps of first point solution
     sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
-    pose_base = self.pose_time0[:, sol_index]
-    V = self.vel_time0[dofdata["free_dof"]][:, sol_index]
-    T = self.T0 * delta_S
+    pose_base = self.pose_time0.copy()[:, sol_index]
+    V = self.vel_time0.copy()[dofdata["free_dof"]][:, sol_index]
+    T = self.T0.copy() * delta_S
 
     # find tangent matrix: set time component to 1 and solve overdetermined system
     J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
     for ipart in range(npartition):
         self.prob.updatefunction(pose_base[:, ipart])
-        X = np.concatenate((np.zeros_like(V[:, ipart]), V[:, ipart]))
+        X = np.concatenate((np.zeros(N), V[:, ipart]))
         [_, M, dHdt, _, _, _, _] = self.prob.zerofunction(T, X, self.prob.cont_params, mult=True)
         i = ipart * twoN
         i1 = (ipart + 1) * twoN
@@ -37,7 +37,7 @@ def psacont_mult(self):
         k = npartition * twoN + ipart * self.nphase
         k1 = npartition * twoN + (ipart + 1) * self.nphase
         J[i:i1, i:i1] = M
-        J[i:i1, j:j1] = -np.eye(twoN)
+        J[i:i1, j:j1] -= np.eye(twoN)
         J[i:i1, -1] = dHdt
         J[k:k1, i:i1] = self.h
     J[-1, -1] = 1
@@ -66,7 +66,7 @@ def psacont_mult(self):
 
         # prediction step along tangent (INC is 0 as pose_base is updated)
         T_pred = T + tgt[-1] * step * stepsign
-        tgt_reshape = np.reshape(tgt[:-1], (twoN, npartition))
+        tgt_reshape = np.reshape(tgt[:-1], (-1, npartition), order='F')
         INC_pred = tgt_reshape[:N, :] * step * stepsign
         VEL_pred = V + tgt_reshape[N:, :] * step * stepsign
         X_pred = np.concatenate((INC_pred, VEL_pred))
@@ -78,12 +78,25 @@ def psacont_mult(self):
         itercorrect = 0
         while True:
             # calculate residual and block Jacobian
-            [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
-                self.prob.zerofunction(T_pred, X_pred, self.prob.cont_params)
-            J = np.block([
-                [M, dHdt.reshape(-1, 1)],
-                [self.h, np.zeros((self.nphase, 1))],
-                [tgt]])
+            J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
+            for ipart in range(npartition):
+                # target comprised of target pose and target Vel
+                target = np.concatenate((pose_base[:, (ipart + 1) % npartition], X_pred[N:, (ipart + 1) % npartition]))
+
+                self.prob.updatefunction(pose_base[:, ipart])
+                [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
+                    self.prob.zerofunction(T_pred, X_pred[:, ipart], self.prob.cont_params, mult=True, target=None)
+                i = ipart * twoN
+                i1 = (ipart + 1) * twoN
+                j = (ipart + 1) % npartition * twoN
+                j1 = ((ipart + 1) % npartition + 1) * twoN
+                k = npartition * twoN + ipart * self.nphase
+                k1 = npartition * twoN + (ipart + 1) * self.nphase
+                J[i:i1, i:i1] = M
+                J[i:i1, j:j1] -= np.eye(twoN)
+                J[i:i1, -1] = dHdt
+                J[k:k1, i:i1] = self.h
+            J[-1, :] = tgt
 
             if not cvg_zerof:
                 cvg_cont = False
