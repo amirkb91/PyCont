@@ -129,9 +129,9 @@ class BeamCpp:
             if target is None:
                 H = np.concatenate([periodicity_inc, periodicity_vel])
             else:
-                # multiple shooting: periodicity calculated with respect to X_target
+                # multiple shooting: periodicity calculated with respect to target
+                # take final pose and vel to compare with target
                 H = cls.periodicity(pose[:, -1], vel[:, -1], target)
-                pass
 
             simdata.close()
         else:
@@ -153,7 +153,12 @@ class BeamCpp:
 
     @classmethod
     def periodicity(cls, pose, vel, target):
-        # get angles from quaternion pose
-        a=12
+        if len(pose) == cls.ndof_all:
+            # VK formulation
+            posevel = np.concatenate([pose[cls.free_dof], vel[cls.free_dof]])
+            H = posevel - target
+        else:
+            # SE formulation
+            H = None
 
-        return 0
+        return H

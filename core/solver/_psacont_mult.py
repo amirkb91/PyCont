@@ -57,7 +57,7 @@ def psacont_mult(self):
     while True:
         print("\n**************************************\n")
         print(f"Continuation point {itercont}")
-        print(f"Freq = {1 / T:.2f} -- Energy = {energy:.2f}")
+        print(f"Freq = {delta_S / T:.2f} -- Energy = {energy:.2f}")
         print(f"Step = {stepsign * step:.3e}")
         print("Iter \t Residual")
         if itercont > self.prob.cont_params["continuation"]["npts"]:
@@ -79,13 +79,15 @@ def psacont_mult(self):
         while True:
             # calculate residual and block Jacobian
             J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
+            cvg_zerof = [None] * npartition
+            H = np.zeros((twoN, npartition))
             for ipart in range(npartition):
-                # target comprised of target pose and target Vel
-                target = np.concatenate((pose_base[:, (ipart + 1) % npartition], X_pred[N:, (ipart + 1) % npartition]))
-
+                # target is pose and Vel of next Poincare section along orbit. used to calculate periodicity
+                target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
+                                         X_pred[N:, (ipart + 1) % npartition]))
                 self.prob.updatefunction(pose_base[:, ipart])
-                [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
-                    self.prob.zerofunction(T_pred, X_pred[:, ipart], self.prob.cont_params, mult=True, target=None)
+                [H[:, ipart], M, dHdt, pose_time, vel_time, energy_next, cvg_zerof[ipart]] = \
+                    self.prob.zerofunction(T_pred, X_pred[:, ipart], self.prob.cont_params, mult=True, target=target)
                 i = ipart * twoN
                 i1 = (ipart + 1) * twoN
                 j = (ipart + 1) % npartition * twoN
@@ -98,7 +100,7 @@ def psacont_mult(self):
                 J[k:k1, i:i1] = self.h
             J[-1, :] = tgt
 
-            if not cvg_zerof:
+            if not all(cvg_zerof):
                 cvg_cont = False
                 print("Zero function failed to converge.")
                 break
@@ -150,7 +152,7 @@ def psacont_mult(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
                 T = T_pred
-                V = X_pred[len_V:]
+                V = X_pred[N:]
                 tgt = tgt_next
                 energy = energy_next
 
