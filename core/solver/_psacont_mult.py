@@ -99,6 +99,7 @@ def psacont_mult(self):
                 J[i:i1, -1] = dHdt
                 J[k:k1, i:i1] = self.h
             J[-1, :] = tgt
+            H = np.reshape(H, (-1, 1), order='F')
 
             if not all(cvg_zerof):
                 cvg_cont = False
@@ -121,10 +122,10 @@ def psacont_mult(self):
             # apply corrections orthogonal to tangent
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
-            H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+            H = np.vstack([H, hx.reshape(-1, 1, order='F'), np.zeros(1)])
             dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
             T_pred += dxt[-1, 0]
-            dx = dxt[:-1, 0]
+            dx = np.reshape(dxt[:-1], (-1, npartition), order='F')
             X_pred += dx
 
         if cvg_cont:
