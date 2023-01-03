@@ -18,27 +18,29 @@ def psacont_mult(self):
     # partition the starting orbit with Poincare sections
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
     nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
+    nsteps_per_partition = nsteps // npartition
     delta_S = 1 / npartition
     sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
     pose_base = self.pose_time0.copy()[:, sol_index]
     V = self.vel_time0.copy()[dofdata["free_dof"]][:, sol_index]
-    T = self.T0.copy() * delta_S
+    T = self.T0.copy()
 
-    # find tangent matrix: set time component to 1 and solve overdetermined system
+    # find initial tangent matrix: set time component to 1 and solve overdetermined system
     J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
     for ipart in range(npartition):
-        self.prob.updatefunction(pose_base[:, ipart])
-        X = np.concatenate((np.zeros(N), V[:, ipart]))
-        [_, M, dHdt, _, _, _, _] = self.prob.zerofunction(T, X, self.prob.cont_params, mult=True)
         i = ipart * twoN
         i1 = (ipart + 1) * twoN
         j = (ipart + 1) % npartition * twoN
         j1 = ((ipart + 1) % npartition + 1) * twoN
         k = npartition * twoN + ipart * self.nphase
         k1 = npartition * twoN + (ipart + 1) * self.nphase
+
+        self.prob.updatefunction(pose_base[:, ipart])
+        X = np.concatenate((np.zeros(N), V[:, ipart]))
+        [_, M, dHdt, _, _, _, _] = self.prob.zerofunction(T * delta_S, X, self.prob.cont_params, mult=True)
         J[i:i1, i:i1] = M
         J[i:i1, j:j1] -= np.eye(twoN)
-        J[i:i1, -1] = dHdt
+        J[i:i1, -1] = dHdt * delta_S
         J[k:k1, i:i1] = self.h
     J[-1, -1] = 1
     Z = np.zeros((np.shape(J)[0], 1))
@@ -57,47 +59,57 @@ def psacont_mult(self):
     while True:
         print("\n**************************************\n")
         print(f"Continuation point {itercont}")
-        print(f"Freq = {delta_S / T:.2f} -- Energy = {energy:.2f}")
+        print(f"Freq = {1 / T:.2f} -- Energy = {energy:.2f}")
         print(f"Step = {stepsign * step:.3e}")
         print("Iter \t Residual")
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
 
-        # prediction step along tangent (INC is 0 as pose_base is updated)
+        # prediction step (INC is 0 as config is updated)
         T_pred = T + tgt[-1] * step * stepsign
         tgt_reshape = np.reshape(tgt[:-1], (-1, npartition), order='F')
         INC_pred = tgt_reshape[:N, :] * step * stepsign
         VEL_pred = V + tgt_reshape[N:, :] * step * stepsign
         X_pred = np.concatenate((INC_pred, VEL_pred))
-        if delta_S / T_pred > self.prob.cont_params["continuation"]["fmax"]:
+        if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
             print("Maximum frequency reached.")
             break
 
         # correction step
         itercorrect = 0
         while True:
-            # calculate residual and block Jacobian
+            # pose_time and vel_time initialised with size required to stitch from partitions
             J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
             cvg_zerof = [None] * npartition
             H = np.zeros((twoN, npartition))
+            pose_time = np.zeros((np.shape(pose_base)[0], (nsteps_per_partition + 1) * npartition))
+            vel_time = np.zeros((dofdata["ndof_all"], (nsteps_per_partition + 1) * npartition))
+            energy_next = np.zeros(npartition)
+
+            # residual and block Jacobian
             for ipart in range(npartition):
-                # target is pose and Vel of next Poincare section along orbit. used to calculate periodicity
-                target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
-                                         X_pred[N:, (ipart + 1) % npartition]))
-                self.prob.updatefunction(pose_base[:, ipart])
-                [H[:, ipart], M, dHdt, pose_time, vel_time, energy_next, cvg_zerof[ipart]] = \
-                    self.prob.zerofunction(T_pred, X_pred[:, ipart], self.prob.cont_params, mult=True, target=target)
                 i = ipart * twoN
                 i1 = (ipart + 1) * twoN
                 j = (ipart + 1) % npartition * twoN
                 j1 = ((ipart + 1) % npartition + 1) * twoN
                 k = npartition * twoN + ipart * self.nphase
                 k1 = npartition * twoN + (ipart + 1) * self.nphase
+                p = ipart * (nsteps_per_partition + 1)
+                p1 = (ipart + 1) * (nsteps_per_partition + 1)
+
+                self.prob.updatefunction(pose_base[:, ipart])
+                # periodicity target: pose_base and Vel of next Poincare section along orbit
+                target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
+                                         X_pred[N:, (ipart + 1) % npartition]))
+                # calculate residual and block Jacobian
+                [H[:, ipart], M, dHdt, pose_time[:, p:p1], vel_time[:, p:p1], energy_next[ipart], cvg_zerof[ipart]] = \
+                    self.prob.zerofunction(T_pred * delta_S, X_pred[:, ipart], self.prob.cont_params, mult=True, target=target)
                 J[i:i1, i:i1] = M
                 J[i:i1, j:j1] -= np.eye(twoN)
-                J[i:i1, -1] = dHdt
+                J[i:i1, -1] = dHdt * delta_S
                 J[k:k1, i:i1] = self.h
+
             J[-1, :] = tgt
             H = np.reshape(H, (-1, 1), order='F')
 
