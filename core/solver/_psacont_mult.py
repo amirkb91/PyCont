@@ -144,11 +144,9 @@ def psacont_mult(self):
             # find new tangent with converged solution
             # peeters Jacobian is different for tangent update
             if frml == "peeters":
-                J = np.block([
-                    [M, dHdt.reshape(-1, 1)],
-                    [self.h, np.zeros((self.nphase, 1))],
-                    [np.zeros([1, len(X_pred)]), np.ones(1)]])
-            Z = np.vstack([np.zeros((len(X_pred), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
+                J[-1, :] = np.concatenate([np.zeros(npartition * twoN), np.ones(1)])
+            Z = np.zeros((np.shape(J)[0], 1))
+            Z[-1] = 1
             tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
 
@@ -175,7 +173,8 @@ def psacont_mult(self):
                                sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
                 # pose_base for next step
-                pose_base = pose_time[:, 0]
+                # points of poincare sections are repeated when stitching, modify sol_index
+                pose_base = pose_time[:, sol_index + np.arange(npartition)]
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
