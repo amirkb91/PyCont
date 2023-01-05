@@ -17,7 +17,7 @@
     "fmin": 50,
     "fmax": 80,
     "phase_cond_index": "87-173",
-    "plot": false
+    "plot": true
   },
   "shooting": {
     "method": "multiple",

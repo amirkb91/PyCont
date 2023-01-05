@@ -10,43 +10,22 @@ def psacont_mult(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # dof data
+    # dof and partition data
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * dofdata["ndof_free"]
-
-    # partition the starting orbit with Poincare sections
     npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
     nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
     nsteps_per_partition = nsteps // npartition
     delta_S = 1 / npartition
     sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
-    pose_base = self.pose_time0.copy()[:, sol_index]
-    V = self.vel_time0.copy()[dofdata["free_dof"]][:, sol_index]
+
+    # first point solution
     T = self.T0.copy()
-
-    # find initial tangent matrix: set time component to 1 and solve overdetermined system
-    J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
-    for ipart in range(npartition):
-        i = ipart * twoN
-        i1 = (ipart + 1) * twoN
-        j = (ipart + 1) % npartition * twoN
-        j1 = ((ipart + 1) % npartition + 1) * twoN
-        k = npartition * twoN + ipart * self.nphase
-        k1 = npartition * twoN + (ipart + 1) * self.nphase
-
-        self.prob.updatefunction(pose_base[:, ipart])
-        X = np.concatenate((np.zeros(N), V[:, ipart]))
-        [_, M, dHdt, _, _, _, _] = self.prob.zerofunction(T * delta_S, X, self.prob.cont_params, mult=True)
-        J[i:i1, i:i1] = M
-        J[i:i1, j:j1] -= np.eye(twoN)
-        J[i:i1, -1] = dHdt * delta_S
-        J[k:k1, i:i1] = self.h
-    J[-1, -1] = 1
-    Z = np.zeros((np.shape(J)[0], 1))
-    Z[-1] = 1
-    tgt = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
-    tgt /= spl.norm(tgt)
+    V = self.X0.copy().reshape(-1, npartition, order='F')[N:]
+    tgt = self.tgt0.copy()
+    pose_base = self.pose_base0.copy()
+    energy = self.energy0.copy()
 
     # continuation step and direction
     step = self.prob.cont_params["continuation"]["s0"]
@@ -54,7 +33,6 @@ def psacont_mult(self):
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # continuation loop
-    energy = self.energy0.copy()
     itercont = 1
     while True:
         print("\n**************************************\n")
@@ -66,7 +44,7 @@ def psacont_mult(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # prediction step (INC is 0 as config is updated)
+        # prediction step for all partitions (INC is 0 as config is updated)
         T_pred = T + tgt[-1] * step * stepsign
         tgt_reshape = np.reshape(tgt[:-1], (-1, npartition), order='F')
         INC_pred = tgt_reshape[:N, :] * step * stepsign
@@ -79,7 +57,6 @@ def psacont_mult(self):
         # correction step
         itercorrect = 0
         while True:
-            # pose_time and vel_time initialised with size required to stitch from partitions
             J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
             cvg_zerof = [None] * npartition
             H = np.zeros((twoN, npartition))
@@ -104,7 +81,8 @@ def psacont_mult(self):
                                          X_pred[N:, (ipart + 1) % npartition]))
                 # calculate residual and block Jacobian
                 [H[:, ipart], M, dHdt, pose_time[:, p:p1], vel_time[:, p:p1], energy_next[ipart], cvg_zerof[ipart]] = \
-                    self.prob.zerofunction(T_pred * delta_S, X_pred[:, ipart], self.prob.cont_params, mult=True, target=target)
+                    self.prob.zerofunction(T_pred * delta_S, X_pred[:, ipart], self.prob.cont_params, mult=True,
+                                           target=target)
                 J[i:i1, i:i1] = M
                 J[i:i1, j:j1] -= np.eye(twoN)
                 J[i:i1, -1] = dHdt * delta_S
@@ -165,15 +143,15 @@ def psacont_mult(self):
                 T = T_pred
                 V = X_pred[N:]
                 tgt = tgt_next
-                energy = energy_next
+                energy = np.mean(energy_next)
 
                 # store solution in logger
-                self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
+                self.log.store(sol_X=X_pred.copy().reshape(-1, order='F'), sol_T=T.copy(), sol_tgt=tgt.copy(),
                                sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
-                               sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
+                               sol_pose_base=pose_base.copy().reshape(-1, order='F'), sol_energy=energy.copy(),
+                               sol_beta=beta.copy())
 
                 # pose_base for next step
-                # points of poincare sections are repeated when stitching, modify sol_index
                 pose_base = pose_time[:, sol_index + np.arange(npartition)]
 
         # adaptive step size for next point
