@@ -21,7 +21,7 @@
   },
   "shooting": {
     "method": "multiple",
-    "npartition_multipleshooting": 2,
+    "npartition_multipleshooting": 1,
     "nperiod_singleshooting": 1,
     "nsteps_per_period": 100,
     "rel_tol": 1e-08

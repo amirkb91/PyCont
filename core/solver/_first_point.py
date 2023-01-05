@@ -75,10 +75,9 @@ def first_point(self):
     nsteps_per_partition = nsteps // npartition
     delta_S = 1 / npartition
     sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
-    # each partition has its own pose_base
+    # overwrite pose_base so INC=0 as pose_base contains initial conditions
     self.pose_base0 = self.pose_time0[:, sol_index]
     V = self.vel_time0[dofdata["free_dof"]][:, sol_index]
-    # as we have pose_base, INC is therefore zero
     X = np.concatenate((np.zeros((N, npartition)), V))
 
     # tangent matrix: set T component to 1 and solve overdetermined system

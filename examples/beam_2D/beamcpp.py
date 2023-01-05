@@ -36,7 +36,7 @@ class BeamCpp:
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
 
-        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:,0]
+        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:, 0]
         cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
         cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
         cls.ndof_free = len(cls.free_dof)
