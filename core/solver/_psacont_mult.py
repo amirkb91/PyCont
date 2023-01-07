@@ -18,7 +18,9 @@ def psacont_mult(self):
     nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
     nsteps_per_partition = nsteps // npartition
     delta_S = 1 / npartition
-    sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
+    timesol_partition_start_index = int(nsteps * delta_S) * np.arange(npartition) + np.arange(npartition)
+    timesol_partition_end_index = timesol_partition_start_index - 1
+    block_order = (np.arange(npartition) + 1) % npartition
 
     # first point solution
     T = self.T0.copy()
@@ -77,19 +79,23 @@ def psacont_mult(self):
 
                 self.prob.updatefunction(pose_base[:, ipart])
                 # periodicity target: pose_base and Vel of next Poincare section along orbit
-                target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
-                                         X_pred[N:, (ipart + 1) % npartition]))
+                # target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
+                #                          X_pred[N:, (ipart + 1) % npartition]))
                 # calculate residual and block Jacobian
-                [H[:, ipart], M, dHdt, pose_time[:, p:p1], vel_time[:, p:p1], energy_next[ipart], cvg_zerof[ipart]] = \
+                [_, M, dHdt, pose_time[:, p:p1], vel_time[:, p:p1], energy_next[ipart], cvg_zerof[ipart]] = \
                     self.prob.zerofunction(T_pred * delta_S, X_pred[:, ipart], self.prob.cont_params, mult=True,
-                                           target=target)
+                                           target=None)
                 J[i:i1, i:i1] = M
                 J[i:i1, j:j1] -= np.eye(twoN)
                 J[i:i1, -1] = dHdt * delta_S
                 J[k:k1, i:i1] = self.h
-
             J[-1, :] = tgt
-            H = np.reshape(H, (-1, 1), order='F')
+
+            H1 = pose_time[dofdata["free_dof"]][:, timesol_partition_end_index[block_order]] - \
+                pose_time[dofdata["free_dof"]][:, timesol_partition_start_index[block_order]]
+            H2 = vel_time[dofdata["free_dof"]][:, timesol_partition_end_index[block_order]] - \
+                vel_time[dofdata["free_dof"]][:, timesol_partition_start_index[block_order]]
+            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
             if not all(cvg_zerof):
                 cvg_cont = False
@@ -152,7 +158,7 @@ def psacont_mult(self):
                                sol_beta=beta.copy())
 
                 # pose_base for next step
-                pose_base = pose_time[:, sol_index + np.arange(npartition)]
+                pose_base = pose_time[:, timesol_partition_start_index]
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

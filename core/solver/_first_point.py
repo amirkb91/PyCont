@@ -74,10 +74,10 @@ def first_point(self):
     nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
     nsteps_per_partition = nsteps // npartition
     delta_S = 1 / npartition
-    sol_index = (nsteps * delta_S * np.arange(npartition)).astype(int)
+    timesol0_partition_index = int(nsteps * delta_S) * np.arange(npartition)
     # overwrite pose_base so INC=0 as pose_base contains initial conditions
-    self.pose_base0 = self.pose_time0[:, sol_index]
-    V = self.vel_time0[dofdata["free_dof"]][:, sol_index]
+    self.pose_base0 = self.pose_time0[:, timesol0_partition_index]
+    V = self.vel_time0[dofdata["free_dof"]][:, timesol0_partition_index]
     X = np.concatenate((np.zeros((N, npartition)), V))
 
     # tangent matrix: set T component to 1 and solve overdetermined system
@@ -95,7 +95,8 @@ def first_point(self):
         p1 = (ipart + 1) * (nsteps_per_partition + 1)
 
         self.prob.updatefunction(self.pose_base0[:, ipart])
-        [_, M, dHdt, self.pose_time0[:, p:p1], self.vel_time0[:, p:p1], _, _] = self.prob.zerofunction(self.T0 * delta_S, X[:, ipart], self.prob.cont_params, mult=True)
+        [_, M, dHdt, self.pose_time0[:, p:p1], self.vel_time0[:, p:p1], _, _] = \
+            self.prob.zerofunction(self.T0 * delta_S, X[:, ipart], self.prob.cont_params, mult=True)
         J[i:i1, i:i1] = M
         J[i:i1, j:j1] -= np.eye(twoN)
         J[i:i1, -1] = dHdt * delta_S
