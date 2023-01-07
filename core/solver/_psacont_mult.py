@@ -59,7 +59,7 @@ def psacont_mult(self):
         # correction step
         itercorrect = 0
         while True:
-            J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
+            J = np.zeros((npartition * twoN + self.nphase + 1, npartition * twoN + 1))
             cvg_zerof = [None] * npartition
             H = np.zeros((twoN, npartition))
             pose_time = np.zeros((np.shape(pose_base)[0], (nsteps_per_partition + 1) * npartition))
@@ -72,8 +72,6 @@ def psacont_mult(self):
                 i1 = (ipart + 1) * twoN
                 j = (ipart + 1) % npartition * twoN
                 j1 = ((ipart + 1) % npartition + 1) * twoN
-                k = npartition * twoN + ipart * self.nphase
-                k1 = npartition * twoN + (ipart + 1) * self.nphase
                 p = ipart * (nsteps_per_partition + 1)
                 p1 = (ipart + 1) * (nsteps_per_partition + 1)
 
@@ -88,7 +86,7 @@ def psacont_mult(self):
                 J[i:i1, i:i1] = M
                 J[i:i1, j:j1] -= np.eye(twoN)
                 J[i:i1, -1] = dHdt * delta_S
-                J[k:k1, i:i1] = self.h
+            J[npartition * twoN:npartition * twoN + self.nphase, :twoN] = self.h
             J[-1, :] = tgt
 
             H1 = pose_time[dofdata["free_dof"]][:, timesol_partition_end_index[block_order]] - \
@@ -117,7 +115,7 @@ def psacont_mult(self):
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
-            hx = np.matmul(self.h, X_pred)
+            hx = np.matmul(self.h, X_pred[:, 0])
             H = np.vstack([H, hx.reshape(-1, 1, order='F'), np.zeros(1)])
             dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
             T_pred += dxt[-1, 0]

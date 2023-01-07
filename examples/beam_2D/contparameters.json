@@ -3,7 +3,7 @@
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
-    "npts": 5000,
+    "npts": 30,
     "tol": 0.001,
     "itermin": 0,
     "iteropt": 4,

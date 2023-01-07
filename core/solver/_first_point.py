@@ -79,9 +79,10 @@ def first_point(self):
     self.pose_base0 = self.pose_time0[:, timesol0_partition_index]
     V = self.vel_time0[dofdata["free_dof"]][:, timesol0_partition_index]
     X = np.concatenate((np.zeros((N, npartition)), V))
+    self.X0 = np.reshape(X, (-1), order='F')
 
     # tangent matrix: set T component to 1 and solve overdetermined system
-    J = np.zeros((npartition * (twoN + self.nphase) + 1, npartition * twoN + 1))
+    J = np.zeros((npartition * twoN + self.nphase + 1, npartition * twoN + 1))
     self.pose_time0 = np.zeros((np.shape(self.pose_base0)[0], (nsteps_per_partition + 1) * npartition))
     self.vel_time0 = np.zeros((dofdata["ndof_all"], (nsteps_per_partition + 1) * npartition))
     for ipart in range(npartition):
@@ -89,8 +90,6 @@ def first_point(self):
         i1 = (ipart + 1) * twoN
         j = (ipart + 1) % npartition * twoN
         j1 = ((ipart + 1) % npartition + 1) * twoN
-        k = npartition * twoN + ipart * self.nphase
-        k1 = npartition * twoN + (ipart + 1) * self.nphase
         p = ipart * (nsteps_per_partition + 1)
         p1 = (ipart + 1) * (nsteps_per_partition + 1)
 
@@ -100,13 +99,12 @@ def first_point(self):
         J[i:i1, i:i1] = M
         J[i:i1, j:j1] -= np.eye(twoN)
         J[i:i1, -1] = dHdt * delta_S
-        J[k:k1, i:i1] = self.h
+    J[npartition * twoN:npartition * twoN + self.nphase, :twoN] = self.h
     J[-1, -1] = 1
     Z = np.zeros((np.shape(J)[0], 1))
     Z[-1] = 1
     self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
     self.tgt0 /= spl.norm(self.tgt0)
-    self.X0 = np.reshape(X, (-1), order='F')
 
     # store solution in logger
     self.log.store(sol_X=self.X0.copy(), sol_T=self.T0.copy(), sol_tgt=self.tgt0.copy(),
