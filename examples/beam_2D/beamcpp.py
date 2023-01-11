@@ -53,10 +53,53 @@ class BeamCpp:
         T0 = 1 / frq[nnm - 1, 0]
         pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
-        # update config with reference pose to create ic file
-        cls.config_update(pose_base0)
+        # run sim with eig ic and partition if multiple shooting
+        simdata = cls.run_cpp(pose_base0, T0, X0, cont_params)
+
+        #
 
         return X0, T0, pose_base0
+
+    @staticmethod
+    def partition_x(X0):
+        #  find X for all partition
+        pass
+
+    @classmethod
+    def run_cpp(cls, pose_base, T, X, par):
+        nperiod = par["shooting"]["nperiod_singleshooting"]
+        nsteps = par["shooting"]["nsteps_per_period"]
+        rel_tol = par["shooting"]["rel_tol"]
+
+        inc = X[:cls.ndof_free]
+        vel = X[cls.ndof_free:]
+        inc = np.pad(inc, (cls.ndof_fix, 0), "constant")
+        vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
+
+        cls.config_update(pose_base)
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
+        if "/Config/INC" in icdata:
+            del icdata["Config/INC"]
+        if "/Config/VELOCITY" in icdata:
+            del icdata["Config/VELOCITY"]
+        icdata["/Config/INC"] = inc.reshape(-1, 1)
+        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
+        icdata.close()
+
+        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T * nperiod
+        cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
+            cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
+        json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
+
+        subprocess.run("cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
+                       shell=True,
+                       stdout=open(cls.cpp_path + "cpp.out", "w"),
+                       stderr=open(cls.cpp_path + "cpp.err", "w"))
+        cppout = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+
+        return cppout
 
     @classmethod
     def run_sim(cls, T, X, par, mult=False, target=None):
