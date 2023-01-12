@@ -22,24 +22,18 @@ class BeamCpp:
 
     @classmethod
     def run_eig(cls, cont_params):
-        # Run eigen solver and store initial solution
-        # Run sim solver to get config data
-        cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
-            cls.cppeig_exe + " " + cls.cpp_paramfile + "&&" +
-            cls.cppsim_exe + " " + cls.cpp_paramfile,
-            shell=True,
-            stdout=open(cls.cpp_path + "cpp.out", "w"),
-            stderr=open(cls.cpp_path + "cpp.err", "w"),
-        )
+        # Run eigen solver and store initial solution and run sim to get dof data
+        subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
+                       cls.cppeig_exe + " " + cls.cpp_paramfile + "&&" +
+                       cls.cppsim_exe + " " + cls.cpp_paramfile,
+                       shell=True,
+                       stdout=open(cls.cpp_path + "cpp.out", "w"),
+                       stderr=open(cls.cpp_path + "cpp.err", "w"))
 
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-
-        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:, 0]
-        cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
-        cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
-        cls.ndof_free = len(cls.free_dof)
+        cls.set_dofdata(simdata)
+        simdata.close()
 
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
         frq = eigdata["/eigen_analysis/Frequencies"]
@@ -53,23 +47,33 @@ class BeamCpp:
         T0 = 1 / frq[nnm - 1, 0]
         pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
-        # run sim with eig ic and partition if multiple shooting
-        simdata = cls.run_cpp(pose_base0, T0, X0, cont_params)
-
-        #
+        # partition X0 and pose_base0 for multiple shooting
+        if cont_params["shooting"]["method"] == "multiple":
+            simdata = cls.run_cpp(pose_base0, T0, X0, cont_params)
+            X0, pose_base0 = cls.partition_singleshooting_solution(simdata, cont_params)
 
         return X0, T0, pose_base0
 
-    @staticmethod
-    def partition_x(X0):
-        #  find X for all partition
-        pass
+    @classmethod
+    def partition_singleshooting_solution(cls, simdata, cont_params):
+        pose_time = simdata["/Config/POSE"][:]
+        vel_time = simdata["/Config/VELOCITY"][:]
+        npartition = cont_params["shooting"]["npartition_multipleshooting"]
+        nsteps = cont_params["shooting"]["nsteps_per_period"]
+        delta_S = 1 / npartition
+        timesol_partition_index = int(nsteps * delta_S) * np.arange(npartition)
+        V = vel_time[cls.free_dof][:, timesol_partition_index]
+        # INC is zero as pose_base is also updated
+        X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
+        X = np.reshape(X, (-1), order='F')
+        pose_base = pose_time[:, timesol_partition_index]
+        return X, pose_base
 
     @classmethod
-    def run_cpp(cls, pose_base, T, X, par):
-        nperiod = par["shooting"]["nperiod_singleshooting"]
-        nsteps = par["shooting"]["nsteps_per_period"]
-        rel_tol = par["shooting"]["rel_tol"]
+    def run_cpp(cls, pose_base, T, X, cont_params):
+        nperiod = cont_params["shooting"]["nperiod_singleshooting"]
+        nsteps = cont_params["shooting"]["nsteps_per_period"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
 
         inc = X[:cls.ndof_free]
         vel = X[cls.ndof_free:]
@@ -97,17 +101,17 @@ class BeamCpp:
                        shell=True,
                        stdout=open(cls.cpp_path + "cpp.out", "w"),
                        stderr=open(cls.cpp_path + "cpp.err", "w"))
-        cppout = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
 
-        return cppout
+        return simdata
 
     @classmethod
-    def run_sim(cls, T, X, par, mult=False, target=None):
+    def run_sim(cls, T, X, cont_params, mult=False, target=None):
         # unpack run cont_params
-        npartition = par["shooting"]["npartition_multipleshooting"]
-        nperiod = par["shooting"]["nperiod_singleshooting"]
-        nsteps = par["shooting"]["nsteps_per_period"]
-        rel_tol = par["shooting"]["rel_tol"]
+        npartition = cont_params["shooting"]["npartition_multipleshooting"]
+        nperiod = cont_params["shooting"]["nperiod_singleshooting"]
+        nsteps = cont_params["shooting"]["nsteps_per_period"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
         fine_factor = 2
         # modify nsteps if multiple shooting
         if mult:
@@ -184,7 +188,7 @@ class BeamCpp:
 
     @classmethod
     def config_update(cls, pose):
-        # update beam configuration by writing initial conditions
+        # update beam configuration by writing initial conditions pose
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
         icdata["/Config/POSE"] = pose.reshape(-1, 1)
         icdata.close()
@@ -193,6 +197,13 @@ class BeamCpp:
     def get_dofdata(cls):
         return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
                 "ndof_free": cls.ndof_free}
+
+    @classmethod
+    def set_dofdata(cls, simdata):
+        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:, 0]
+        cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
+        cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
+        cls.ndof_free = len(cls.free_dof)
 
     @classmethod
     def periodicity(cls, pose, vel, target):
