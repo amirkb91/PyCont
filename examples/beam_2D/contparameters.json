@@ -21,10 +21,15 @@
   },
   "shooting": {
     "method": "multiple",
-    "npartition_multipleshooting": 2,
-    "nperiod_singleshooting": 1,
-    "nsteps_per_period": 100,
-    "rel_tol": 1e-08
+    "rel_tol": 1e-08,
+    "single": {
+      "nperiod": 3,
+      "nsteps_per_period": 100
+    },
+    "multiple": {
+      "npartition": 2,
+      "nsteps_per_partition": 50
+    }
   },
   "first_point": {
     "itermax": 30,

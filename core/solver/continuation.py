@@ -22,7 +22,7 @@ class ConX:
     def solve(self):
         # calculate phase condition matrix h
         phase_condition(self)
-        # compute first point of the branch
+        # correct starting solution
         first_point(self)
         if self.prob.cont_params["continuation"]["method"] == "seq":
             # sequential continuation
