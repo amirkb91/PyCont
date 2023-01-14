@@ -48,11 +48,11 @@ class BeamCpp:
         pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
         # partition X0 and pose_base0 for multiple shooting
-        if cont_params["shooting"]["method"] == "multiple":
-            cls.config_update(pose_base0)
-            simdata = cls.runsim_single_oneorbit(T0, X0, cont_params)
-            X0, pose_base0 = cls.partition_singleshooting_solution(simdata, cont_params)
-            simdata.close()
+        # if cont_params["shooting"]["method"] == "multiple":
+        #     cls.config_update(pose_base0)
+        #     simdata = cls.runsim_single_oneorbit(T0, X0, cont_params)
+        #     X0, pose_base0 = cls.partition_singleshooting_solution(simdata, cont_params)
+        #     simdata.close()
 
         return X0, T0, pose_base0
 
@@ -62,10 +62,6 @@ class BeamCpp:
         rel_tol = cont_params["shooting"]["rel_tol"]
         simdata, _ = cls.run_cpp(T, X, nsteps, rel_tol)
         return simdata
-
-    @classmethod
-    def runsim_single(cls):
-        pass
 
     @classmethod
     def runsim_multiple(cls, T, X, pose_base, cont_params):
@@ -107,15 +103,40 @@ class BeamCpp:
             J[i:i1, -1] = dHdt * delta_S
             simdata.close()
 
+        energy = np.mean(energy)
+        cvg = all(cvg)
         H1 = pose_time[cls.free_dof][:, timesol_partition_end_index[block_order]] - \
             pose_time[cls.free_dof][:, timesol_partition_start_index[block_order]]
         H2 = vel_time[cls.free_dof][:, timesol_partition_end_index[block_order]] - \
             vel_time[cls.free_dof][:, timesol_partition_start_index[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
-        energy = np.mean(energy)
-        cvg = all(cvg)
 
         return H, J, pose_time, vel_time, energy, cvg
+
+    @classmethod
+    def runsim_single(cls, T, X, cont_params):
+        nperiod = cont_params["shooting"]["single"]["nperiod"]
+        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
+
+        simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps, rel_tol)
+        if cvg:
+            energy = simdata["/Model_0/energy"][:, -1][0]
+            periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
+            periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
+            pose = simdata["/Config/POSE"][:]
+            vel = simdata["/Config/VELOCITY"][:]
+            H = np.concatenate([periodicity_inc, periodicity_vel])
+            M = simdata["/Sensitivity/Monodromy"][:]
+            dHdt = M[:, -1] * nperiod
+            M = np.delete(M, -1, axis=1)
+            M -= np.eye(len(M))
+            J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
+            simdata.close()
+        else:
+            H = J = pose = vel = energy = None
+
+        return H, J, pose, vel, energy, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -147,87 +168,6 @@ class BeamCpp:
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         cvg = not bool(cpprun.returncode)
         return simdata, cvg
-
-    @classmethod
-    def run_sim_old(cls, T, X, cont_params, mult=False, target=None):
-        # unpack run cont_params
-        npartition = cont_params["shooting"]["npartition_multipleshooting"]
-        nperiod = cont_params["shooting"]["nperiod_singleshooting"]
-        nsteps = cont_params["shooting"]["nsteps_per_period"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        fine_factor = 2
-        # modify nsteps if multiple shooting
-        if mult:
-            nsteps //= npartition
-            nperiod = 1
-        nsteps_fine = nsteps * fine_factor
-
-        # get INC and VEL from X
-        inc = X[:cls.ndof_free]
-        vel = X[cls.ndof_free:]
-        inc = np.pad(inc, (cls.ndof_fix, 0), "constant")
-        vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
-
-        # write initial conditions to ic_file
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
-        if "/Config/INC" in icdata:
-            del icdata["Config/INC"]
-        if "/Config/VELOCITY" in icdata:
-            del icdata["Config/VELOCITY"]
-        icdata["/Config/INC"] = inc.reshape(-1, 1)
-        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
-        icdata.close()
-
-        # edit C++ parameter file
-        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps * nperiod
-        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T * nperiod
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
-            cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
-
-        run_twice = False
-        while True:
-            json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
-            cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
-                shell=True,
-                stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w"),
-            )
-            if cpprun.returncode == 0:
-                cvg = True
-                break
-            else:
-                cvg = False
-                if run_twice:
-                    print(f"Time Sim failed - Running with {fine_factor}x points")
-                    cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps_fine * nperiod
-                    run_twice = False
-                else:
-                    break
-
-        if cvg:
-            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            energy = simdata["/Model_0/energy"][:, -1][0]
-            periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
-            periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
-            M = simdata["/Sensitivity/Monodromy"][:]
-            dHdt = nperiod * M[:, -1]
-            M = np.delete(M, -1, axis=1)
-            pose = simdata["/Config/POSE"][:]
-            vel = simdata["/Config/VELOCITY"][:]
-            if target is None:
-                H = np.concatenate([periodicity_inc, periodicity_vel])
-            else:
-                # multiple shooting: periodicity calculated with respect to target
-                # take final pose and vel to compare with target
-                H = cls.periodicity(pose[:, -1], vel[:, -1], target)
-
-            simdata.close()
-        else:
-            H = M = dHdt = pose = vel = energy = None
-
-        return H, M, dHdt, pose, vel, energy, cvg
 
     @classmethod
     def config_update(cls, pose):
