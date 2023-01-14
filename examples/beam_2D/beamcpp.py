@@ -112,9 +112,10 @@ class BeamCpp:
         H2 = vel_time[cls.free_dof][:, timesol_partition_end_index[block_order]] - \
             vel_time[cls.free_dof][:, timesol_partition_start_index[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
+        energy = np.mean(energy)
+        cvg = all(cvg)
 
         return H, J, pose_time, vel_time, energy, cvg
-
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -144,7 +145,7 @@ class BeamCpp:
                                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                                 stderr=open(cls.cpp_path + "cpp.err", "w"))
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-        cvg = not bool(cpprun)
+        cvg = not bool(cpprun.returncode)
         return simdata, cvg
 
     @classmethod

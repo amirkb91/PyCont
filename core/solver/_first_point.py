@@ -14,9 +14,9 @@ def first_point(self):
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            [H, M, dHdt, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
-            M = M - np.eye(len(M))
+            [H, J, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
+                self.prob.zerofunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
