@@ -114,18 +114,19 @@ class BeamCpp:
         return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
-    def runsim_single(cls, T, X, cont_params):
+    def runsim_single(cls, T, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
 
+        cls.config_update(pose_base)
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps, rel_tol)
         if cvg:
             energy = simdata["/Model_0/energy"][:, -1][0]
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
             periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
-            pose = simdata["/Config/POSE"][:]
-            vel = simdata["/Config/VELOCITY"][:]
+            pose_time = simdata["/Config/POSE"][:]
+            vel_time = simdata["/Config/VELOCITY"][:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * nperiod
@@ -134,9 +135,9 @@ class BeamCpp:
             J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
             simdata.close()
         else:
-            H = J = pose = vel = energy = None
+            H = J = pose_time = vel_time = energy = None
 
-        return H, J, pose, vel, energy, cvg
+        return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):

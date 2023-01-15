@@ -32,9 +32,10 @@ def first_point(self):
             if not restart:
                 # correct X0 and T0
                 # Jacobian with orthogonality to linear solution
-                J = np.vstack((J,
-                               np.concatenate([self.h, np.zeros((self.nphase, 1))], axis=1),
-                               np.concatenate([self.X0, np.zeros(1)])))
+                J = np.block([
+                    [J],
+                    [self.h, np.zeros((self.nphase, 1))],
+                    [self.X0, np.zeros(1)]])
                 hx = np.matmul(self.h, self.X0)
                 H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
                 dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
