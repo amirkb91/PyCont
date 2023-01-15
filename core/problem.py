@@ -4,11 +4,13 @@ import json
 
 class Prob:
     def __init__(self):
+        self.zerofunction_firstpoint = None
         self.cont_params = None
         self.zerofunction = None
         self.icfunction = None
         self.updatefunction = None
         self.doffunction = None
+        self.partitionfunction = None
 
     def read_contparams(self, cont_paramfile):
         if os.path.exists(cont_paramfile):
@@ -18,6 +20,9 @@ class Prob:
 
     def add_zerofunction(self, fxn):
         self.zerofunction = fxn
+        
+    def add_zerofunction_firstpoint(self, fxn):
+        self.zerofunction_firstpoint = fxn
 
     def add_icfunction(self, fxn):
         self.icfunction = fxn
@@ -27,3 +32,6 @@ class Prob:
 
     def add_doffunction(self, fxn):
         self.doffunction = fxn
+        
+    def add_partitionfunction(self, fxn):
+        self.partitionfunction = fxn    

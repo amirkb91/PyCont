@@ -28,7 +28,7 @@
     },
     "multiple": {
       "npartition": 2,
-      "nsteps_per_partition": 50
+      "nsteps_per_partition": 100
     }
   },
   "first_point": {

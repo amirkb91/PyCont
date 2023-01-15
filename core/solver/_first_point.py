@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg as spl
+from ._phase_condition import phase_condition
 
 
 def first_point(self):
@@ -14,8 +15,13 @@ def first_point(self):
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
+            # residual and Jacobian with orthogonality to linear solution
             [H, J, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+            J = np.block([
+                [J],
+                [self.h, np.zeros((self.nphase, 1))],
+                [self.X0, np.zeros(1)]])
 
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -31,14 +37,9 @@ def first_point(self):
             iter_firstpoint += 1
             if not restart:
                 # correct X0 and T0
-                # Jacobian with orthogonality to linear solution
-                J = np.block([
-                    [J],
-                    [self.h, np.zeros((self.nphase, 1))],
-                    [self.X0, np.zeros(1)]])
                 hx = np.matmul(self.h, self.X0)
-                H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-                dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+                H_all = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+                dxt = spl.lstsq(J, -H_all, cond=None, check_finite=False, lapack_driver="gelsy")[0]
                 self.T0 += dxt[-1, 0]
                 dx = dxt[:-1, 0]
                 self.X0 += dx
@@ -66,41 +67,24 @@ def first_point(self):
         print("RESTARTING from previous run.")
         print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
-    # Compute Tangent: Partition with Poincare sections for multiple shooting
-    dofdata = self.prob.doffunction()
-    N = dofdata["ndof_free"]
-    twoN = 2 * dofdata["ndof_free"]
-    npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
-    nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
-    nsteps_per_partition = nsteps // npartition
-    delta_S = 1 / npartition
-    timesol0_partition_index = int(nsteps * delta_S) * np.arange(npartition)
-    # overwrite pose_base so INC=0 as pose_base contains initial conditions
-    self.pose_base0 = self.pose_time0[:, timesol0_partition_index]
-    V = self.vel_time0[dofdata["free_dof"]][:, timesol0_partition_index]
-    X = np.concatenate((np.zeros((N, npartition)), V))
-    self.X0 = np.reshape(X, (-1), order='F')
+    # Compute Tangent
+    if self.prob.cont_params["shooting"]["method"] == "single":
+        pass
+    elif self.prob.cont_params["shooting"]["method"] == "multiple":
+        # partition solution
+        X_partition, pose_base0_partition = \
+         self.prob.partitionfunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+        self.X0 = X_partition
+        self.pose_base0 = pose_base0_partition
+        [H, J, self.pose_time0, self.vel_time0, _, _] = \
+            self.prob.zerofunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+        # size of X0 has changed so reconfigure phase condition matrix
+        phase_condition(self)
 
-    # tangent matrix: set T component to 1 and solve overdetermined system
-    J = np.zeros((npartition * twoN + self.nphase + 1, npartition * twoN + 1))
-    self.pose_time0 = np.zeros((np.shape(self.pose_base0)[0], (nsteps_per_partition + 1) * npartition))
-    self.vel_time0 = np.zeros((dofdata["ndof_all"], (nsteps_per_partition + 1) * npartition))
-    for ipart in range(npartition):
-        i = ipart * twoN
-        i1 = (ipart + 1) * twoN
-        j = (ipart + 1) % npartition * twoN
-        j1 = ((ipart + 1) % npartition + 1) * twoN
-        p = ipart * (nsteps_per_partition + 1)
-        p1 = (ipart + 1) * (nsteps_per_partition + 1)
-
-        self.prob.updatefunction(self.pose_base0[:, ipart])
-        [_, M, dHdt, self.pose_time0[:, p:p1], self.vel_time0[:, p:p1], _, _] = \
-            self.prob.zerofunction(self.T0 * delta_S, X[:, ipart], self.prob.cont_params, mult=True)
-        J[i:i1, i:i1] = M
-        J[i:i1, j:j1] -= np.eye(twoN)
-        J[i:i1, -1] = dHdt * delta_S
-    J[npartition * twoN:npartition * twoN + self.nphase, :twoN] = self.h
-    J[-1, -1] = 1
+    J = np.block([
+        [J],
+        [self.h, np.zeros((self.nphase, 1))],
+        [np.zeros(len(self.X0)), np.ones(1)]])
     Z = np.zeros((np.shape(J)[0], 1))
     Z[-1] = 1
     self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]

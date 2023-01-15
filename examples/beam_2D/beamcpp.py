@@ -57,20 +57,13 @@ class BeamCpp:
         return X0, T0, pose_base0
 
     @classmethod
-    def runsim_single_oneorbit(cls, T, X, cont_params):
-        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        simdata, _ = cls.run_cpp(T, X, nsteps, rel_tol)
-        return simdata
-
-    @classmethod
     def runsim_multiple(cls, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         delta_S = 1 / npartition
-        timesol_partition_start_index = nsteps * np.arange(npartition) + np.arange(npartition)
-        timesol_partition_end_index = timesol_partition_start_index - 1
+        timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
+        timesol_partition_index_end = timesol_partition_index_start - 1
         block_order = (np.arange(npartition) + 1) % npartition
 
         N = cls.ndof_free
@@ -105,10 +98,10 @@ class BeamCpp:
 
         energy = np.mean(energy)
         cvg = all(cvg)
-        H1 = pose_time[cls.free_dof][:, timesol_partition_end_index[block_order]] - \
-            pose_time[cls.free_dof][:, timesol_partition_start_index[block_order]]
-        H2 = vel_time[cls.free_dof][:, timesol_partition_end_index[block_order]] - \
-            vel_time[cls.free_dof][:, timesol_partition_start_index[block_order]]
+        H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
+            pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
+        H2 = vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
+            vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
         return H, J, pose_time, vel_time, energy, cvg
@@ -120,7 +113,7 @@ class BeamCpp:
         rel_tol = cont_params["shooting"]["rel_tol"]
 
         cls.config_update(pose_base)
-        simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps, rel_tol)
+        simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
             energy = simdata["/Model_0/energy"][:, -1][0]
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
@@ -138,6 +131,13 @@ class BeamCpp:
             H = J = pose_time = vel_time = energy = None
 
         return H, J, pose_time, vel_time, energy, cvg
+
+    @classmethod
+    def runsim_single_oneorbit(cls, T, X, cont_params):
+        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
+        simdata, _ = cls.run_cpp(T, X, nsteps, rel_tol)
+        return simdata
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -178,23 +178,23 @@ class BeamCpp:
         icdata.close()
 
     @classmethod
-    def partition_singleshooting_solution(cls, simdata, cont_params):
+    def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
+        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
+
+        cls.config_update(pose_base)
+        simdata, cvg = cls.run_cpp(T, X, nsteps, rel_tol)
         pose_time = simdata["/Config/POSE"][:]
         vel_time = simdata["/Config/VELOCITY"][:]
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        timesol_partition_index = nsteps * np.arange(npartition)
-        V = vel_time[cls.free_dof][:, timesol_partition_index]
-        # INC is zero as pose_base is also updated
+        timesol_partition_index_start = nsteps * np.arange(npartition)
+        V = vel_time[cls.free_dof][:, timesol_partition_index_start]
+        # INC is zero as pose_base is replaced
         X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
         X = np.reshape(X, (-1), order='F')
-        pose_base = pose_time[:, timesol_partition_index]
+        pose_base = pose_time[:, timesol_partition_index_start]
         return X, pose_base
-
-    @classmethod
-    def get_dofdata(cls):
-        return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
-                "ndof_free": cls.ndof_free}
 
     @classmethod
     def set_dofdata(cls, simdata):
@@ -202,6 +202,11 @@ class BeamCpp:
         cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
         cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
         cls.ndof_free = len(cls.free_dof)
+
+    @classmethod
+    def get_dofdata(cls):
+        return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
+                "ndof_free": cls.ndof_free}
 
     @classmethod
     def periodicity(cls, pose, vel, target):
