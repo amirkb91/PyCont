@@ -23,7 +23,7 @@
     "method": "multiple",
     "rel_tol": 1e-08,
     "single": {
-      "nperiod": 1,
+      "nperiod": 3,
       "nsteps_per_period": 200
     },
     "multiple": {

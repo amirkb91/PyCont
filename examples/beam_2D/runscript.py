@@ -9,7 +9,10 @@ from beamcpp import BeamCpp
 prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_zerofunction_firstpoint(BeamCpp.runsim_single)
-prob.add_zerofunction(BeamCpp.runsim_multiple)
+if prob.cont_params["shooting"]["method"] == "single":
+    prob.add_zerofunction(BeamCpp.runsim_single)
+elif prob.cont_params["shooting"]["method"] == "multiple":
+    prob.add_zerofunction(BeamCpp.runsim_multiple)
 prob.add_icfunction(BeamCpp.run_eig)
 prob.add_partitionfunction(BeamCpp.partition_singleshooting_solution)
 prob.add_updatefunction(BeamCpp.config_update)

@@ -29,6 +29,10 @@ class Logger:
             self.ln = []
         if self.prob.cont_params["continuation"]["method"] == "psa":
             self.betaplot = True
+        if self.prob.cont_params["shooting"]["method"] == "single":
+            self.npartition = 1
+        elif self.prob.cont_params["shooting"]["method"] == "multiple":
+            self.npartition = self.prob.cont_params["shooting"]["multiple"]["npartition"]
 
     def store(self, **sol_data):
         self.store_index += 1
@@ -44,7 +48,7 @@ class Logger:
             elif key == "sol_vel_time":
                 self.sol_vel_time.append(value)
             elif key == "sol_pose_base":
-                self.sol_pose_base.append(value.reshape(-1, order='F'))
+                self.sol_pose_base.append(value.reshape(-1, self.npartition, order='F'))
             elif key == "sol_energy":
                 self.sol_energy.append(value)
             elif key == "sol_beta":
@@ -62,7 +66,7 @@ class Logger:
         savefile["/Tangent"] = np.asarray(self.sol_tgt).T
         savefile["/Config/POSE_time"] = np.transpose(np.asarray(self.sol_pose_time), (1, 2, 0))
         savefile["/Config/VELOCITY_time"] = np.transpose(np.asarray(self.sol_vel_time), (1, 2, 0))
-        savefile["/POSE_base"] = np.asarray(self.sol_pose_base).T
+        savefile["/Config/POSE_base"] = np.transpose(np.asarray(self.sol_pose_base), (1, 2, 0))
         savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)

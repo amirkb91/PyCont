@@ -22,14 +22,12 @@ class BeamCpp:
 
     @classmethod
     def run_eig(cls, cont_params):
-        # Run eigen solver and store initial solution and run sim to get dof data
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
                        cls.cppeig_exe + " " + cls.cpp_paramfile + "&&" +
                        cls.cppsim_exe + " " + cls.cpp_paramfile,
                        shell=True,
                        stdout=open(cls.cpp_path + "cpp.out", "w"),
                        stderr=open(cls.cpp_path + "cpp.err", "w"))
-
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         cls.set_dofdata(simdata)
@@ -167,12 +165,12 @@ class BeamCpp:
         vel_time = simdata["/Config/VELOCITY"][:]
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        timesol_partition_index_start = nsteps * np.arange(npartition)
-        V = vel_time[cls.free_dof][:, timesol_partition_index_start]
+        timesol_partition_index = nsteps * np.arange(npartition)
+        V = vel_time[cls.free_dof][:, timesol_partition_index]
         # INC is zero as pose_base is replaced
         X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
         X = np.reshape(X, (-1), order='F')
-        pose_base = pose_time[:, timesol_partition_index_start]
+        pose_base = pose_time[:, timesol_partition_index]
         return X, pose_base
 
     @classmethod

@@ -34,8 +34,8 @@ def first_point(self):
             # correct X0 and T0
             iter_firstpoint += 1
             hx = np.matmul(self.h, self.X0)
-            H_all = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J, -H_all, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+            Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsy")[0]
             self.T0 += dxt[-1, 0]
             dx = dxt[:-1, 0]
             self.X0 += dx
