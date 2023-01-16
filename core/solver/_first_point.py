@@ -7,6 +7,8 @@ def first_point(self):
     print("Shooting first point.")
     print("Iter \t Residual")
     restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
+    dofdata = self.prob.doffunction()
+    N = dofdata["ndof_free"]
 
     if not restart:
         iter_firstpoint = 0
@@ -15,7 +17,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose_time0, self.vel_time0, self.energy0, cvg_zerof] = \
+            [H, J, self.pose_time0, self.vel_time0, pose_base_new, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
             J = np.block([
                 [J],
@@ -52,12 +54,14 @@ def first_point(self):
 
     # Compute Tangent
     if self.prob.cont_params["shooting"]["method"] == "single":
+        # update pose_base and set inc to zero
+        self.pose_base0 = pose_base_new
+        self.X0[:N] = np.zeros(N)
         J[-1, :] = np.zeros(np.shape(J)[1])
-        J[-1, -1] = 1
     elif self.prob.cont_params["shooting"]["method"] == "multiple":
         # partition solution
         self.X0, self.pose_base0 = self.prob.partitionfunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
-        [H, J, self.pose_time0, self.vel_time0, self.energy0, cvg] = \
+        [_, J, self.pose_time0, self.vel_time0, _, self.energy0, _] = \
             self.prob.zerofunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
         # size of X0 has changed so reconfigure phase condition matrix
         phase_condition(self)
@@ -65,7 +69,7 @@ def first_point(self):
             [J],
             [self.h, np.zeros((self.nphase, 1))],
             [np.zeros(np.shape(J)[1])]])
-        J[-1, -1] = 1
+    J[-1, -1] = 1
     Z = np.zeros((np.shape(J)[0], 1))
     Z[-1] = 1
     self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]

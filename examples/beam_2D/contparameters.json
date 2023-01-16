@@ -17,13 +17,13 @@
     "fmin": 50,
     "fmax": 80,
     "phase_cond_index": "87-173",
-    "plot": false
+    "plot": true
   },
   "shooting": {
     "method": "multiple",
     "rel_tol": 1e-08,
     "single": {
-      "nperiod": 3,
+      "nperiod": 1,
       "nsteps_per_period": 200
     },
     "multiple": {

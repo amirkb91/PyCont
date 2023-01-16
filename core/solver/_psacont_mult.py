@@ -10,24 +10,24 @@ def psacont_mult(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # dof and partition data
+    # first point solution
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
-    twoN = 2 * dofdata["ndof_free"]
-    npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
-    nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
-    nsteps_per_partition = nsteps // npartition
-    delta_S = 1 / npartition
-    timesol_partition_start_index = int(nsteps * delta_S) * np.arange(npartition) + np.arange(npartition)
-    timesol_partition_end_index = timesol_partition_start_index - 1
-    block_order = (np.arange(npartition) + 1) % npartition
 
-    # first point solution
     T = self.T0.copy()
-    V = self.X0.copy().reshape(-1, npartition, order='F')[N:]
+    X = self.X0.copy()
     tgt = self.tgt0.copy()
     pose_base = self.pose_base0.copy()
     energy = self.energy0.copy()
+
+    # twoN = 2 * dofdata["ndof_free"]
+    # npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
+    # nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
+    # nsteps_per_partition = nsteps // npartition
+    # delta_S = 1 / npartition
+    # timesol_partition_start_index = int(nsteps * delta_S) * np.arange(npartition) + np.arange(npartition)
+    # timesol_partition_end_index = timesol_partition_start_index - 1
+    # block_order = (np.arange(npartition) + 1) % npartition
 
     # continuation step and direction
     step = self.prob.cont_params["continuation"]["s0"]
@@ -46,12 +46,9 @@ def psacont_mult(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # prediction step for all partitions (INC is 0 as config is updated)
+        # prediction step along tangent (INC is 0 as pose_base is updated)
         T_pred = T + tgt[-1] * step * stepsign
-        tgt_reshape = np.reshape(tgt[:-1], (-1, npartition), order='F')
-        INC_pred = tgt_reshape[:N, :] * step * stepsign
-        VEL_pred = V + tgt_reshape[N:, :] * step * stepsign
-        X_pred = np.concatenate((INC_pred, VEL_pred))
+        X_pred = X + tgt[:-1] * step * stepsign
         if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
             print("Maximum frequency reached.")
             break
@@ -59,43 +56,15 @@ def psacont_mult(self):
         # correction step
         itercorrect = 0
         while True:
-            J = np.zeros((npartition * twoN + self.nphase + 1, npartition * twoN + 1))
-            cvg_zerof = [None] * npartition
-            H = np.zeros((twoN, npartition))
-            pose_time = np.zeros((np.shape(pose_base)[0], (nsteps_per_partition + 1) * npartition))
-            vel_time = np.zeros((dofdata["ndof_all"], (nsteps_per_partition + 1) * npartition))
-            energy_next = np.zeros(npartition)
+            # residual and Jacobian with orthogonality to linear solution
+            [H, J, pose_time, vel_time, pose_base_new, energy_next, cvg_zerof] = \
+                self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
+            J = np.block([
+                [J],
+                [self.h, np.zeros((self.nphase, 1))],
+                [tgt]])
 
-            # residual and block Jacobian
-            for ipart in range(npartition):
-                i = ipart * twoN
-                i1 = (ipart + 1) * twoN
-                j = (ipart + 1) % npartition * twoN
-                j1 = ((ipart + 1) % npartition + 1) * twoN
-                p = ipart * (nsteps_per_partition + 1)
-                p1 = (ipart + 1) * (nsteps_per_partition + 1)
-
-                self.prob.updatefunction(pose_base[:, ipart])
-                # periodicity target: pose_base and Vel of next Poincare section along orbit
-                # target = np.concatenate((pose_base[dofdata["free_dof"]][:, (ipart + 1) % npartition],
-                #                          X_pred[N:, (ipart + 1) % npartition]))
-                # calculate residual and block Jacobian
-                [_, M, dHdt, pose_time[:, p:p1], vel_time[:, p:p1], energy_next[ipart], cvg_zerof[ipart]] = \
-                    self.prob.zerofunction(T_pred * delta_S, X_pred[:, ipart], self.prob.cont_params, mult=True,
-                                           target=None)
-                J[i:i1, i:i1] = M
-                J[i:i1, j:j1] -= np.eye(twoN)
-                J[i:i1, -1] = dHdt * delta_S
-            J[npartition * twoN:npartition * twoN + self.nphase, :twoN] = self.h
-            J[-1, :] = tgt
-
-            H1 = pose_time[dofdata["free_dof"]][:, timesol_partition_end_index[block_order]] - \
-                pose_time[dofdata["free_dof"]][:, timesol_partition_start_index[block_order]]
-            H2 = vel_time[dofdata["free_dof"]][:, timesol_partition_end_index[block_order]] - \
-                vel_time[dofdata["free_dof"]][:, timesol_partition_start_index[block_order]]
-            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
-
-            if not all(cvg_zerof):
+            if not cvg_zerof:
                 cvg_cont = False
                 print("Zero function failed to converge.")
                 break
@@ -115,18 +84,19 @@ def psacont_mult(self):
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
-            hx = np.matmul(self.h, X_pred[:, 0])
-            H = np.vstack([H, hx.reshape(-1, 1, order='F'), np.zeros(1)])
-            dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+            hx = np.matmul(self.h, X_pred)
+            Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsy")[0]
             T_pred += dxt[-1, 0]
-            dx = np.reshape(dxt[:-1], (-1, npartition), order='F')
+            dx = dxt[:-1, 0]
             X_pred += dx
 
         if cvg_cont:
             # find new tangent with converged solution
             # peeters Jacobian is different for tangent update
             if frml == "peeters":
-                J[-1, :] = np.concatenate([np.zeros(npartition * twoN), np.ones(1)])
+                J[-1, :] = np.zeros(np.shape(J)[1])
+                J[-1, -1] = 1
             Z = np.zeros((np.shape(J)[0], 1))
             Z[-1] = 1
             tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
@@ -144,19 +114,18 @@ def psacont_mult(self):
                 itercont += 1
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
-                T = T_pred
-                V = X_pred[N:]
-                tgt = tgt_next
-                energy = np.mean(energy_next)
 
                 # store solution in logger
-                self.log.store(sol_X=X_pred.copy().reshape(-1, order='F'), sol_T=T.copy(), sol_tgt=tgt.copy(),
+                self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
                                sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
-                               sol_pose_base=pose_base.copy().reshape(-1, order='F'), sol_energy=energy.copy(),
-                               sol_beta=beta.copy())
+                               sol_pose_base=pose_base.copy(), sol_energy=energy.copy(), sol_beta=beta.copy())
 
-                # pose_base for next step
-                pose_base = pose_time[:, timesol_partition_start_index]
+                T = T_pred
+                X = X_pred
+
+                tgt = tgt_next
+                energy = energy_next
+                pose_base = pose_base_new
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

@@ -87,6 +87,7 @@ class BeamCpp:
             J[i:i1, -1] = dHdt * delta_S
             simdata.close()
 
+        pose_base_new = pose_time[:, timesol_partition_index_start]
         energy = np.mean(energy)
         cvg = all(cvg)
         H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
@@ -95,7 +96,7 @@ class BeamCpp:
             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
-        return H, J, pose_time, vel_time, energy, cvg
+        return H, J, pose_time, vel_time, pose_base_new, energy, cvg
 
     @classmethod
     def runsim_single(cls, T, X, pose_base, cont_params):
@@ -110,6 +111,7 @@ class BeamCpp:
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
             periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
             pose_time = simdata["/Config/POSE"][:]
+            pose_base_new = pose_time[:, 0]
             vel_time = simdata["/Config/VELOCITY"][:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
@@ -119,9 +121,9 @@ class BeamCpp:
             J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
             simdata.close()
         else:
-            H = J = pose_time = vel_time = energy = None
+            H = J = pose_time = vel_time = pose_base_new = energy = None
 
-        return H, J, pose_time, vel_time, energy, cvg
+        return H, J, pose_time, vel_time, pose_base_new, energy, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -165,12 +167,12 @@ class BeamCpp:
         vel_time = simdata["/Config/VELOCITY"][:]
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        timesol_partition_index = nsteps * np.arange(npartition)
-        V = vel_time[cls.free_dof][:, timesol_partition_index]
+        slicing_index = nsteps * np.arange(npartition)
+        V = vel_time[cls.free_dof][:, slicing_index]
         # INC is zero as pose_base is replaced
         X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
         X = np.reshape(X, (-1), order='F')
-        pose_base = pose_time[:, timesol_partition_index]
+        pose_base = pose_time[:, slicing_index]
         return X, pose_base
 
     @classmethod
