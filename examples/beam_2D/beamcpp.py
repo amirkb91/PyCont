@@ -47,13 +47,6 @@ class BeamCpp:
         T0 = 1 / frq[nnm - 1, 0]
         pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
 
-        # partition X0 and pose_base0 for multiple shooting
-        # if cont_params["shooting"]["method"] == "multiple":
-        #     cls.config_update(pose_base0)
-        #     simdata = cls.runsim_single_oneorbit(T0, X0, cont_params)
-        #     X0, pose_base0 = cls.partition_singleshooting_solution(simdata, cont_params)
-        #     simdata.close()
-
         return X0, T0, pose_base0
 
     @classmethod
@@ -133,13 +126,6 @@ class BeamCpp:
         return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
-    def runsim_single_oneorbit(cls, T, X, cont_params):
-        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        simdata, _ = cls.run_cpp(T, X, nsteps, rel_tol)
-        return simdata
-
-    @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
         inc = X[:cls.ndof_free]
         vel = X[cls.ndof_free:]
@@ -171,13 +157,6 @@ class BeamCpp:
         return simdata, cvg
 
     @classmethod
-    def config_update(cls, pose):
-        # update beam configuration by writing initial conditions pose
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata["/Config/POSE"] = pose.reshape(-1, 1)
-        icdata.close()
-
-    @classmethod
     def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -195,6 +174,13 @@ class BeamCpp:
         X = np.reshape(X, (-1), order='F')
         pose_base = pose_time[:, timesol_partition_index_start]
         return X, pose_base
+
+    @classmethod
+    def config_update(cls, pose):
+        # update beam configuration by writing initial conditions pose
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata["/Config/POSE"] = pose.reshape(-1, 1)
+        icdata.close()
 
     @classmethod
     def set_dofdata(cls, simdata):

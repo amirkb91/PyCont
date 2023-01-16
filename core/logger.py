@@ -44,7 +44,7 @@ class Logger:
             elif key == "sol_vel_time":
                 self.sol_vel_time.append(value)
             elif key == "sol_pose_base":
-                self.sol_pose_base.append(value)
+                self.sol_pose_base.append(value.reshape(-1, order='F'))
             elif key == "sol_energy":
                 self.sol_energy.append(value)
             elif key == "sol_beta":
