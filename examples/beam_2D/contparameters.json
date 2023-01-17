@@ -3,7 +3,7 @@
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
-    "npts": 30,
+    "npts": 500,
     "tol": 0.001,
     "itermin": 0,
     "iteropt": 4,
@@ -27,8 +27,8 @@
       "nsteps_per_period": 200
     },
     "multiple": {
-      "npartition": 2,
-      "nsteps_per_partition": 100
+      "npartition": 1,
+      "nsteps_per_partition": 200
     }
   },
   "first_point": {

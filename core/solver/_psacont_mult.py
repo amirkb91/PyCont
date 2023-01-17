@@ -13,6 +13,7 @@ def psacont_mult(self):
     # first point solution
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
+    twoN = 2*N
 
     T = self.T0.copy()
     X = self.X0.copy()
@@ -118,10 +119,12 @@ def psacont_mult(self):
                 # store solution in logger
                 self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
                                sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
-                               sol_pose_base=pose_base.copy(), sol_energy=energy.copy(), sol_beta=beta.copy())
+                               sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
                 T = T_pred
-                X = X_pred
+                X = X_pred.reshape(twoN, -1, order='F').copy()
+                X[:N, :] = 0.0
+                X = X.reshape(-1, order='F')
 
                 tgt = tgt_next
                 energy = energy_next
