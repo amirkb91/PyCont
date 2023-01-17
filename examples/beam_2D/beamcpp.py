@@ -84,7 +84,7 @@ class BeamCpp:
 
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
-            J[i:i1, -1] = dHdt * delta_S
+            J[i:i1, -1] = dHdt
             simdata.close()
 
         pose_base_new = pose_time[:, timesol_partition_index_start]
