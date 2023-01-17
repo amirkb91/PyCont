@@ -36,9 +36,6 @@ def psacont(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # update config
-        self.prob.updatefunction(pose_base)
-
         # prediction step along tangent (INC is 0 as pose_base is updated)
         INC_pred = tgt[:len_V] * step * stepsign
         VEL_pred = V + tgt[len_V:-1] * step * stepsign
@@ -52,11 +49,10 @@ def psacont(self):
         itercorrect = 0
         while True:
             # calculate residual and block Jacobian
-            [H, M, dHdt, pose_time, vel_time, energy_next, cvg_zerof] = \
-                self.prob.zerofunction(T_pred, X_pred, self.prob.cont_params)
-            M = M - np.eye(len(M))
+            [H, J, pose_time, vel_time, pose_base_new, energy_next, cvg_zerof] = \
+                self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([
-                [M, dHdt.reshape(-1, 1)],
+                [J],
                 [self.h, np.zeros((self.nphase, 1))],
                 [tgt]])
 
@@ -91,10 +87,8 @@ def psacont(self):
             # find new tangent with converged solution
             # peeters Jacobian is different for tangent update
             if frml == "peeters":
-                J = np.block([
-                    [M, dHdt.reshape(-1, 1)],
-                    [self.h, np.zeros((self.nphase, 1))],
-                    [np.zeros([1, len(X_pred)]), np.ones(1)]])
+                J[-1, :] = np.zeros(np.shape(J)[1])
+                J[-1, -1] = 1
             Z = np.vstack([np.zeros((len(X_pred), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
             tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
@@ -122,7 +116,7 @@ def psacont(self):
                                sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
                 # pose_base for next step
-                pose_base = pose_time[:, 0]
+                pose_base = pose_base_new
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

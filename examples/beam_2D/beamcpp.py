@@ -158,15 +158,14 @@ class BeamCpp:
 
     @classmethod
     def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
-        nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-
-        cls.config_update(pose_base)
-        simdata, cvg = cls.run_cpp(T, X, nsteps, rel_tol)
-        pose_time = simdata["/Config/POSE"][:]
-        vel_time = simdata["/Config/VELOCITY"][:]
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
+        rel_tol = cont_params["shooting"]["rel_tol"]
+        cls.config_update(pose_base)
+        # nsteps has to equal to total steps for multiple shooting so it can be sliced
+        simdata, cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        pose_time = simdata["/Config/POSE"][:]
+        vel_time = simdata["/Config/VELOCITY"][:]
         slicing_index = nsteps * np.arange(npartition)
         V = vel_time[cls.free_dof][:, slicing_index]
         # INC is zero as pose_base is replaced
