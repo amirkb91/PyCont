@@ -36,7 +36,8 @@ class Logger:
 
     def store(self, **sol_data):
         self.store_index += 1
-        for key, value in sol_data.items():
+        for key, _value in sol_data.items():
+            value = _value.copy()
             if key == "sol_X":
                 self.sol_X.append(value)
             elif key == "sol_T":

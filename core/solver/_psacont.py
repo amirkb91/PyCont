@@ -49,7 +49,7 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose_time, vel_time, pose_base_with_inc, energy_next, cvg_zerof] = \
+            [H, J, pose_time, vel_time, pose_base_plus_inc, energy_next, cvg_zerof] = \
                 self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([
                 [J],
@@ -106,17 +106,15 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                # store solution in logger
-                self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
-                               sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
-                               sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
+                self.log.store(sol_X=X_pred, sol_T=T_pred, sol_tgt=tgt_next, sol_pose_time=pose_time,
+                               sol_vel_time=vel_time, sol_pose_base=pose_base, sol_energy=energy_next, sol_beta=beta)
 
                 T = T_pred
                 X = X_pred
                 tgt = tgt_next
                 energy = energy_next
-                # update pose_base and set inc to zero (slicing includes every other N elements)
-                pose_base = pose_base_with_inc
+                # update pose_base and set inc to zero (slice 0:N on each partition)
+                pose_base = pose_base_plus_inc
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point

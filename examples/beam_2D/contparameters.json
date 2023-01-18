@@ -24,7 +24,7 @@
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 200
+      "nsteps_per_period": 100
     },
     "multiple": {
       "npartition": 2,
