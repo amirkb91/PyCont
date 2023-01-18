@@ -2,7 +2,6 @@ from ._phase_condition import phase_condition
 from ._first_point import first_point
 from ._seqcont import seqcont
 from ._psacont import psacont
-from ._psacont_mult import psacont_mult
 
 
 class ConX:
@@ -28,4 +27,4 @@ class ConX:
             # sequential continuation
             seqcont(self)
         elif self.prob.cont_params["continuation"]["method"] == "psa":
-            psacont_mult(self)
+            psacont(self)

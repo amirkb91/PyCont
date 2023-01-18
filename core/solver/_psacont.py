@@ -10,11 +10,13 @@ def psacont(self):
     if self.prob.cont_params["continuation"]["betacontrol"]:
         print("++ Beta control is active. ++")
 
-    # first point solution
     dofdata = self.prob.doffunction()
-    len_V = dofdata["ndof_free"]
+    N = dofdata["ndof_free"]
+    twoN = 2*N
+
+    # first point solution
     T = self.T0.copy()
-    V = self.X0[len_V:].copy()
+    X = self.X0.copy()
     tgt = self.tgt0.copy()
     pose_base = self.pose_base0.copy()
     energy = self.energy0.copy()
@@ -36,11 +38,9 @@ def psacont(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # prediction step along tangent (INC is 0 as pose_base is updated)
-        INC_pred = tgt[:len_V] * step * stepsign
-        VEL_pred = V + tgt[len_V:-1] * step * stepsign
+        # prediction step along tangent
         T_pred = T + tgt[-1] * step * stepsign
-        X_pred = np.concatenate((INC_pred, VEL_pred))
+        X_pred = X + tgt[:-1] * step * stepsign
         if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
             print("Maximum frequency reached.")
             break
@@ -48,8 +48,8 @@ def psacont(self):
         # correction step
         itercorrect = 0
         while True:
-            # calculate residual and block Jacobian
-            [H, J, pose_time, vel_time, pose_base_new, energy_next, cvg_zerof] = \
+            # residual and block Jacobian
+            [H, J, pose_time, vel_time, pose_base_with_inc, energy_next, cvg_zerof] = \
                 self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([
                 [J],
@@ -63,7 +63,6 @@ def psacont(self):
 
             residual = spl.norm(H)
             print(f"{itercorrect} \t {residual:.5e}")
-
             if (residual < self.prob.cont_params["continuation"]["tol"]
                     and itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
@@ -77,8 +76,8 @@ def psacont(self):
             # apply corrections orthogonal to tangent
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
-            H = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+            Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
+            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsy")[0]
             T_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
@@ -89,7 +88,8 @@ def psacont(self):
             if frml == "peeters":
                 J[-1, :] = np.zeros(np.shape(J)[1])
                 J[-1, -1] = 1
-            Z = np.vstack([np.zeros((len(X_pred), 1)), np.zeros((self.nphase, 1)), np.ones(1)])
+            Z = np.zeros((np.shape(J)[0], 1))
+            Z[-1] = 1
             tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
 
@@ -105,18 +105,19 @@ def psacont(self):
                 itercont += 1
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
-                T = T_pred
-                V = X_pred[len_V:]
-                tgt = tgt_next
-                energy = energy_next
 
                 # store solution in logger
                 self.log.store(sol_X=X_pred.copy(), sol_T=T_pred.copy(), sol_tgt=tgt_next.copy(),
                                sol_pose_time=pose_time.copy(), sol_vel_time=vel_time.copy(),
                                sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
-                # pose_base for next step
-                pose_base = pose_base_new
+                T = T_pred
+                X = X_pred
+                tgt = tgt_next
+                energy = energy_next
+                # update pose_base and set inc to zero (slicing includes every other N elements)
+                pose_base = pose_base_with_inc
+                X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

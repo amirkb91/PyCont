@@ -17,7 +17,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose_time0, self.vel_time0, pose_base_new, self.energy0, cvg_zerof] = \
+            [H, J, self.pose_time0, self.vel_time0, pose_base_with_inc, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
             J = np.block([
                 [J],
@@ -48,7 +48,7 @@ def first_point(self):
     # Compute Tangent
     if self.prob.cont_params["shooting"]["method"] == "single":
         # update pose_base and set inc to zero
-        self.pose_base0 = pose_base_new
+        self.pose_base0 = pose_base_with_inc
         self.X0[:N] = 0.0
         J[-1, :] = np.zeros(np.shape(J)[1])
     elif self.prob.cont_params["shooting"]["method"] == "multiple":
