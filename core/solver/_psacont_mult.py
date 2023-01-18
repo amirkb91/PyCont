@@ -14,21 +14,11 @@ def psacont_mult(self):
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2*N
-
     T = self.T0.copy()
     X = self.X0.copy()
     tgt = self.tgt0.copy()
     pose_base = self.pose_base0.copy()
     energy = self.energy0.copy()
-
-    # twoN = 2 * dofdata["ndof_free"]
-    # npartition = self.prob.cont_params["shooting"]["npartition_multipleshooting"]
-    # nsteps = self.prob.cont_params["shooting"]["nsteps_per_period"]
-    # nsteps_per_partition = nsteps // npartition
-    # delta_S = 1 / npartition
-    # timesol_partition_start_index = int(nsteps * delta_S) * np.arange(npartition) + np.arange(npartition)
-    # timesol_partition_end_index = timesol_partition_start_index - 1
-    # block_order = (np.arange(npartition) + 1) % npartition
 
     # continuation step and direction
     step = self.prob.cont_params["continuation"]["s0"]
@@ -47,7 +37,7 @@ def psacont_mult(self):
             print("Maximum number of continuation points reached.")
             break
 
-        # prediction step along tangent (INC is 0 as pose_base is updated)
+        # prediction step along tangent
         T_pred = T + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
         if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
@@ -57,7 +47,7 @@ def psacont_mult(self):
         # correction step
         itercorrect = 0
         while True:
-            # residual and Jacobian with orthogonality to linear solution
+            # residual and block Jacobian
             [H, J, pose_time, vel_time, pose_base_new, energy_next, cvg_zerof] = \
                 self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([
@@ -122,13 +112,12 @@ def psacont_mult(self):
                                sol_pose_base=pose_base.copy(), sol_energy=energy_next.copy(), sol_beta=beta.copy())
 
                 T = T_pred
-                X = X_pred.reshape(twoN, -1, order='F').copy()
-                X[:N, :] = 0.0
-                X = X.reshape(-1, order='F')
-
                 tgt = tgt_next
                 energy = energy_next
+                # update pose_base and set inc to zero (slicing includes every other N elements)
                 pose_base = pose_base_new
+                X_pred[np.mod(np.arange(X_pred.size), twoN) < N] = 0.0
+                X = X_pred
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

@@ -44,19 +44,12 @@ def first_point(self):
 
     elif restart:
         pass
-        # self.prob.updatefunction(self.pose_base0)
-        # [H, M, dHdt, self.pose_time0, self.vel_time0, energy0, cvg_zerof] = \
-        #     self.prob.zerofunction(self.T0, self.X0, self.prob.cont_params)
-        # residual = spl.norm(H)
-        # print(f"{0} \t {residual:.5e}")
-        # print("RESTARTING from previous run.")
-        # print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
 
     # Compute Tangent
     if self.prob.cont_params["shooting"]["method"] == "single":
         # update pose_base and set inc to zero
         self.pose_base0 = pose_base_new
-        self.X0[:N] = np.zeros(N)
+        self.X0[:N] = 0.0
         J[-1, :] = np.zeros(np.shape(J)[1])
     elif self.prob.cont_params["shooting"]["method"] == "multiple":
         # partition solution

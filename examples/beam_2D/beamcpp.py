@@ -168,10 +168,10 @@ class BeamCpp:
         vel_time = simdata["/Config/VELOCITY"][:]
         slicing_index = nsteps * np.arange(npartition)
         V = vel_time[cls.free_dof][:, slicing_index]
-        # INC is zero as pose_base is replaced
+        # update pose_base and set inc to zero
+        pose_base = pose_time[:, slicing_index]
         X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
         X = np.reshape(X, (-1), order='F')
-        pose_base = pose_time[:, slicing_index]
         return X, pose_base
 
     @classmethod

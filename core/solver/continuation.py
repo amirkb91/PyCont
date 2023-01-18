@@ -27,11 +27,5 @@ class ConX:
         if self.prob.cont_params["continuation"]["method"] == "seq":
             # sequential continuation
             seqcont(self)
-        elif self.prob.cont_params["continuation"]["method"] == "psa" and \
-                self.prob.cont_params["shooting"]["method"] == "single":
-            # pseudo-arc length continuation single shooting
-            psacont(self)
-        elif self.prob.cont_params["continuation"]["method"] == "psa" and \
-                self.prob.cont_params["shooting"]["method"] == "multiple":
-            # pseudo-arc length continuation multiple shooting
+        elif self.prob.cont_params["continuation"]["method"] == "psa":
             psacont_mult(self)
