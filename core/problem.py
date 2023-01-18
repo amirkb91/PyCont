@@ -5,9 +5,11 @@ import json
 class Prob:
     def __init__(self):
         self.cont_params = None
-        self.zerofunction = None
+        self.doffunction = None
         self.icfunction = None
-        self.updatefunction = None
+        self.zerofunction = None
+        self.zerofunction_firstpoint = None
+        self.partitionfunction = None
 
     def read_contparams(self, cont_paramfile):
         if os.path.exists(cont_paramfile):
@@ -15,11 +17,17 @@ class Prob:
         else:
             raise Exception("Continuation parameter file does not exist!")
 
-    def add_zerofunction(self, fxn):
-        self.zerofunction = fxn
+    def add_doffunction(self, fxn):
+        self.doffunction = fxn
 
     def add_icfunction(self, fxn):
         self.icfunction = fxn
 
-    def add_updatefunction(self, fxn):
-        self.updatefunction = fxn
+    def add_zerofunction(self, fxn):
+        self.zerofunction = fxn
+
+    def add_zerofunction_firstpoint(self, fxn):
+        self.zerofunction_firstpoint = fxn
+
+    def add_partitionfunction(self, fxn):
+        self.partitionfunction = fxn

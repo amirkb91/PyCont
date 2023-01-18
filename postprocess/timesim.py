@@ -19,7 +19,7 @@ T = data["/T"][solno]
 # read parameters from solution file and modify
 par = data["/Parameters"]
 par = json.loads(par[()])
-par["shooting"]["nperiod"] = nperiod
+par["shooting"]["nperiod_singleshooting"] = nperiod
 par["shooting"]["nsteps_per_period"] = nsteps
 
 # prescribe pose_base to ic file and run sim

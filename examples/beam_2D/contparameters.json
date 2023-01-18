@@ -3,7 +3,7 @@
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
-    "npts": 5000,
+    "npts": 500,
     "tol": 0.001,
     "itermin": 0,
     "iteropt": 4,
@@ -20,9 +20,16 @@
     "plot": true
   },
   "shooting": {
-    "nsteps_per_period": 200,
-    "nperiod": 1,
-    "rel_tol": 1e-08
+    "method": "single",
+    "rel_tol": 1e-08,
+    "single": {
+      "nperiod": 1,
+      "nsteps_per_period": 100
+    },
+    "multiple": {
+      "npartition": 2,
+      "nsteps_per_partition": 200
+    }
   },
   "first_point": {
     "itermax": 30,
@@ -38,7 +45,6 @@
     }
   },
   "Logger": {
-    "file_name": "cclamped_NNM1_SE",
-    "save_frequency": 1
+    "file_name": "cclamped_NNM1_SE_mult"
   }
 }

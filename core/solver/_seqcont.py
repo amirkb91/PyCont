@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg as spl
 
-
+## ************* NEEDS REVISION ************* ##
 def seqcont(self):
     print("Sequential continuation started.")
 

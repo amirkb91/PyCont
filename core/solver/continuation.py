@@ -14,18 +14,17 @@ class ConX:
         self.pose_base0 = start.pose_base0
         self.energy0 = start.energy0
         self.tgt0 = start.tgt0
+        self.pose_time0 = None
+        self.vel_time0 = None
         self.log = log
 
     def solve(self):
         # calculate phase condition matrix h
         phase_condition(self)
-
-        # compute first point of the branch
+        # correct starting solution
         first_point(self)
-
-        if self.prob.cont_params["continuation"]["method"].lower() == "seq":
+        if self.prob.cont_params["continuation"]["method"] == "seq":
             # sequential continuation
             seqcont(self)
-        elif self.prob.cont_params["continuation"]["method"].lower() == "psa":
-            # pseudo-arc length continuation
+        elif self.prob.cont_params["continuation"]["method"] == "psa":
             psacont(self)
