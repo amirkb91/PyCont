@@ -11,21 +11,22 @@ nsteps = int(input("Steps per period: "))
 
 # read solution file
 file = sys.argv[-1]
+if not file.endswith(".h5"):
+    file += ".h5"
 data = h5py.File(str(file), "r")
-pose_base = data["/POSE_base"][:, solno]
+pose_base = data["/Config/POSE_base"][:, :, solno]
 X = data["/X"][:, solno]
 T = data["/T"][solno]
 
 # read parameters from solution file and modify
 par = data["/Parameters"]
 par = json.loads(par[()])
-par["shooting"]["nperiod_singleshooting"] = nperiod
-par["shooting"]["nsteps_per_period"] = nsteps
+par["shooting"]["single"]["nperiod"] = nperiod
+par["shooting"]["single"]["nsteps_per_period"] = nsteps
 
-# prescribe pose_base to ic file and run sim
-BeamCpp.run_eig(par)  # To get nodal data
-BeamCpp.config_update(pose_base)
-BeamCpp.run_sim(T, X, par)
+# run sim
+BeamCpp.run_eig(par)  # To get nodal data in class
+BeamCpp.runsim_single(T, X, pose_base, par)
 
 # call plotbeam
 subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5", shell=True)

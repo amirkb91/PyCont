@@ -17,6 +17,9 @@ if files[-1] == "y":
     files = files[:-1]
 else:
     saveflag = False
+for i, file in enumerate(files):
+    if not file.endswith(".h5"):
+        files[i] += ".h5"
 
 # figure properties
 f, (a1, a2) = plt.subplots(1, 2, figsize=(10, 7))

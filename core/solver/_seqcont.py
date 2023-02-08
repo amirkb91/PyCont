@@ -65,7 +65,7 @@ def seqcont(self):
             J = np.concatenate((Mm0, self.h), axis=0)
             hx = np.matmul(self.h, X)
             H = np.vstack([H, hx.reshape(-1, 1)])
-            dx = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+            dx = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             X[:] += dx[:, 0]
 
         # adaptive step size for next point

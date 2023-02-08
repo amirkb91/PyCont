@@ -41,8 +41,9 @@ def psacont(self):
         # prediction step along tangent
         T_pred = T + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
-        if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"]:
-            print("Maximum frequency reached.")
+        if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"] or \
+                1 / T_pred < self.prob.cont_params["continuation"]["fmin"]:
+            print("Frequency outside of specified boundary.")
             break
 
         # correction step
@@ -77,7 +78,7 @@ def psacont(self):
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsy")[0]
+            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             T_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
@@ -90,7 +91,7 @@ def psacont(self):
                 J[-1, -1] = 1
             Z = np.zeros((np.shape(J)[0], 1))
             Z[-1] = 1
-            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsy")[0][:, 0]
+            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
