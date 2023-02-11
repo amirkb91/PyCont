@@ -25,60 +25,13 @@ a.XTick = [1e-3 1e-2 1e-1 1 1e1 1e2 1e3];
 xlabel(a, 'Energy (J)');
 ylabel(a, 'Frequency (Hz)');
 
-
 %% Data Load
 files1 = {}; files2 = {};
-
-% folder = 'cclamped/NNM1/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM1_VK.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM1_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_3.h5'];
-%===============================================
-% folder = 'cclamped/NNM2/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM2_VK_1.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_2.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_3.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_4_trunc.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM2_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_3.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_4.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_5.h5'];
-%===============================================
-% folder = 'arch/NNM1/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM1_VK_1.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_2.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_3.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_4_trunc.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM1_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_3.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_4.h5'];
-%===============================================
-folder = 'arch/NNM2/';
+folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/';
 name1 = 'vonK';
-files1{end+1} = [folder 'VK/NNM2_VK_1_trunc.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_2.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_3.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_4.h5'];
+files1{end+1} = [folder 'NNM1/cant_NNM1_VK.h5'];
 name2 = 'SE(2)';
-files2{end+1} = [folder 'SE23/NNM2_SE23_1.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_2.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_3.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_4.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_5.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_6.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_7.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_8.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_9.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_10.h5'];
+files2{end+1} = [folder 'NNM1/cant_NNM1_SE_100.h5'];
 
 %% Plot
 for i=1:length(files1)

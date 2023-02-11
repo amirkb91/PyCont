@@ -24,11 +24,10 @@ a.XLimitMethod = 'tight';
 ylabel(a, 'Frequency (Hz)');
 
 xlabel(a, 'Normalised Max Y Displacement');
-a.Title.String = 'x/L = 0.5';
+a.Title.String = 'x/L = 1.0';
 
 %% Geometries Undeformed Positions
 beamthickness = 0.01;
-load('pose0.mat');
 % beam = linspace(0,1,31)';
 % beam = [0;1;beam(2:end-1)];
 % beam = [(0:30)',beam,zeros(31,1)];
@@ -41,77 +40,27 @@ load('pose0.mat');
 % arch = [(0:30)',arch];
 
 %% DoF Index (+1 for MATLAB starting index) 
-node = 16;
+% node10 = 0.3 / node12 = 0.36
+node = 1;
 % X
-dof_VK   = 3*node+0 + 1;  dof_SE23 = 4*node+2 + 1;
+dof_VK   = 3*node + 1;  dof_SE23 = 4*node + 3;
 % Y
-% dof_VK   = 3*node+1 + 1;  dof_SE23 = 4*node+3 + 1;
+% dof_VK   = 3*node + 2;  dof_SE23 = 4*node + 4;
 
 %% Data Load
+load('pose0.mat');
 files1 = {}; files2 = {};
-
-% folder = 'cclamped/NNM1/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM1_VK.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM1_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_3.h5'];
-% pose0_VK = pose0.VK_cclamped;
-% pose0_SE23 = pose0.SE23_cclamped;
-%===============================================
-% folder = 'cclamped/NNM2/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM2_VK_1.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_2.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_3.h5'];
-% files1{end+1} = [folder 'VK/NNM2_VK_4_trunc.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM2_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_3.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_4.h5'];
-% files2{end+1} = [folder 'SE23/NNM2_SE23_5.h5'];
-% pose0_VK = pose0.VK_cclamped;
-% pose0_SE23 = pose0.SE23_cclamped;
-%===============================================
-% folder = 'arch/NNM1/';
-% name1 = 'vonK';
-% files1{end+1} = [folder 'VK/NNM1_VK_1.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_2.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_3.h5'];
-% files1{end+1} = [folder 'VK/NNM1_VK_4_trunc.h5'];
-% name2 = 'SE(2)';
-% files2{end+1} = [folder 'SE23/NNM1_SE23_1.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_2.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_3.h5'];
-% files2{end+1} = [folder 'SE23/NNM1_SE23_4.h5'];
-% pose0_VK = pose0.VK_arch;
-% pose0_SE23 = pose0.SE23_arch;
-%===============================================
-folder = 'arch/NNM2/';
+folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/';
 name1 = 'vonK';
-files1{end+1} = [folder 'VK/NNM2_VK_1_trunc.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_2.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_3.h5'];
-files1{end+1} = [folder 'VK/NNM2_VK_4.h5'];
+files1{end+1} = [folder 'NNM2/cant_NNM2_VK_400.h5'];
 name2 = 'SE(2)';
-files2{end+1} = [folder 'SE23/NNM2_SE23_1.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_2.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_3.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_4.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_5.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_6.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_7.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_8.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_9.h5'];
-files2{end+1} = [folder 'SE23/NNM2_SE23_10.h5'];
-pose0_VK = pose0.VK_arch;
-pose0_SE23 = pose0.SE23_arch;
+files2{end+1} = [folder 'NNM2/cant_NNM2_SE_400.h5'];
+pose0_VK = pose0.VK_cclamped;
+pose0_SE23 = pose0.SE23_cclamped;
 
 %% Plot
 for i=1:length(files1)
-    pose = h5read(files1{i},'/POSE');
+    pose = h5read(files1{i},'/Config/POSE_time');
     pose = permute(pose,[3,2,1]);
     T = h5read(files1{i},'/T');
     f = 1./T;
@@ -130,7 +79,7 @@ for i=1:length(files1)
 end
 
 for i=1:length(files2)
-    pose = h5read(files2{i},'/POSE');
+    pose = h5read(files2{i},'/Config/POSE_time');
     pose = permute(pose,[3,2,1]);
     T = h5read(files2{i},'/T');
     f = 1./T;

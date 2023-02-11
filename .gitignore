@@ -10,3 +10,4 @@ core.egg-info/
 *.asv
 *.fig
 *.csv
+*.mat
