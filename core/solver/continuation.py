@@ -12,8 +12,8 @@ class ConX:
         self.X0 = start.X0
         self.T0 = start.T0
         self.pose_base0 = start.pose_base0
-        self.energy0 = start.energy0
-        self.tgt0 = start.tgt0
+        self.tgt0 = None
+        self.energy0 = None
         self.pose_time0 = None
         self.vel_time0 = None
         self.log = log
