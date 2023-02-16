@@ -9,6 +9,7 @@ from duffing import Duffing
 prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_icfunction(Duffing.eigen_solve)
+prob.add_doffunction(Duffing.get_fe_data)
 prob.add_zerofunction(Duffing.time_solve)
 prob.add_zerofunction_firstpoint(Duffing.time_solve)
 
