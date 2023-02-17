@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import odeint
 import scipy.linalg as spl
+import scipy.optimize as spo
 
 
 class Duffing:
@@ -17,8 +18,8 @@ class Duffing:
     ndof_free = 2
 
     @classmethod
-    def statespace(cls, Z, t):
-        # ODE of the mass spring system. Z\dot(t) = g(Z(t))
+    def system_ode(cls, t, Z):
+        # ODE of the mass spring system. Zdot(t) = g(Z(t))
         X = Z[:2]
         Xdot = Z[2:]
         KX = cls.K @ X
@@ -27,27 +28,34 @@ class Duffing:
         return Zdot
 
     @classmethod
-    def monodromy(cls, dZdZ0, t, ZT1):
+    def monodromy_ode(cls, t, dZdZ0, ZT):
+        # ODE to solve for Monodromy matrix. dZdZ0dot = dg(Z)dZ . dZdZ0
         M = cls.M
         K = cls.K
         knl = cls.Knl
-
+        x1_T = ZT[0]
         dgdz = np.array([[0, 0, 1, 0],
                          [0, 0, 0, 1],
-                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * ZT1 ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
+                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * x1_T ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
                          [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]])
-
         dZdZ0dot = dgdz @ dZdZ0.reshape(4, 4)
         return dZdZ0dot.flatten()
 
     @classmethod
-    def sensitivity(cls, dZdZ0, t, x1):
-        # dZdZ0\dot(t) = dg(t)dZ * dZdZ0
-        # problem has been flattenned so reshape to recover, return flatten
-        d_dZdZ0_dt = np.array(
-            [[0, 0, 1, 0], [0, 0, 0, 1], [-2 - 1.5 * x1 ** 2, 1, 0, 0], [1, -2, 0, 0]]
-        ) @ dZdZ0.reshape(4, 4)
-        return d_dZdZ0_dt.flatten()
+    def sensitivity_fd(cls, t, Z0):
+        # central difference
+        eps = 1e-8
+        G = np.zeros([4, 4])
+        for i in range(4):
+            Z0plus = Z0.copy()
+            Z0plus[i] += eps
+            ZTplus = np.array(odeint(cls.system_ode, Z0plus, t, tfirst=True))[-1, :]
+            Z0mins = Z0.copy()
+            Z0mins[i] -= eps
+            ZTmins = np.array(odeint(cls.system_ode, Z0mins, t, tfirst=True))[-1, :]
+            G_column = (ZTplus - ZTmins) / (2 * eps)
+            G[:, i] = G_column
+        return G
 
     @classmethod
     def time_solve(cls, T, Z0, pose_base, cont_params):
@@ -55,9 +63,9 @@ class Duffing:
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
 
-        # time integration, store position and velocity
+        # time integration, position and velocity
         t = np.linspace(0, T*nperiod, nsteps*nperiod)
-        Z = np.array(odeint(cls.statespace, Z0, t, rtol=rel_tol))
+        Z = np.array(odeint(cls.system_ode, Z0, t, rtol=rel_tol, tfirst=True))
         pose_time = Z[:, :2].T
         vel_time = Z[:, 2:].T
 
@@ -72,23 +80,11 @@ class Duffing:
         energy = 0.5 * (Xdot.T @ cls.M @ Xdot + X.T @ cls.K @ X + X @ fnl)
 
         # Sensitivity and Monodromy
-        dHdt = cls.statespace(Z[-1, :], None)
-        dZdZ0 = np.array(odeint(cls.monodromy, np.eye(4).flatten(), t, args=(Z[-1, 0],)))
-        dZdZ0 = dZdZ0[-1, :].reshape(4, 4)
+        dHdt = cls.system_ode(None, Z[-1, :])
+        dZTdZ0 = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(Z[-1, :],), tfirst=True))
+        dZTdZ0 = dZTdZ0[-1, :].reshape(4, 4)
+        dZTdZ0_finitediff = cls.sensitivity_fd(t, Z0)
 
-        # eps = 1e-6
-        # for i in range(4):
-        #
-        # zp = Z0 +
-        # Z = np.array(odeint(cls.statespace, Z0, t, rtol=rel_tol)
-
-
-        # Sensitvity analysis **CHECK WITH FINITE DIFFERENCE**
-        # IC = eye. numpy ODE only works on 1D arrays so flatten problem then reshape
-        dZdZ0 = odeint(cls.sensitivity, np.eye(4).flatten(), t, args=(Z[-1, 0],))
-        dZdZ0 = dZdZ0[-1, :].reshape(4, 4)
-        Mm0 = dZdZ0 - np.eye(4)
-        dHdt = cls.statespace(Z[-1, :], ())
 
         cvg = True
 
