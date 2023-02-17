@@ -27,6 +27,20 @@ class Duffing:
         return Zdot
 
     @classmethod
+    def monodromy(cls, dZdZ0, t, ZT1):
+        M = cls.M
+        K = cls.K
+        knl = cls.Knl
+
+        dgdz = np.array([[0, 0, 1, 0],
+                         [0, 0, 0, 1],
+                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * ZT1 ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
+                         [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]])
+
+        dZdZ0dot = dgdz @ dZdZ0.reshape(4, 4)
+        return dZdZ0dot.flatten()
+
+    @classmethod
     def sensitivity(cls, dZdZ0, t, x1):
         # dZdZ0\dot(t) = dg(t)dZ * dZdZ0
         # problem has been flattenned so reshape to recover, return flatten
@@ -41,19 +55,33 @@ class Duffing:
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
 
-        # time integration
+        # time integration, store position and velocity
         t = np.linspace(0, T*nperiod, nsteps*nperiod)
         Z = np.array(odeint(cls.statespace, Z0, t, rtol=rel_tol))
+        pose_time = Z[:, :2].T
+        vel_time = Z[:, 2:].T
 
         # periodicity condition
         H = Z[-1, :] - Z[0, :]
         H = H.reshape(-1, 1)
 
-        # Energy
+        # Energy, conservative system so take initial Z values
         X = Z[0, :2]
         Xdot = Z[0, 2:]
         fnl = np.array([cls.Knl * X[0] ** 3, 0])
         energy = 0.5 * (Xdot.T @ cls.M @ Xdot + X.T @ cls.K @ X + X @ fnl)
+
+        # Sensitivity and Monodromy
+        dHdt = cls.statespace(Z[-1, :], None)
+        dZdZ0 = np.array(odeint(cls.monodromy, np.eye(4).flatten(), t, args=(Z[-1, 0],)))
+        dZdZ0 = dZdZ0[-1, :].reshape(4, 4)
+
+        # eps = 1e-6
+        # for i in range(4):
+        #
+        # zp = Z0 +
+        # Z = np.array(odeint(cls.statespace, Z0, t, rtol=rel_tol)
+
 
         # Sensitvity analysis **CHECK WITH FINITE DIFFERENCE**
         # IC = eye. numpy ODE only works on 1D arrays so flatten problem then reshape
