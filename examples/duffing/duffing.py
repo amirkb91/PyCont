@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import odeint
 import scipy.linalg as spl
-import scipy.optimize as spo
+import scipy.interpolate as spi
 
 
 class Duffing:
@@ -28,24 +28,25 @@ class Duffing:
         return Zdot
 
     @classmethod
-    def monodromy_ode(cls, t, dZdZ0, ZT):
+    def monodromy_ode(cls, t, dZdZ0, x1_interp):
         # ODE to solve for Monodromy matrix. dZdZ0dot = dg(Z)dZ . dZdZ0
+        # estimate the value of x1(t) from interpolated curve
         M = cls.M
         K = cls.K
         knl = cls.Knl
-        x1_T = ZT[0]
+        x1_t = spi.splev(t, x1_interp)
         dgdz = np.array([[0, 0, 1, 0],
                          [0, 0, 0, 1],
-                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * x1_T ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
+                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * x1_t ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
                          [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]])
         dZdZ0dot = dgdz @ dZdZ0.reshape(4, 4)
         return dZdZ0dot.flatten()
 
     @classmethod
-    def sensitivity_fd(cls, t, Z0):
+    def monodromy_centdiff(cls, t, Z0):
         # central difference
         eps = 1e-8
-        G = np.zeros([4, 4])
+        M = np.zeros([4, 4])
         for i in range(4):
             Z0plus = Z0.copy()
             Z0plus[i] += eps
@@ -53,9 +54,9 @@ class Duffing:
             Z0mins = Z0.copy()
             Z0mins[i] -= eps
             ZTmins = np.array(odeint(cls.system_ode, Z0mins, t, tfirst=True))[-1, :]
-            G_column = (ZTplus - ZTmins) / (2 * eps)
-            G[:, i] = G_column
-        return G
+            m = (ZTplus - ZTmins) / (2 * eps)
+            M[:, i] = m
+        return M
 
     @classmethod
     def time_solve(cls, T, Z0, pose_base, cont_params):
@@ -79,11 +80,16 @@ class Duffing:
         fnl = np.array([cls.Knl * X[0] ** 3, 0])
         energy = 0.5 * (Xdot.T @ cls.M @ Xdot + X.T @ cls.K @ X + X @ fnl)
 
-        # Sensitivity and Monodromy
+        # Monodromy and augmented Jacobian
+        # interpolate x1 = Z[0] as needed in monodromy time integration
+        # odeint selects time points automatically so we need to have x1 at any t during integration
+        x1_interp = spi.splrep(t, Z[:, 0])
+        M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
+        M = M[-1, :].reshape(4, 4)
+        # M_centdiff = cls.monodromy_centdiff(t, Z0)  # central difference to check values
+        M -= np.eye(len(M))
         dHdt = cls.system_ode(None, Z[-1, :])
-        dZTdZ0 = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(Z[-1, :],), tfirst=True))
-        dZTdZ0 = dZTdZ0[-1, :].reshape(4, 4)
-        dZTdZ0_finitediff = cls.sensitivity_fd(t, Z0)
+        J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
 
         cvg = True
