@@ -1,21 +1,21 @@
 {
   "continuation": {
     "method": "psa",
-    "tangent": "keller",
+    "tangent": "peeters",
     "dir": 1,
-    "npts": 500,
-    "tol": 0.001,
-    "itermin": 0,
-    "iteropt": 4,
+    "npts": 5000,
+    "tol": 1e-4,
+    "itermin": 1,
+    "iteropt": 3,
     "itermax": 7,
-    "s0": 0.001,
+    "s0": 0.01,
     "nadapt": 2,
-    "smin": 1e-06,
-    "smax": 0.002,
+    "smin": 0.001,
+    "smax": 0.2,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 50,
-    "fmax": 80,
+    "fmin": 0.15,
+    "fmax": 0.23,
     "phase_cond_index": "3",
     "plot": true
   },
@@ -45,6 +45,6 @@
     }
   },
   "Logger": {
-    "file_name": "contsol"
+    "file_name": "contsol2"
   }
 }
