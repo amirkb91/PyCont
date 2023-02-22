@@ -37,7 +37,7 @@ class Duffing:
         x1_t = spi.splev(t, x1_interp)
         dgdz = np.array([[0, 0, 1, 0],
                          [0, 0, 0, 1],
-                         [-1 / M[0, 0] * K[0, 0] + knl * 3 * x1_t ** 2, -1 / M[0, 0] * K[0, 1], 0, 0],
+                         [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t ** 2), -1 / M[0, 0] * K[0, 1], 0, 0],
                          [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]])
         dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
         return dXdX0dot.flatten()
@@ -88,9 +88,9 @@ class Duffing:
         # interpolate x1 = X[0] as needed in monodromy time integration
         # odeint selects time points automatically so we need to have x1 at any t during integration
         x1_interp = spi.splrep(t, X[:, 0])
-        # M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
-        # M = M[-1, :].reshape(4, 4)
-        M = cls.monodromy_centdiff(t, X0_total)  # central difference to check values
+        M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
+        M = M[-1, :].reshape(4, 4)
+        # M = cls.monodromy_centdiff(t, X0_total)  # central difference to check values
         M -= np.eye(len(M))
         dHdt = cls.system_ode(None, X[-1, :])
         J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)

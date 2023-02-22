@@ -37,6 +37,9 @@ def psacont(self):
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
+        if energy > self.prob.cont_params["continuation"]["Emax"]:
+            print("Energy exceeds Emax.")
+            break
 
         # prediction step along tangent
         T_pred = T + tgt[-1] * step * stepsign

@@ -1,7 +1,7 @@
 {
   "continuation": {
     "method": "psa",
-    "tangent": "peeters",
+    "tangent": "keller",
     "dir": 1,
     "npts": 5000,
     "tol": 1e-4,
@@ -11,12 +11,13 @@
     "s0": 0.01,
     "nadapt": 2,
     "smin": 0.001,
-    "smax": 0.2,
+    "smax": 1.0,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
     "fmax": 0.23,
-    "phase_cond_index": "3",
+    "Emax": 1e6,
+    "phase_cond_index": "2,3",
     "plot": true
   },
   "shooting": {
@@ -45,6 +46,6 @@
     }
   },
   "Logger": {
-    "file_name": "contsol2"
+    "file_name": "contsol3"
   }
 }

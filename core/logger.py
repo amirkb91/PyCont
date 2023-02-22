@@ -93,7 +93,7 @@ class Logger:
             self.ax[0].set_xlabel("Energy (J)")
             self.ax[0].set_ylabel("Frequency (Hz)")
             self.ax[0].ticklabel_format(useOffset=False, axis="y")
-            self.ax[0].set_xlim(1e-4, 1e4)
+            self.ax[0].set_xlim(1e-4, self.prob.cont_params["continuation"]["Emax"])
             self.ax[0].set_ylim(self.prob.cont_params["continuation"]["fmin"],
                                 self.prob.cont_params["continuation"]["fmax"])
             self.ln.append(self.ax[0].plot(Energy, 1 / T, marker=".", fillstyle="none"))
