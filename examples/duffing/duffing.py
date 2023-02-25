@@ -69,7 +69,7 @@ class Duffing:
 
         # get total displacements from x and pose_base. positions stored in pose_base, increments in X0
         X0_total = X0.copy()
-        X0_total[:N] += pose_base.copy()
+        X0_total[:N] += pose_base.flatten().copy()
 
         # time integration, position and velocity
         t = np.linspace(0, T * nperiod, nsteps * nperiod)
