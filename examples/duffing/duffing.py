@@ -20,8 +20,8 @@ class Duffing:
     @classmethod
     def system_ode(cls, t, X):
         # ODE of the mass spring system. Xdot(t) = g(X(t))
-        x = X[:2]
-        xdot = X[2:]
+        x = X[:cls.ndof_free]
+        xdot = X[cls.ndof_free:]
         KX = cls.K @ x
         fnl = np.array([cls.Knl * x[0] ** 3, 0])
         Xdot = np.concatenate((xdot, -cls.Minv @ (KX + fnl)))
@@ -44,7 +44,7 @@ class Duffing:
 
     @classmethod
     def monodromy_centdiff(cls, t, X0):
-        # central difference
+        # central difference calculation of the monodromy matrix
         eps = 1e-8
         M = np.zeros([4, 4])
         for i in range(4):
@@ -64,23 +64,26 @@ class Duffing:
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
 
+        N = cls.ndof_free
+        twoN = 2 * N
+
         # get total displacements from x and pose_base. positions stored in pose_base, increments in X0
         X0_total = X0.copy()
-        X0_total[0:2] += pose_base.copy()
+        X0_total[:N] += pose_base.copy()
 
         # time integration, position and velocity
         t = np.linspace(0, T * nperiod, nsteps * nperiod)
         X = np.array(odeint(cls.system_ode, X0_total, t, rtol=rel_tol, tfirst=True))
-        pose_time = X[:, :2].T
-        vel_time = X[:, 2:].T
+        pose_time = X[:, :N].T
+        vel_time = X[:, N:].T
 
         # periodicity condition
         H = X[-1, :] - X[0, :]
         H = H.reshape(-1, 1)
 
         # Energy, conservative system so take initial X values
-        x = X[0, :2]
-        xdot = X[0, 2:]
+        x = X[0, :N]
+        xdot = X[0, N:]
         fnl = np.array([cls.Knl * x[0] ** 3, 0])
         energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
 
@@ -89,14 +92,14 @@ class Duffing:
         # odeint selects time points automatically so we need to have x1 at any t during integration
         x1_interp = spi.splrep(t, X[:, 0])
         M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
-        M = M[-1, :].reshape(4, 4)
+        M = M[-1, :].reshape(twoN, twoN)
         # M = cls.monodromy_centdiff(t, X0_total)  # central difference to check values
-        M -= np.eye(len(M))
+        M -= np.eye(twoN)
         dHdt = cls.system_ode(None, X[-1, :])
         J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
         cvg = True
-        # all position variables are required for the Lie group code only, can be set to None
+        # update pose_base with the increments included
         pose_base_plus_inc = X0_total[0:2].copy()
 
         return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
@@ -114,8 +117,8 @@ class Duffing:
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1]
 
-        # pose base taken as zero for this test case. Would be different for Lie Group FE solver.
-        pose_base0 = np.zeros(2)
+        # initial base position taken as zero for both dofs.
+        pose_base0 = np.zeros(cls.ndof_free)
 
         return X0, T0, pose_base0
 
