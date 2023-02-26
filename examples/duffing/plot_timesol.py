@@ -19,9 +19,21 @@ T = data["/T"][solno]
 # check parameters for time simulation data
 par = data["/Parameters"]
 par = json.loads(par[()])
-nperiod = par["shooting"]["single"]["nperiod"]
-nsteps = par["shooting"]["single"]["nsteps_per_period"]
-t = np.linspace(0, T * nperiod, nsteps * nperiod)
+method = par["shooting"]["method"]
+if method == "single":
+    nperiod = par["shooting"]["single"]["nperiod"]
+    nsteps = par["shooting"]["single"]["nsteps_per_period"]
+    t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
+elif method == "multiple":
+    npartition = par["shooting"]["multiple"]["npartition"]
+    nsteps = par["shooting"]["multiple"]["nsteps_per_partition"]
+    T_part = T / npartition
+    t = np.array([])
+    print("Partition Timestamps (s):")
+    for ipart in range(npartition):
+        t = np.append(t, np.linspace(ipart * T_part, (ipart + 1) * T_part, nsteps + 1))
+        partition_timestamp = ipart * T_part
+        print(f"{partition_timestamp:.3f}")
 
 # figure properties
 f, (a1, a2, a3) = plt.subplots(1, 3, figsize=(10, 4))
