@@ -1,0 +1,51 @@
+{
+  "continuation": {
+    "method": "psa",
+    "tangent": "keller",
+    "dir": 1,
+    "npts": 5000,
+    "tol": 1e-4,
+    "itermin": 1,
+    "iteropt": 3,
+    "itermax": 7,
+    "s0": 0.01,
+    "nadapt": 2,
+    "smin": 0.001,
+    "smax": 1.0,
+    "betacontrol": false,
+    "betamax": 20,
+    "fmin": 0.15,
+    "fmax": 0.23,
+    "Emax": 1e6,
+    "phase_cond_index": "2,3",
+    "plot": true
+  },
+  "shooting": {
+    "method": "single",
+    "rel_tol": 1e-08,
+    "single": {
+      "nperiod": 1,
+      "nsteps_per_period": 500
+    },
+    "multiple": {
+      "npartition": 2,
+      "nsteps_per_partition": 200
+    }
+  },
+  "first_point": {
+    "itermax": 30,
+    "eig_start": {
+      "NNM": 1,
+      "scale": 0.1
+    },
+    "restart": {
+      "file_name": "",
+      "index": 50,
+      "fixF": false,
+      "F": 60
+    }
+  },
+  "Logger": {
+    "file_name": "contsol3"
+  }
+}
