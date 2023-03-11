@@ -43,7 +43,7 @@ class BeamCpp:
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
-        pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref"])[:, 0]
+        pose_base0 = np.array(eigdata["/eigen_analysis/Config_ref/MOTION"])[:, 0]
 
         return X0, T0, pose_base0
 
@@ -56,12 +56,12 @@ class BeamCpp:
         cls.config_update(pose_base)
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
-            energy = simdata["/Model_0/energy"][:, -1][0]
+            energy = simdata["/FEModel/energy"][:, -1][0]
             periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
             periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
-            pose_time = simdata["/Config/POSE"][:]
+            pose_time = simdata["/FEModel/POSE/MOTION"][:]
             pose_base_plus_inc = pose_time[:, 0]
-            vel_time = simdata["/Config/VELOCITY"][:]
+            vel_time = simdata["/FEModel/VELOCITY/MOTION"][:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * nperiod
@@ -133,12 +133,12 @@ class BeamCpp:
         vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
 
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
-        if "/Config/INC" in icdata:
-            del icdata["Config/INC"]
-        if "/Config/VELOCITY" in icdata:
-            del icdata["Config/VELOCITY"]
-        icdata["/Config/INC"] = inc.reshape(-1, 1)
-        icdata["/Config/VELOCITY"] = vel.reshape(-1, 1)
+        if "/FEModel/INC/MOTION" in icdata:
+            del icdata["FEModel/INC/MOTION"]
+        if "/FEModel/VELOCITY/MOTION" in icdata:
+            del icdata["FEModel/VELOCITY/MOTION"]
+        icdata["/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
+        icdata["/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
@@ -178,14 +178,17 @@ class BeamCpp:
     def config_update(cls, pose):
         # update beam configuration by writing initial conditions pose
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata["/Config/POSE"] = pose.reshape(-1, 1)
+        icdata["/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
         icdata.close()
 
     @classmethod
     def set_dofdata(cls, simdata):
-        cls.free_dof = np.array(simdata["/Model_0/free_dof"])[:, 0]
-        cls.ndof_all = simdata["/Model_0/number_of_dofs"][0][0]
-        cls.ndof_fix = len(np.array(simdata["/Model_0/fix_dof"]))
+        cls.free_dof = np.arange(6, 372)
+        cls.ndof_all = 372
+        cls.ndof_fix = 6
+        # cls.free_dof = np.array(simdata["/FEModel/free_dof"])[:, 0]
+        # cls.ndof_all = simdata["/FEModel/number_of_dofs"][0][0]
+        # cls.ndof_fix = len(np.array(simdata["/FEModel/fix_dof"]))
         cls.ndof_free = len(cls.free_dof)
 
     @classmethod
