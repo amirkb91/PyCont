@@ -1,0 +1,51 @@
+{
+  "continuation": {
+    "method": "psa",
+    "tangent": "keller",
+    "dir": 1,
+    "npts": 500,
+    "tol": 0.001,
+    "itermin": 0,
+    "iteropt": 4,
+    "itermax": 7,
+    "s0": 0.001,
+    "nadapt": 2,
+    "smin": 1e-6,
+    "smax": 0.002,
+    "betacontrol": false,
+    "betamax": 20,
+    "fmin": 50,
+    "fmax": 80,
+    "Emax": 1e6,
+    "phase_cond_index": "87-173",
+    "plot": true
+  },
+  "shooting": {
+    "method": "single",
+    "rel_tol": 1e-8,
+    "single": {
+      "nperiod": 1,
+      "nsteps_per_period": 100
+    },
+    "multiple": {
+      "npartition": 2,
+      "nsteps_per_partition": 200
+    }
+  },
+  "first_point": {
+    "itermax": 30,
+    "eig_start": {
+      "NNM": 1,
+      "scale": 0.0001
+    },
+    "restart": {
+      "file_name": "",
+      "index": 50,
+      "fixF": false,
+      "F": 60
+    }
+  },
+  "Logger": {
+    "file_name": "cclamped_NNM1_SE_mult"
+  }
+}

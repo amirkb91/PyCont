@@ -5,7 +5,7 @@ def phase_condition(self):
     # parse and sort phase condition indices. range defined in json file is inclusive
     h_idx = []
     idx = self.prob.cont_params["continuation"]["phase_cond_index"]
-    if idx:
+    if idx and idx != "allvel":
         idx = idx.split(",")
         for i in range(len(idx)):
             if "-" in idx[i]:
@@ -14,6 +14,9 @@ def phase_condition(self):
             else:
                 h_idx.append(int(idx[i]))
         h_idx = sorted(set(h_idx))
+    elif idx == "allvel":
+        sizeX = len(self.X0)
+        h_idx = list(range(sizeX//2, sizeX))    
 
     # create phase condition matrix h
     self.nphase = len(h_idx)

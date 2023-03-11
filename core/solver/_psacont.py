@@ -31,7 +31,7 @@ def psacont(self):
     while True:
         print("\n**************************************\n")
         print(f"Continuation point {itercont}")
-        print(f"Freq = {1 / T:.2f} -- Energy = {energy:.2f}")
+        print(f"Freq = {1 / T:.2e} -- Energy = {energy:.2e}")
         print(f"Step = {stepsign * step:.3e}")
         print("Iter \t Residual")
         if itercont > self.prob.cont_params["continuation"]["npts"]:
