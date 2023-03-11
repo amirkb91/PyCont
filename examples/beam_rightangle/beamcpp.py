@@ -5,8 +5,8 @@ import numpy as np
 
 
 class BeamCpp:
-    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_eig"
-    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_sim"
+    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_1m_eig"
+    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_1m_sim"
     cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/beam_rightangle/"
     cpp_paramfile = "parameters.json"
 
@@ -16,24 +16,22 @@ class BeamCpp:
     ic_file = cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
 
     free_dof = None
-    ndof_all = None
-    ndof_fix = None
+    fix_dof = None
     ndof_free = None
+    ndof_fix = None
+    ndof_all = None
 
     @classmethod
     def run_eig(cls, cont_params):
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
-                       cls.cppeig_exe + " " + cls.cpp_paramfile + "&&" +
-                       cls.cppsim_exe + " " + cls.cpp_paramfile,
+                       cls.cppeig_exe + " " + cls.cpp_paramfile,
                        shell=True,
                        stdout=open(cls.cpp_path + "cpp.out", "w"),
                        stderr=open(cls.cpp_path + "cpp.err", "w"))
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
-        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-        cls.set_dofdata(simdata)
-        simdata.close()
+        cls.set_dofdata(eigdata)
 
-        eig = np.array(eigdata["/eigen_analysis/Eigenvectors"])
+        eig = np.array(eigdata["/eigen_analysis/Eigenvectors/MOTION"])
         frq = eigdata["/eigen_analysis/Frequencies"]
         eig[np.abs(eig) < 1e-10] = 0.0
         nnm = cont_params["first_point"]["eig_start"]["NNM"]
@@ -57,11 +55,11 @@ class BeamCpp:
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
             energy = simdata["/FEModel/energy"][:, -1][0]
-            periodicity_inc = simdata["/Periodicity/INC"][cls.ndof_fix:]
-            periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.ndof_fix:]
+            periodicity_inc = simdata["/Periodicity/INC"][cls.free_dof]
+            periodicity_vel = simdata["/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/FEModel/POSE/MOTION"][:]
-            pose_base_plus_inc = pose_time[:, 0]
             vel_time = simdata["/FEModel/VELOCITY/MOTION"][:]
+            pose_base_plus_inc = pose_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * nperiod
@@ -102,12 +100,12 @@ class BeamCpp:
 
             cls.config_update(pose_base[:, ipart])
             simdata, cvg[ipart] = cls.run_cpp(T * delta_S, X[i:i1], nsteps, rel_tol)
-            energy[ipart] = simdata["/Model_0/energy"][:, -1][0]
+            energy[ipart] = simdata["/FEModel/energy"][:, -1][0]
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * delta_S
             M = np.delete(M, -1, axis=1)
-            pose_time[:, p:p1] = simdata["/Config/POSE"][:]
-            vel_time[:, p:p1] = simdata["/Config/VELOCITY"][:]
+            pose_time[:, p:p1] = simdata["/FEModel/POSE/MOTION"][:]
+            vel_time[:, p:p1] = simdata["/FEModel/VELOCITY/MOTION"][:]
 
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
@@ -118,19 +116,19 @@ class BeamCpp:
         energy = np.mean(energy)
         cvg = all(cvg)
         H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-             pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
+            pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H2 = vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
+            vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
         return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
-        inc = X[:cls.ndof_free]
-        vel = X[cls.ndof_free:]
-        inc = np.pad(inc, (cls.ndof_fix, 0), "constant")
-        vel = np.pad(vel, (cls.ndof_fix, 0), "constant")
+        inc = np.zeros(cls.ndof_all)
+        vel = np.zeros(cls.ndof_all)
+        inc[cls.free_dof] = X[:cls.ndof_free]
+        vel[cls.free_dof] = X[cls.ndof_free:]
 
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
         if "/FEModel/INC/MOTION" in icdata:
@@ -164,8 +162,8 @@ class BeamCpp:
         cls.config_update(pose_base)
         # nsteps has to equal to total steps for multiple shooting so it can be sliced
         simdata, cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
-        pose_time = simdata["/Config/POSE"][:]
-        vel_time = simdata["/Config/VELOCITY"][:]
+        pose_time = simdata["/FEModel/POSE/MOTION"][:]
+        vel_time = simdata["/FEModel/VELOCITY/MOTION"][:]
         slicing_index = nsteps * np.arange(npartition)
         V = vel_time[cls.free_dof][:, slicing_index]
         # update pose_base and set inc to zero
@@ -182,14 +180,12 @@ class BeamCpp:
         icdata.close()
 
     @classmethod
-    def set_dofdata(cls, simdata):
-        cls.free_dof = np.arange(6, 372)
-        cls.ndof_all = 372
-        cls.ndof_fix = 6
-        # cls.free_dof = np.array(simdata["/FEModel/free_dof"])[:, 0]
-        # cls.ndof_all = simdata["/FEModel/number_of_dofs"][0][0]
-        # cls.ndof_fix = len(np.array(simdata["/FEModel/fix_dof"]))
+    def set_dofdata(cls, data):
+        cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
+        cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
         cls.ndof_free = len(cls.free_dof)
+        cls.ndof_fix = len(cls.fix_dof)
+        cls.ndof_all = cls.ndof_free + cls.ndof_fix
 
     @classmethod
     def get_dofdata(cls):
