@@ -2,6 +2,7 @@ import h5py
 import json
 import subprocess
 import numpy as np
+import sys
 
 
 class BeamCpp:
@@ -146,10 +147,13 @@ class BeamCpp:
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
         json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
 
-        cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
-                                shell=True,
-                                stdout=open(cls.cpp_path + "cpp.out", "w"),
-                                stderr=open(cls.cpp_path + "cpp.err", "w"))
+        try:
+            cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
+                                    shell=True, timeout=60,
+                                    stdout=open(cls.cpp_path + "cpp.out", "w"),
+                                    stderr=open(cls.cpp_path + "cpp.err", "w"))
+        except subprocess.TimeoutExpired:
+            sys.exit("C++ code timed out.")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         cvg = not bool(cpprun.returncode)
         return simdata, cvg
