@@ -6,8 +6,8 @@ import sys
 
 
 class BeamCpp:
-    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_1m_eig"
-    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_1m_sim"
+    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_eig"
+    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_sim"
     cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/beam_rightangle/"
     cpp_paramfile = "parameters.json"
 
