@@ -27,11 +27,19 @@ ylabel(a, 'Frequency (Hz)');
 
 %% Data Load
 files1 = {}; files2 = {};
-folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/';
-name1 = 'vonK';
-files1{end+1} = [folder 'NNM1/cant_NNM1_VK.h5'];
-name2 = 'SE(2)';
-files2{end+1} = [folder 'NNM1/cant_NNM1_SE_100.h5'];
+folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_rightangle/Results/';
+name1 = 'VK';
+files1{end+1} = [folder 'nnm1_VK/nnm1.h5'];
+files1{end+1} = [folder 'nnm1_VK/nnm1b.h5'];
+files1{end+1} = [folder 'nnm1_VK/nnm1c.h5'];
+files1{end+1} = [folder 'nnm1_VK/nnm1d.h5'];
+files1{end+1} = [folder 'nnm1_VK/nnm1e.h5'];
+name2 = 'SE';
+files2{end+1} = [folder 'nnm1_SE/nnm1.h5'];
+files2{end+1} = [folder 'nnm1_SE/nnm1b.h5'];
+files2{end+1} = [folder 'nnm1_SE/nnm1c.h5'];
+files2{end+1} = [folder 'nnm1_SE/nnm1d.h5'];
+files2{end+1} = [folder 'nnm1_SE/nnm1e.h5'];
 
 %% Plot
 for i=1:length(files1)
