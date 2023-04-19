@@ -8,7 +8,7 @@ clear all; close all;
 % pose_B = h5read("beam_sim.h5",'/dynamic_analysis/FEModel/POSE/MOTION')';
 % pose_B = pose_B(:,1);
 
-load poseinc2.mat
+load poseinc.mat
 
 %%
 nnodes = length(pose_A)/7;
@@ -25,23 +25,21 @@ for i=1:nnodes
     Frame_A(:,:,i) = [SO3_SE3.quat2R(pose_A(1:4,i)) pose_A(5:7,i); 0 0 0 1];
     Frame_B(:,:,i) = [SO3_SE3.quat2R(pose_B(1:4,i)) pose_B(5:7,i); 0 0 0 1];
     HAm1_HB(:,:,i) = SO3_SE3.InvSE3(Frame_A(:,:,i))*Frame_B(:,:,i);
+    % in cpp code, logse3 isn't used, parametrisation used instead
 %     inc(i,:) = SO3_SE3.LogSE3(HAm1_HB(:,:,i));
     inc(i,:) = SO3_SE3.get_parameters_from_frame(HAm1_HB(:,:,i));
-    
-%     inc(i,1:3) = ((SO3_SE3.quat2R(pose_A(1:4,i)))*inc(i,1:3)')';
-%     inc(i,4:6) = ((SO3_SE3.quat2R(pose_A(1:4,i)))*inc(i,4:6)')';
 end
 
 %%
 imagesc(abs(inc-INC));
-colorbar; colormap default
+colorbar;
 xticklabels({'X', 'Y', 'Z', 'Theta_X', 'Theta_Y', 'Theta_Z'});
 ylabel('Node')
 title("Absolute error of LOG vs INC")
 
 figure;
 imagesc(abs(inc-INC)./abs(INC));
-colorbar; colormap jet;
+colorbar;
 xticklabels({'X', 'Y', 'Z', 'Theta_X', 'Theta_Y', 'Theta_Z'});
 ylabel('Node')
 title("Relative error of LOG vs INC")

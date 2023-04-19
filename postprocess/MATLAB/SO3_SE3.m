@@ -1,7 +1,8 @@
 classdef SO3_SE3
-    
     % Functions for handling SO3 and SE3 Lie Groups
+    
     methods(Static)
+        
         function out = tilde(x) %Eq.(9)
             % does both tilde and reverse tilde
             if min(size(x)) == 1
@@ -25,6 +26,12 @@ classdef SO3_SE3
             p = SO3_SE3.tilde(rotation_par);
             e0 = sqrt(1-p'*p/4);
             e = p/2;
+            q = [e0;e];
+        end
+        
+        function [q] = quatmult(qa, qb)
+            e0 = qa(1)*qb(1) - dot(qa(2:4),qb(2:4));
+            e = qa(1)*qb(2:4) + qb(1)*qa(2:4) + SO3_SE3.tilde(qa(2:4))*qb(2:4);
             q = [e0;e];
         end
         
