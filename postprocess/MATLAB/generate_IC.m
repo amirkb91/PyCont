@@ -5,10 +5,10 @@ clear all; close all;
 %% Data Load
 folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_rightangle/Results/';
 file_VK = [folder 'nnm9_VK/nnm9.h5'];
-file_SE = [folder 'nnm9_SE/nnm9c.h5'];
+file_SE = [folder 'nnm9_SE/nnm9.h5'];
 
-analysis = "SE";
-sol_number = 4;  % NNM solution to do FFT on
+analysis = "VK";
+sol_number = 16;  % NNM solution to do FFT on
 node_number = 21;  % elbow (starting from 0) elbow 21, tip 43
 
 if analysis == "VK"
@@ -45,7 +45,7 @@ subplot(1,2,2);
 bar(f*T,P);
 xlim([0 10])
 
-%% Generate IC vector
+%% Generate IC vector.
 load pose0_beamrightangle.mat
 if analysis == "VK"
     % pose - pose0 is already equal to inc
@@ -58,10 +58,10 @@ elseif analysis == "SE"
 end
 
 % remove repeated elbow node and re-order (base/elbow/tip/rest) remove fix dof
-elbow_node = 21;
-elbow_ind = 6*elbow_node+1:6*elbow_node+6;
-ic(elbow_ind) = [];
-ic = [ic(elbow_ind);ic(end-6+1:end);ic(6+1:elbow_ind(1)-1);ic(elbow_ind(end)+1:end-6)];
+% % elbow_node = 21;
+% % elbow_ind = 6*elbow_node+1:6*elbow_node+6;
+% % ic(elbow_ind) = [];
+% % ic = [ic(elbow_ind);ic(end-6+1:end);ic(6+1:elbow_ind(1)-1);ic(elbow_ind(end)+1:end-6)];
 
 % store solution for my MATLAB code
 q0 = ic;
@@ -72,9 +72,9 @@ timeint.time  = time;
 save("ic_NNM.mat","q0","timeint");
 
 % h5 file
-% delete 'icmatlab.h5';
-% h5create('icmatlab.h5','/dynamic_analysis/FEModel/INC/MOTION',[1 length(q0)]);
-% h5write('icmatlab.h5','/dynamic_analysis/FEModel/INC/MOTION',q0');
+delete 'ic.h5';
+h5create('ic.h5','/dynamic_analysis/FEModel/POSE/MOTION',[1 length(ic)]);
+h5write('ic.h5','/dynamic_analysis/FEModel/POSE/MOTION',ic');
 
 %%
 % load('del.mat');

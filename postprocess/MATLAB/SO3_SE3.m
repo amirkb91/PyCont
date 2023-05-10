@@ -35,6 +35,38 @@ classdef SO3_SE3
             q = [e0;e];
         end
         
+        function [angles] = quat2euler(q)
+            qw = q(1); qx = q(2); qy = q(3); qz = q(4);
+            sinr_cosp = 2 * (qw * qx + qy * qz);
+            cosr_cosp = 1 - 2 * (qx * qx + qy * qy);
+            roll = atan2(sinr_cosp, cosr_cosp);
+            % alternative pitch formula (asin) is more stable
+            % sinp = sqrt(1 + 2 * (qw * qy - qx * qz));
+            % cosp = sqrt(1 - 2 * (qw * qy - qx * qz));
+            % pitch = 2 * atan2(sinp, cosp) - pi / 2;
+            pitch = asin(2 * (qw * qy - qx * qz));
+            siny_cosp = 2 * (qw * qz + qx * qy);
+            cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+            yaw = atan2(siny_cosp, cosy_cosp);
+            angles = [roll;pitch;yaw];
+        end
+        
+        function [q] = euler2quat(angles)            
+            roll = angles(1); pitch = angles(2); yaw = angles(3);            
+            cr = cos(roll * 0.5);
+            sr = sin(roll * 0.5);
+            cp = cos(pitch * 0.5);
+            sp = sin(pitch * 0.5);
+            cy = cos(yaw * 0.5);
+            sy = sin(yaw * 0.5);            
+            qw = cr * cp * cy + sr * sp * sy;
+            qx = sr * cp * cy - cr * sp * sy;
+            qy = cr * sp * cy + sr * cp * sy;
+            qz = cr * cp * sy - sr * sp * cy;            
+            q = [qw;qx;qy;qz];
+            q = q/norm(q);
+        end
+        
         function R = ExpSO3(Omega) %Eq.(A.5)
             nOmega = norm(Omega);
             if nOmega == 0
@@ -88,7 +120,7 @@ classdef SO3_SE3
             R = H(1:3,1:3); x = H(1:3,4);
             q = SO3_SE3.R2quat(R);
             p(4:6) = 2. * q(2:4);
-            Tm1T = q(1) * eye(3) - SO3_SE3.tilde(q(2:4));
+            Tm1T = q(1) * eye(3) - SO3_SE3.tilde(q(2:4));  %inverse tangent of SO(3)
             p(1:3) = Tm1T * x;
         end
     end

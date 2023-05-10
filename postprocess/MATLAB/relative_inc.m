@@ -1,5 +1,7 @@
 function [inc] = relative_inc(pose_A,pose_B)
 
+% compute the INC vector between two poses, compatible with c++ formulation
+
 nnodes = length(pose_A)/7;
 pose_A = reshape(pose_A,7,nnodes);
 pose_B = reshape(pose_B,7,nnodes);
@@ -13,6 +15,7 @@ for i=1:nnodes
     Frame_A(:,:,i) = [SO3_SE3.quat2R(pose_A(1:4,i)) pose_A(5:7,i); 0 0 0 1];
     Frame_B(:,:,i) = [SO3_SE3.quat2R(pose_B(1:4,i)) pose_B(5:7,i); 0 0 0 1];
     HAm1_HB(:,:,i) = SO3_SE3.InvSE3(Frame_A(:,:,i))*Frame_B(:,:,i);
+    % in C++, logse3 is not used, instead euler rodrigues is used
 %     inc((i-1)*6+1:(i-1)*6+6) = SO3_SE3.LogSE3(HAm1_HB(:,:,i));
     inc((i-1)*6+1:(i-1)*6+6) = SO3_SE3.get_parameters_from_frame(HAm1_HB(:,:,i));
     

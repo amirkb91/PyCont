@@ -1,21 +1,21 @@
-function [angles] = quat2euler(q)
+function [phi,theta,psi] = quat2euler(q)
+% Converts a quaternion to Euler angles (ZYX convention)
+% Input:
+% - q: unit quaternion [q1;q2;q3;q4]
+% Output:
+% - phi: roll angle in radians
+% - theta: pitch angle in radians
+% - psi: yaw angle in radians
 
-qw = q(1); qx = q(2); qy = q(3); qz = q(4);
+% Extract quaternion elements
+q1 = q(1);
+q2 = q(2);
+q3 = q(3);
+q4 = q(4);
 
-sinr_cosp = 2 * (qw * qx + qy * qz);
-cosr_cosp = 1 - 2 * (qx * qx + qy * qy);
-roll = atan2(sinr_cosp, cosr_cosp);
+% Compute Euler angles
+phi = atan2(2*(q3*q4 + q1*q2), q1^2 - q2^2 - q3^2 + q4^2);
+theta = asin(2*(q1*q3 - q2*q4));
+psi = atan2(2*(q2*q3 + q1*q4), q1^2 + q2^2 - q3^2 - q4^2);
 
-% alternative pitch formula (asin) is more stable
-% sinp = sqrt(1 + 2 * (qw * qy - qx * qz));
-% cosp = sqrt(1 - 2 * (qw * qy - qx * qz));
-% pitch = 2 * atan2(sinp, cosp) - pi / 2;
-pitch = asin(2 * (qw * qy - qx * qz));
-
-siny_cosp = 2 * (qw * qz + qx * qy);
-cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
-yaw = atan2(siny_cosp, cosy_cosp);
-
-angles = [roll;pitch;yaw];
 end
-
