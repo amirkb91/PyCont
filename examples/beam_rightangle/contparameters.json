@@ -4,28 +4,28 @@
     "tangent": "keller",
     "dir": -1,
     "npts": 500,
-    "tol": 0.001,
+    "tol": 0.01,
     "itermin": 0,
-    "iteropt": 3,
-    "itermax": 6,
+    "iteropt": 4,
+    "itermax": 8,
     "s0": 0.001,
     "nadapt": 1,
-    "smin": 1e-6,
+    "smin": 1e-06,
     "smax": 0.1,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0,
     "fmax": 5,
-    "Emax": 1e6,
+    "Emax": 1000000,
     "phase_cond_index": "allvel",
     "plot": true
   },
   "shooting": {
     "method": "single",
-    "rel_tol": 1e-6,
+    "rel_tol": 1e-06,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 100
+      "nsteps_per_period": 500
     },
     "multiple": {
       "npartition": 2,
@@ -40,12 +40,12 @@
     },
     "restart": {
       "file_name": "",
-      "index": -1,
+      "index": 50,
       "fixF": false,
       "F": 60
     }
   },
   "Logger": {
-    "file_name": "nnm"
+    "file_name": "nnm1"
   }
 }

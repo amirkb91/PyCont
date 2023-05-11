@@ -13,8 +13,8 @@ class Logger:
         self.sol_X = []
         self.sol_T = []
         self.sol_tgt = []
-        self.sol_pose_time = []
-        self.sol_vel_time = []
+        self.sol_pose = []
+        self.sol_vel = []
         self.sol_pose_base = []
         self.sol_energy = []
         self.sol_beta = []
@@ -38,18 +38,20 @@ class Logger:
         self.store_index += 1
         for key, _value in sol_data.items():
             value = _value.copy()
-            if key == "sol_X":
-                self.sol_X.append(value)
+            if key == "sol_pose":
+                self.sol_pose.append(value)
+            if key == "sol_vel":
+                self.sol_vel.append(value)
             elif key == "sol_T":
                 self.sol_T.append(value)
             elif key == "sol_tgt":
                 self.sol_tgt.append(value)
-            elif key == "sol_pose_time":
-                self.sol_pose_time.append(value)
-            elif key == "sol_vel_time":
-                self.sol_vel_time.append(value)
-            elif key == "sol_pose_base":
-                self.sol_pose_base.append(value.reshape(-1, self.npartition, order='F'))
+            # elif key == "sol_pose_time":
+            #     self.sol_pose_time.append(value)
+            # elif key == "sol_vel_time":
+            #     self.sol_vel_time.append(value)
+            # elif key == "sol_pose_base":
+            #     self.sol_pose_base.append(value.reshape(-1, self.npartition, order='F'))
             elif key == "sol_energy":
                 self.sol_energy.append(value)
             elif key == "sol_beta":
@@ -62,12 +64,13 @@ class Logger:
 
     def savetodisk(self):
         savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")
-        savefile["/X"] = np.asarray(self.sol_X).T
+        savefile["/Config/POSE"] = np.asarray(self.sol_pose).T
+        savefile["/Config/VELOCITY"] = np.asarray(self.sol_vel).T
         savefile["/T"] = np.asarray(self.sol_T).T
         savefile["/Tangent"] = np.asarray(self.sol_tgt).T
-        savefile["/Config/POSE_time"] = np.transpose(np.asarray(self.sol_pose_time), (1, 2, 0))
-        savefile["/Config/VELOCITY_time"] = np.transpose(np.asarray(self.sol_vel_time), (1, 2, 0))
-        savefile["/Config/POSE_base"] = np.transpose(np.asarray(self.sol_pose_base), (1, 2, 0))
+        # savefile["/Config/POSE_time"] = np.transpose(np.asarray(self.sol_pose_time), (1, 2, 0))
+        # savefile["/Config/VELOCITY_time"] = np.transpose(np.asarray(self.sol_vel_time), (1, 2, 0))
+        # savefile["/Config/POSE_base"] = np.transpose(np.asarray(self.sol_pose_base), (1, 2, 0))
         savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)

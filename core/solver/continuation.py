@@ -11,11 +11,11 @@ class ConX:
         self.prob = prob
         self.X0 = start.X0
         self.T0 = start.T0
-        self.pose_base0 = start.pose_base0
+        self.pose0 = start.pose0
+        self.pose = None
+        self.vel = None
         self.tgt0 = None
         self.energy0 = None
-        self.pose_time0 = None
-        self.vel_time0 = None
         self.log = log
 
     def solve(self):
