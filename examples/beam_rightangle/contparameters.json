@@ -41,6 +41,7 @@
     "restart": {
       "file_name": "",
       "index": 50,
+      "recompute_tangent": false,
       "fixF": false,
       "F": 60
     }

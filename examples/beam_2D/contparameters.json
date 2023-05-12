@@ -40,7 +40,8 @@
     },
     "restart": {
       "file_name": "",
-      "index": 50,
+      "index": 10,
+      "recompute_tangent": false,
       "fixF": false,
       "F": 60
     }

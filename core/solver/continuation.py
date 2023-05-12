@@ -12,9 +12,9 @@ class ConX:
         self.X0 = start.X0
         self.T0 = start.T0
         self.pose0 = start.pose0
+        self.tgt0 = start.tgt0
         self.pose = None
         self.vel = None
-        self.tgt0 = None
         self.energy0 = None
         self.log = log
 

@@ -12,7 +12,7 @@ def psacont(self):
 
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
-    twoN = 2*N
+    twoN = 2 * N
 
     # first point solution
     T = self.T0.copy()
