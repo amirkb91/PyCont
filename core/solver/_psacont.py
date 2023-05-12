@@ -111,7 +111,7 @@ def psacont(self):
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
                 self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
-                               sol_beta=beta)
+                               sol_beta=beta, sol_itercorrect=itercorrect)
 
                 T = T_pred
                 X = X_pred[:]

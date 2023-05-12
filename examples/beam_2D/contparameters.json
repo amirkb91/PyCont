@@ -2,21 +2,22 @@
   "continuation": {
     "method": "psa",
     "tangent": "keller",
-    "dir": 1,
-    "npts": 500,
+    "dir": -1,
+    "npts": 5000,
     "tol": 0.001,
-    "itermin": 0,
+    "itermin": 1,
     "iteropt": 4,
     "itermax": 7,
     "s0": 0.001,
     "nadapt": 2,
-    "smin": 1e-06,
-    "smax": 0.002,
+    "smin": 1e-05,
+    "smax": 0.005,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 50,
+    "fmin": 40,
     "fmax": 80,
-    "phase_cond_index": "87-173",
+    "Emax": 10000,
+    "phase_cond_index": "allvel",
     "plot": true
   },
   "shooting": {
@@ -24,7 +25,7 @@
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 100
+      "nsteps_per_period": 300
     },
     "multiple": {
       "npartition": 2,
@@ -45,6 +46,6 @@
     }
   },
   "Logger": {
-    "file_name": "cclamped_NNM1_SE_mult"
+    "file_name": "nnm1"
   }
 }

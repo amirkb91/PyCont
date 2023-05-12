@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 import json
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib import ticker
@@ -15,9 +16,10 @@ class Logger:
         self.sol_tgt = []
         self.sol_pose = []
         self.sol_vel = []
-        self.sol_pose_base = []
+        # self.sol_pose_base = []
         self.sol_energy = []
         self.sol_beta = []
+        self.sol_itercorrect = []
         self.plot = False
         self.betaplot = False
 
@@ -37,7 +39,7 @@ class Logger:
     def store(self, **sol_data):
         self.store_index += 1
         for key, _value in sol_data.items():
-            value = _value.copy()
+            value = copy.copy(_value)
             if key == "sol_pose":
                 self.sol_pose.append(value)
             if key == "sol_vel":
@@ -56,6 +58,8 @@ class Logger:
                 self.sol_energy.append(value)
             elif key == "sol_beta":
                 self.sol_beta.append(value)
+            elif key == "sol_itercorrect":
+                self.sol_itercorrect.append(value)
 
         # save to disk and plot if required
         self.savetodisk()
@@ -73,6 +77,7 @@ class Logger:
         # savefile["/Config/POSE_base"] = np.transpose(np.asarray(self.sol_pose_base), (1, 2, 0))
         savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/beta"] = np.asarray(self.sol_beta).T
+        savefile["/itercorrect"] = np.asarray(self.sol_itercorrect).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
 

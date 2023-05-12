@@ -2,6 +2,7 @@ import h5py
 import json
 import subprocess
 import sys
+import numpy as np
 from examples.beam_2D.beamcpp import BeamCpp
 
 # inputs
@@ -14,8 +15,8 @@ file = sys.argv[-1]
 if not file.endswith(".h5"):
     file += ".h5"
 data = h5py.File(str(file), "r")
-pose_base = data["/Config/POSE_base"][:, :, solno]
-X = data["/X"][:, solno]
+pose = data["/Config/POSE"][:, solno]
+vel = data["/Config/VELOCITY"][:, solno]
 T = data["/T"][solno]
 
 # read parameters from solution file and modify
@@ -26,7 +27,9 @@ par["shooting"]["single"]["nsteps_per_period"] = nsteps
 
 # run sim
 BeamCpp.run_eig(par)  # To get nodal data in class
-BeamCpp.runsim_single(T, X, pose_base, par)
+x = vel[BeamCpp.free_dof]
+X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
+BeamCpp.runsim_single(T, X, pose, par)
 
 # call plotbeam
 subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5", shell=True)

@@ -51,7 +51,7 @@ def first_point(self):
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             # partition solution
             self.X0, self.pose0 = self.prob.partitionfunction(self.T0, self.X0, self.pose0,
-                                                                   self.prob.cont_params)
+                                                              self.prob.cont_params)
             [_, J, self.pose_time0, self.vel_time0, _, self.energy0, _] = \
                 self.prob.zerofunction(self.T0, self.X0, self.pose0, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
@@ -66,7 +66,8 @@ def first_point(self):
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0)
+        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
+                       sol_itercorrect=iter_firstpoint)
 
     elif restart:
         if self.prob.cont_params["shooting"]["method"] == "single":
