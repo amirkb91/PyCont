@@ -4,19 +4,19 @@
     "tangent": "keller",
     "dir": 1,
     "npts": 5000,
-    "tol": 1e-4,
+    "tol": 0.0001,
     "itermin": 1,
     "iteropt": 3,
     "itermax": 7,
     "s0": 0.01,
     "nadapt": 2,
     "smin": 0.001,
-    "smax": 1.0,
+    "smax": 1,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
     "fmax": 0.23,
-    "Emax": 1e6,
+    "Emax": 1000000,
     "phase_cond_index": "2,3",
     "plot": true
   },
@@ -25,10 +25,10 @@
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 500
+      "nsteps_per_period": 200
     },
     "multiple": {
-      "npartition": 2,
+      "npartition": 10,
       "nsteps_per_partition": 200
     }
   },
@@ -41,11 +41,12 @@
     "restart": {
       "file_name": "",
       "index": 50,
+      "recompute_tangent": false,
       "fixF": false,
       "F": 60
     }
   },
   "Logger": {
-    "file_name": "contsol3"
+    "file_name": "cubic"
   }
 }
