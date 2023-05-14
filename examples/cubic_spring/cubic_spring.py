@@ -4,7 +4,7 @@ import scipy.linalg as spl
 import scipy.interpolate as spi
 
 
-class Duffing:
+class Cubic_Spring:
     # parameters of nonlinear system EoM    MX'' + KX + fnl = 0
     M = np.eye(2)
     K = np.array([[2, -1], [-1, 2]])
@@ -43,6 +43,24 @@ class Duffing:
         return dXdX0dot.flatten()
 
     @classmethod
+    def eigen_solve(cls, cont_params):
+        # Continuation variables initial guess from eigenvalues
+        frq, eig = spl.eigh(cls.K, cls.M)
+        frq = np.sqrt(frq) / (2 * np.pi)
+
+        nnm = cont_params["first_point"]["eig_start"]["NNM"]
+        scale = cont_params["first_point"]["eig_start"]["scale"]
+        x0 = eig[:, nnm - 1] * scale
+        v0 = np.zeros_like(x0)
+        X0 = np.concatenate([x0, v0])
+        T0 = 1 / frq[nnm - 1]
+
+        # initial position taken as zero for both dofs.
+        pose0 = np.zeros(cls.ndof_free)
+
+        return X0, T0, pose0    
+    
+    @classmethod
     def time_solve(cls, T, X0, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
@@ -50,15 +68,14 @@ class Duffing:
         N = cls.ndof_free
         twoN = 2 * N
 
-        # get total displacements from x and pose_base and do time integration
+        # Add increment onto pose and do time sim
         X0_total = X0.copy()
         X0_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
         X = np.array(odeint(cls.system_ode, X0_total, t, rtol=rel_tol, tfirst=True))
-        pose_time = X[:, :N].T
-        vel_time = X[:, N:].T
-        # update pose_base with the increments included
-        pose_base_plus_inc = X0_total[0:2].copy()
+        # solution pose and vel taken from time 0
+        pose = X[0, :N].T
+        vel = X[0, N:].T
 
         # periodicity condition
         H = X[-1, :] - X[0, :]
@@ -80,7 +97,7 @@ class Duffing:
         J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
         cvg = True
-        return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
+        return H, J, pose, vel, energy, cvg
 
     @classmethod
     def time_solve_multiple(cls, T, X0, pose_base, cont_params):
@@ -148,23 +165,7 @@ class Duffing:
         cvg = True
         return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
 
-    @classmethod
-    def eigen_solve(cls, cont_params):
-        # Continuation variables initial guess from eigenvalues
-        frq, eig = spl.eigh(cls.K, cls.M)
-        frq = np.sqrt(frq) / (2 * np.pi)
 
-        nnm = cont_params["first_point"]["eig_start"]["NNM"]
-        scale = cont_params["first_point"]["eig_start"]["scale"]
-        x0 = eig[:, nnm - 1] * scale
-        v0 = np.zeros_like(x0)
-        X0 = np.concatenate([x0, v0])
-        T0 = 1 / frq[nnm - 1]
-
-        # initial base position taken as zero for both dofs.
-        pose_base0 = np.zeros(cls.ndof_free)
-
-        return X0, T0, pose_base0
 
     @classmethod
     def partition_singleshooting_solution(cls, T, X0, pose_base, cont_params):

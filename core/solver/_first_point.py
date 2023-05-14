@@ -7,6 +7,7 @@ def first_point(self):
     print("Shooting first point.")
     print("Iter \t Residual")
     restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
+    recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
 
@@ -18,8 +19,8 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose_time0, self.vel_time0, pose_base_plus_inc, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
+                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
             J = np.block([
                 [J],
                 [self.h, np.zeros((self.nphase, 1))],
@@ -45,16 +46,15 @@ def first_point(self):
 
         # Compute Tangent
         if self.prob.cont_params["shooting"]["method"] == "single":
-            # update pose_base and set inc to zero
-            self.pose_base0 = pose_base_plus_inc
+            # set inc to zero but keep velocity
             self.X0[:N] = 0.0
             J[-1, :] = np.zeros(np.shape(J)[1])
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             # partition solution
-            self.X0, self.pose_base0 = self.prob.partitionfunction(self.T0, self.X0, self.pose_base0,
-                                                                   self.prob.cont_params)
+            self.X0, self.pose0 = self.prob.partitionfunction(self.T0, self.X0, self.pose0,
+                                                              self.prob.cont_params)
             [_, J, self.pose_time0, self.vel_time0, _, self.energy0, _] = \
-                self.prob.zerofunction(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
+                self.prob.zerofunction(self.T0, self.X0, self.pose0, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block([
@@ -67,31 +67,27 @@ def first_point(self):
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        self.log.store(sol_X=self.X0, sol_T=self.T0, sol_tgt=self.tgt0, sol_pose_time=self.pose_time0,
-                       sol_vel_time=self.vel_time0, sol_pose_base=self.pose_base0, sol_energy=self.energy0)
+        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
+                       sol_itercorrect=iter_firstpoint)
 
     elif restart:
         if self.prob.cont_params["shooting"]["method"] == "single":
             # residual and Jacobian and Compute Tangent
-            [H, J, self.pose_time0, self.vel_time0, pose_base_plus_inc, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose_base0, self.prob.cont_params)
-            J = np.block([
-                [J],
-                [self.h, np.zeros((self.nphase, 1))],
-                [np.zeros(np.shape(J)[1])]])
-            J[-1, -1] = 1
-            Z = np.zeros((np.shape(J)[0], 1))
-            Z[-1] = 1
-            self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
-            self.tgt0 /= spl.norm(self.tgt0)
+            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
+                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            if recompute_tangent:
+                J = np.block([
+                    [J],
+                    [self.h, np.zeros((self.nphase, 1))],
+                    [np.zeros(np.shape(J)[1])]])
+                J[-1, -1] = 1
+                Z = np.zeros((np.shape(J)[0], 1))
+                Z[-1] = 1
+                self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+                self.tgt0 /= spl.norm(self.tgt0)
 
-            self.log.store(sol_X=self.X0, sol_T=self.T0, sol_tgt=self.tgt0, sol_pose_time=self.pose_time0,
-                           sol_vel_time=self.vel_time0, sol_pose_base=self.pose_base0, sol_energy=self.energy0)
-
-            # update pose_base and set inc to zero in preperation for continuation restart
-            # (in psacont, this step is done at the end of the continuation loop and prediction is made on inc=0)
-            self.pose_base0 = pose_base_plus_inc
-            self.X0[:N] = 0.0
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
+                           sol_energy=self.energy0, sol_itercorrect=0)
 
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             pass

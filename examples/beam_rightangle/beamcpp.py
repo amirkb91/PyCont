@@ -6,9 +6,9 @@ import sys
 
 
 class BeamCpp:
-    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_eig"
-    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/beam_rightangle_sim"
-    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/beam_rightangle/"
+    cppeig_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle_eig"
+    cppsim_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle_sim"
+    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/"
     cpp_paramfile = "parameters.json"
 
     cpp_params = json.load(open(cpp_path + cpp_paramfile))
@@ -44,9 +44,9 @@ class BeamCpp:
         v0 = np.zeros_like(x0)
         X0 = np.concatenate([x0, v0])
         T0 = 1 / frq[nnm - 1, 0]
-        pose_base0 = np.array(eigdata["/eigen_analysis/POSE/MOTION"])[:, 0]
+        pose0 = np.array(eigdata["/eigen_analysis/POSE/MOTION"])[:, 0]
 
-        return X0, T0, pose_base0
+        return X0, T0, pose0
 
     @classmethod
     def runsim_single(cls, T, X, pose_base, cont_params):
@@ -60,9 +60,9 @@ class BeamCpp:
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
-            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            pose_base_plus_inc = pose_time[:, 0]
+            # solution pose and vel taken from time 0
+            pose = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:, 0]
+            vel = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * nperiod
@@ -71,9 +71,9 @@ class BeamCpp:
             J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
             simdata.close()
         else:
-            H = J = pose_time = vel_time = pose_base_plus_inc = energy = None
+            H = J = pose = vel = energy = None
 
-        return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
+        return H, J, pose, vel, energy, cvg
 
     @classmethod
     def runsim_multiple(cls, T, X, pose_base, cont_params):

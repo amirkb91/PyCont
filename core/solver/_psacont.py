@@ -12,13 +12,13 @@ def psacont(self):
 
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
-    twoN = 2*N
+    twoN = 2 * N
 
     # first point solution
     T = self.T0.copy()
     X = self.X0.copy()
+    pose_base = self.pose.copy()
     tgt = self.tgt0.copy()
-    pose_base = self.pose_base0.copy()
     energy = self.energy0.copy()
 
     # continuation step and direction
@@ -53,7 +53,7 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose_time, vel_time, pose_base_plus_inc, energy_next, cvg_zerof] = \
+            [H, J, pose, vel, energy_next, cvg_zerof] = \
                 self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([
                 [J],
@@ -110,15 +110,15 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                self.log.store(sol_X=X_pred, sol_T=T_pred, sol_tgt=tgt_next, sol_pose_time=pose_time,
-                               sol_vel_time=vel_time, sol_pose_base=pose_base, sol_energy=energy_next, sol_beta=beta)
+                self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
+                               sol_beta=beta, sol_itercorrect=itercorrect)
 
                 T = T_pred
-                X = X_pred
-                tgt = tgt_next
+                X = X_pred[:]
+                tgt = tgt_next[:]
                 energy = energy_next
                 # update pose_base and set inc to zero (slice 0:N on each partition)
-                pose_base = pose_base_plus_inc
+                pose_base = pose[:]
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point
