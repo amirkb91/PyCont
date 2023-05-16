@@ -72,6 +72,7 @@ def first_point(self):
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            residual = spl.norm(H)
             if recompute_tangent:
                 J = np.block([
                     [J],
@@ -83,6 +84,7 @@ def first_point(self):
                 self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
                 self.tgt0 /= spl.norm(self.tgt0)
 
+            self.log.screenout(iter=0, correct=0, res=residual, freq=1/self.T0, energy=self.energy0)
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
                            sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 

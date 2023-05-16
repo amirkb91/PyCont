@@ -98,12 +98,12 @@ class Logger:
             itercont = iterprinted
             print('\n')
             print(*[f"{x}".ljust(width) for x in header], sep='')
-            print("="*len(header)*width)
+            print("=" * len(header) * width)
 
         screen_vals = list(screen.values())
         print(*screen_vals, sep='')
         if printborder:
-            print("-"*len(header)*width)
+            print("-" * len(header) * width)
 
     def savetodisk(self):
         savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")

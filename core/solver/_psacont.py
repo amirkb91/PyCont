@@ -81,20 +81,20 @@ def psacont(self):
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
             beta = np.degrees(np.arccos(tgt_next.T @ tgt))
-            self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1/T_pred, energy=energy_next, step=step, beta=beta)
             if (self.prob.cont_params["continuation"]["betacontrol"]
                     and beta > self.prob.cont_params["continuation"]["betamax"]):
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
                 # passed check, finalise and update for next step
-                itercont += 1
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
                 self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
                                sol_beta=beta, sol_itercorrect=itercorrect, sol_step=step)
+                self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1/T_pred, energy=energy_next, step=step, beta=beta)
 
+                itercont += 1
                 T = T_pred
                 X = X_pred[:]
                 tgt = tgt_next[:]
