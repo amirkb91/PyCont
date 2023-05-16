@@ -4,8 +4,6 @@ from ._phase_condition import phase_condition
 
 
 def first_point(self):
-    print("Shooting first point.")
-    print("Iter \t Residual")
     restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
     recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
     dofdata = self.prob.doffunction()
@@ -29,20 +27,19 @@ def first_point(self):
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
-            print(f"{iter_firstpoint} \t {residual:.5e}")
+            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual, freq=1/self.T0, energy=self.energy0)
+
             if residual < self.prob.cont_params["continuation"]["tol"]:
-                print("First point converged.")
-                print("\n^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^-_-^\n")
                 break
 
-            # correct X0 and T0
+            # correct X0 and T0            
             iter_firstpoint += 1
             hx = np.matmul(self.h, self.X0)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             self.T0 += dxt[-1, 0]
             dx = dxt[:-1, 0]
-            self.X0 += dx
+            self.X0 += dx            
 
         # Compute Tangent
         if self.prob.cont_params["shooting"]["method"] == "single":
@@ -68,7 +65,7 @@ def first_point(self):
         self.tgt0 /= spl.norm(self.tgt0)
 
         self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
-                       sol_itercorrect=iter_firstpoint)
+                       sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
         if self.prob.cont_params["shooting"]["method"] == "single":
@@ -87,7 +84,7 @@ def first_point(self):
                 self.tgt0 /= spl.norm(self.tgt0)
 
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
-                           sol_energy=self.energy0, sol_itercorrect=0)
+                           sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             pass

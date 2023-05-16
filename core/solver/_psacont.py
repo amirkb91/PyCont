@@ -4,12 +4,7 @@ from ._cont_step import cont_step
 
 
 def psacont(self):
-    print("Pseudo-arc length continuation started.")
     frml = self.prob.cont_params["continuation"]["tangent"].lower()
-    print(f"{frml.title()} tangent formulation.")
-    if self.prob.cont_params["continuation"]["betacontrol"]:
-        print("++ Beta control is active. ++")
-
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
@@ -29,21 +24,10 @@ def psacont(self):
     # continuation loop
     itercont = 1
     while True:
-        print("\n**************************************\n")
-        print(f"Continuation point {itercont}")
-        print(f"Freq = {1 / T:.2e} -- Energy = {energy:.2e}")
-        print(f"Step = {stepsign * step:.3e}")
-        print("Iter \t Residual")
-        if itercont > self.prob.cont_params["continuation"]["npts"]:
-            print("Maximum number of continuation points reached.")
-            break
-        if energy > self.prob.cont_params["continuation"]["Emax"]:
-            print("Energy exceeds Emax.")
-            break
-
         # prediction step along tangent
         T_pred = T + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
+
         if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"] or \
                 1 / T_pred < self.prob.cont_params["continuation"]["fmin"]:
             print("Frequency outside of specified boundary.")
@@ -66,18 +50,16 @@ def psacont(self):
                 break
 
             residual = spl.norm(H)
-            print(f"{itercorrect} \t {residual:.5e}")
             if (residual < self.prob.cont_params["continuation"]["tol"]
                     and itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
-                print("Solution converged.")
                 break
             elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                 cvg_cont = False
-                print("Max number of iterations reached without convergence.")
                 break
 
             # apply corrections orthogonal to tangent
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1/T_pred, energy=energy_next, step=step)
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -98,11 +80,11 @@ def psacont(self):
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.array([np.degrees(np.arccos(tgt_next.T @ tgt))])
-            print(f"Beta = {beta[0]:.2f} deg")
+            beta = np.degrees(np.arccos(tgt_next.T @ tgt))
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1/T_pred, energy=energy_next, step=step, beta=beta)
             if (self.prob.cont_params["continuation"]["betacontrol"]
-                    and beta[0] > self.prob.cont_params["continuation"]["betamax"]):
-                print("Beta exceeds maximum angle, roll back and reduce continuation step.")
+                    and beta > self.prob.cont_params["continuation"]["betamax"]):
+                print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
                 # passed check, finalise and update for next step
@@ -111,7 +93,7 @@ def psacont(self):
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
                 self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
-                               sol_beta=beta, sol_itercorrect=itercorrect)
+                               sol_beta=beta, sol_itercorrect=itercorrect, sol_step=step)
 
                 T = T_pred
                 X = X_pred[:]
@@ -124,3 +106,10 @@ def psacont(self):
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
             step = cont_step(self, step, itercorrect, cvg_cont)
+
+        if itercont > self.prob.cont_params["continuation"]["npts"]:
+            print("Maximum number of continuation points reached.")
+            break
+        if energy > self.prob.cont_params["continuation"]["Emax"]:
+            print("Energy exceeds Emax.")
+            break

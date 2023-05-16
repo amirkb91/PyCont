@@ -61,7 +61,7 @@ class Cubic_Spring:
         return X0, T0, pose0    
     
     @classmethod
-    def time_solve(cls, T, X0, pose_base, cont_params):
+    def time_solve(cls, T, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -69,31 +69,31 @@ class Cubic_Spring:
         twoN = 2 * N
 
         # Add increment onto pose and do time sim
-        X0_total = X0.copy()
-        X0_total[:N] += pose_base.flatten().copy()
+        X_total = X.copy()
+        X_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-        X = np.array(odeint(cls.system_ode, X0_total, t, rtol=rel_tol, tfirst=True))
+        Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
         # solution pose and vel taken from time 0
-        pose = X[0, :N].T
-        vel = X[0, N:].T
+        pose = Xsol[0, :N].T
+        vel = Xsol[0, N:].T
 
         # periodicity condition
-        H = X[-1, :] - X[0, :]
+        H = Xsol[-1, :] - Xsol[0, :]
         H = H.reshape(-1, 1)
-        # Energy, conservative system so take initial X values
-        x = X[0, :N]
-        xdot = X[0, N:]
+        # Energy, conservative system so take initial Xsol values
+        x = Xsol[0, :N]
+        xdot = Xsol[0, N:]
         fnl = np.array([cls.Knl * x[0] ** 3, 0])
         energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
 
         # Monodromy and augmented Jacobian
-        # interpolate x1 = X[0] as needed in monodromy time integration
+        # interpolate x1 = Xsol[0] as needed in monodromy time integration
         # odeint selects time points automatically so we need to have x1 at any t during integration
-        x1_interp = spi.splrep(t, X[:, 0])
+        x1_interp = spi.splrep(t, Xsol[:, 0])
         M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
         M = M[-1, :].reshape(twoN, twoN)
         M -= np.eye(twoN)
-        dHdt = cls.system_ode(None, X[-1, :]) * nperiod
+        dHdt = cls.system_ode(None, Xsol[-1, :]) * nperiod
         J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
         cvg = True

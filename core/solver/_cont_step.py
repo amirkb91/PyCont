@@ -14,7 +14,6 @@ def cont_step(self, step, itercorrect, cvg):
         step = max(step, self.prob.cont_params["continuation"]["smin"])
         step = min(step, self.prob.cont_params["continuation"]["smax"])
     else:
-        print("Continuation step halving.")
         step /= 2
         if step < self.prob.cont_params["continuation"]["smin"]:
             raise Exception("Step size below smin, continuation cannot proceed.")

@@ -16,10 +16,10 @@ class Logger:
         self.sol_tgt = []
         self.sol_pose = []
         self.sol_vel = []
-        # self.sol_pose_base = []
         self.sol_energy = []
         self.sol_beta = []
         self.sol_itercorrect = []
+        self.sol_step = []        
         self.plot = False
         self.betaplot = False
 
@@ -42,7 +42,7 @@ class Logger:
             value = copy.copy(_value)
             if key == "sol_pose":
                 self.sol_pose.append(value)
-            if key == "sol_vel":
+            elif key == "sol_vel":
                 self.sol_vel.append(value)
             elif key == "sol_T":
                 self.sol_T.append(value)
@@ -60,11 +60,50 @@ class Logger:
                 self.sol_beta.append(value)
             elif key == "sol_itercorrect":
                 self.sol_itercorrect.append(value)
+            elif key == "sol_step":
+                self.sol_step.append(value)                
 
         # save to disk and plot if required
         self.savetodisk()
         if self.plot:
             self.solplot()
+
+    def screenout(self, **screen_data):        
+        width = 15
+        screen = dict.fromkeys(['Iter Cont', 'Iter Corr','Residual','Freq','Energy','Step','Beta'],' '.ljust(width))
+        header = list(screen.keys())
+        printborder = False
+        iterprinted = None
+
+        for key, value in screen_data.items():
+            if key == "iter":
+                screen['Iter Cont'] = f"{value}".ljust(width)
+                itercont = value
+            elif key == "correct":
+                screen['Iter Corr'] = f"{value}".ljust(width)
+                itercorr = value
+            elif key == "res":
+                screen['Residual'] = f"{value:.4e}".ljust(width)     
+            elif key == "freq":
+                screen['Freq'] = f"{value:.4f}".ljust(width)
+            elif key == "energy":
+                screen['Energy'] = f"{value:.4e}".ljust(width) 
+            elif key == "step":
+                screen['Step'] = f"{value:.4f}".ljust(width) 
+            elif key == "beta":
+                screen['Beta'] = f"{value:.4f}".ljust(width)
+                printborder = True                                 
+        
+        if np.mod(itercont, 20) == 0 and itercorr == 0 and itercont != iterprinted:
+            itercont = iterprinted
+            print('\n')
+            print(*[f"{x}".ljust(width) for x in header], sep='')
+            print("="*len(header)*width)
+
+        screen_vals = list(screen.values())
+        print(*screen_vals, sep='')
+        if printborder:
+            print("-"*len(header)*width)
 
     def savetodisk(self):
         savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")
@@ -78,6 +117,7 @@ class Logger:
         savefile["/Energy"] = np.asarray(self.sol_energy).T
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/itercorrect"] = np.asarray(self.sol_itercorrect).T
+        savefile["/step"] = np.asarray(self.sol_step).T        
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
 
