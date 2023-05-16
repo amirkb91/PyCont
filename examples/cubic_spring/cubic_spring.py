@@ -23,7 +23,7 @@ class Cubic_Spring:
         x = X[:cls.ndof_free]
         xdot = X[cls.ndof_free:]
         KX = cls.K @ x
-        fnl = np.array([cls.Knl * x[0] ** 3, 0])
+        fnl = np.array([cls.Knl * x[0]**3, 0])
         Xdot = np.concatenate((xdot, -cls.Minv @ (KX + fnl)))
         return Xdot
 
@@ -35,10 +35,12 @@ class Cubic_Spring:
         K = cls.K
         knl = cls.Knl
         x1_t = spi.splev(t, x1_interp)
-        dgdz = np.array([[0, 0, 1, 0],
-                         [0, 0, 0, 1],
-                         [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t ** 2), -1 / M[0, 0] * K[0, 1], 0, 0],
-                         [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]])
+        dgdz = np.array(
+            [
+                [0, 0, 1, 0], [0, 0, 0, 1],
+                [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t**2), -1 / M[0, 0] * K[0, 1], 0, 0],
+                [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]
+            ])
         dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
         return dXdX0dot.flatten()
 
@@ -58,8 +60,8 @@ class Cubic_Spring:
         # initial position taken as zero for both dofs.
         pose0 = np.zeros(cls.ndof_free)
 
-        return X0, T0, pose0    
-    
+        return X0, T0, pose0
+
     @classmethod
     def time_solve(cls, T, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
@@ -83,14 +85,15 @@ class Cubic_Spring:
         # Energy, conservative system so take initial Xsol values
         x = Xsol[0, :N]
         xdot = Xsol[0, N:]
-        fnl = np.array([cls.Knl * x[0] ** 3, 0])
+        fnl = np.array([cls.Knl * x[0]**3, 0])
         energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
 
         # Monodromy and augmented Jacobian
         # interpolate x1 = Xsol[0] as needed in monodromy time integration
         # odeint selects time points automatically so we need to have x1 at any t during integration
         x1_interp = spi.splrep(t, Xsol[:, 0])
-        M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
+        M = np.array(
+            odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
         M = M[-1, :].reshape(twoN, twoN)
         M -= np.eye(twoN)
         dHdt = cls.system_ode(None, Xsol[-1, :]) * nperiod
@@ -134,7 +137,9 @@ class Cubic_Spring:
             # interpolate x1 = X[0] as needed in monodromy time integration
             # odeint selects time points automatically so we need to have x1 at any t during integration
             x1_interp = spi.splrep(t, X[:, 0])
-            M = np.array(odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
+            M = np.array(
+                odeint(
+                    cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
             M = M[-1, :].reshape(twoN, twoN)
             dHdt = cls.system_ode(None, X[-1, :]) * delta_S
             J[i:i1, i:i1] = M
@@ -159,13 +164,11 @@ class Cubic_Spring:
         # Energy, conservative system so take initial X values from final partition
         x = X[0, :N]
         xdot = X[0, N:]
-        fnl = np.array([cls.Knl * x[0] ** 3, 0])
+        fnl = np.array([cls.Knl * x[0]**3, 0])
         energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
 
         cvg = True
         return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
-
-
 
     @classmethod
     def partition_singleshooting_solution(cls, T, X0, pose_base, cont_params):
@@ -192,8 +195,12 @@ class Cubic_Spring:
 
     @classmethod
     def get_fe_data(cls):
-        return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
-                "ndof_free": cls.ndof_free}
+        return {
+            "free_dof": cls.free_dof,
+            "ndof_all": cls.ndof_all,
+            "ndof_fix": cls.ndof_fix,
+            "ndof_free": cls.ndof_free
+        }
 
     # @classmethod
     # def monodromy_centdiff(cls, t, X0):

@@ -26,10 +26,12 @@ par["shooting"]["single"]["nperiod"] = nperiod
 par["shooting"]["single"]["nsteps_per_period"] = nsteps
 
 # run sim
-BeamCpp.run_eig(par)  # To get nodal data in class
+BeamCpp.run_eig(par)    # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
 BeamCpp.runsim_single(T, X, pose, par)
 
 # call plotbeam
-subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5", shell=True)
+subprocess.run(
+    "cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5",
+    shell=True)

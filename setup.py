@@ -5,10 +5,10 @@ major = '2'
 minor = '0'
 patch = '0'
 
-setup(name='core',
-      version=major + '.' + minor + '.' + patch,
-      license="",
-      description='core python continuation code',
-      packages=find_packages(),
-      install_requires=[]
-      )
+setup(
+    name='core',
+    version=major + '.' + minor + '.' + patch,
+    license="",
+    description='core python continuation code',
+    packages=find_packages(),
+    install_requires=[])

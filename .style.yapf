@@ -1,0 +1,8 @@
+[style]
+based_on_style = google
+column_limit = 95
+spaces_before_comment = 4
+join_multiple_lines = false
+split_before_first_argument = true
+indent_dictionary_value = true
+split_arguments_when_comma_terminated = true

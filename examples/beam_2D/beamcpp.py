@@ -16,7 +16,8 @@ class BeamCpp:
     eig_file = cpp_params["EigenSolverParameters"]["Logger"]["file_name"]
     simout_file = cpp_params["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
     ic_file = cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
-    analysis_name = cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]["analysis_name"]
+    analysis_name = cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"][
+        "analysis_name"]
 
     free_dof = None
     fix_dof = None
@@ -26,11 +27,12 @@ class BeamCpp:
 
     @classmethod
     def run_eig(cls, cont_params):
-        subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" +
-                       cls.cppeig_exe + " " + cls.cpp_paramfile,
-                       shell=True,
-                       stdout=open(cls.cpp_path + "cpp.out", "w"),
-                       stderr=open(cls.cpp_path + "cpp.err", "w"))
+        subprocess.run(
+            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" + cls.cppeig_exe + " " +
+            cls.cpp_paramfile,
+            shell=True,
+            stdout=open(cls.cpp_path + "cpp.out", "w"),
+            stderr=open(cls.cpp_path + "cpp.err", "w"))
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         cls.read_dofdata()
 
@@ -146,10 +148,12 @@ class BeamCpp:
         json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
 
         try:
-            cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
-                                    shell=True, timeout=300,
-                                    stdout=open(cls.cpp_path + "cpp.out", "w"),
-                                    stderr=open(cls.cpp_path + "cpp.err", "w"))
+            cpprun = subprocess.run(
+                "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
+                shell=True,
+                timeout=300,
+                stdout=open(cls.cpp_path + "cpp.out", "w"),
+                stderr=open(cls.cpp_path + "cpp.err", "w"))
         except subprocess.TimeoutExpired:
             sys.exit("C++ code timed out.")
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
@@ -193,8 +197,12 @@ class BeamCpp:
 
     @classmethod
     def get_dofdata(cls):
-        return {"free_dof": cls.free_dof, "ndof_all": cls.ndof_all, "ndof_fix": cls.ndof_fix,
-                "ndof_free": cls.ndof_free}
+        return {
+            "free_dof": cls.free_dof,
+            "ndof_all": cls.ndof_all,
+            "ndof_fix": cls.ndof_fix,
+            "ndof_free": cls.ndof_free
+        }
 
     @classmethod
     def periodicity(cls, pose, vel, target):

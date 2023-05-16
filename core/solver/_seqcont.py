@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.linalg as spl
 
+
 ## ************* NEEDS REVISION ************* ##
 def seqcont(self):
     print("Sequential continuation started.")
@@ -10,7 +11,7 @@ def seqcont(self):
     T = self.T0.copy()
 
     # default values for first iteration
-    itercont = 1  # point 0 is first point which is found already
+    itercont = 1    # point 0 is first point which is found already
     step = self.prob.cont_params["continuation"]["s0"]
     direction = self.prob.cont_params["continuation"]["dir"]
 
@@ -47,10 +48,8 @@ def seqcont(self):
             residual = spl.norm(H) / spl.norm(X)
             print(f"{itershoot} \t {residual:.5e}")
 
-            if (
-                    residual < self.prob.cont_params["continuation"]["tol"]
-                    and itershoot >= self.prob.cont_params["continuation"]["itermin"]
-            ):
+            if (residual < self.prob.cont_params["continuation"]["tol"] and
+                    itershoot >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg = True
                 print("Solution converged.")
                 break
@@ -69,10 +68,7 @@ def seqcont(self):
             X[:] += dx[:, 0]
 
         # adaptive step size for next point
-        if (
-                itercont >= self.prob.cont_params["continuation"]["nadapt"]
-                or not zerof_cvg
-        ):
+        if (itercont >= self.prob.cont_params["continuation"]["nadapt"] or not zerof_cvg):
             step = self.cont_step(step, itershoot, cvg)
 
         if cvg:

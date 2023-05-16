@@ -16,7 +16,7 @@ def phase_condition(self):
         h_idx = sorted(set(h_idx))
     elif idx == "allvel":
         sizeX = len(self.X0)
-        h_idx = list(range(sizeX//2, sizeX))    
+        h_idx = list(range(sizeX // 2, sizeX))
 
     # create phase condition matrix h
     self.nphase = len(h_idx)

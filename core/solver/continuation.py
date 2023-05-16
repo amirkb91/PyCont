@@ -5,6 +5,7 @@ from ._psacont import psacont
 
 
 class ConX:
+
     def __init__(self, prob, start, log):
         self.h = None
         self.nphase = None
