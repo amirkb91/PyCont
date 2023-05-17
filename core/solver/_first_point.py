@@ -43,17 +43,17 @@ def first_point(self):
             dx = dxt[:-1, 0]
             self.X0 += dx
 
+        # set inc to zero as solution stored in pose, keep velocity
+        self.X0[:N] = 0.0
         # Compute Tangent
         if self.prob.cont_params["shooting"]["method"] == "single":
-            # set inc to zero but keep velocity
-            self.X0[:N] = 0.0
             J[-1, :] = np.zeros(np.shape(J)[1])
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             # partition solution
-            self.X0, self.pose0 = self.prob.partitionfunction(
-                self.T0, self.X0, self.pose0, self.prob.cont_params)
-            [_, J, self.pose_time0, self.vel_time0, _, self.energy0, _] = \
-                self.prob.zerofunction(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            self.X0, self.pose = self.prob.partitionfunction(
+                self.T0, self.X0, self.pose, self.prob.cont_params)
+            [_, J, self.pose, self.vel, self.energy0, _] = \
+                self.prob.zerofunction(self.T0, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block(

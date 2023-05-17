@@ -82,9 +82,11 @@ def psacont(self):
             tgt_next = spl.lstsq(
                 J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
+            # tgt_next /= spl.norm(tgt_next, np.inf)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.degrees(np.arccos(tgt_next.T @ tgt))
+            beta = np.degrees(
+                np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
             if (self.prob.cont_params["continuation"]["betacontrol"] and
                     beta > self.prob.cont_params["continuation"]["betamax"]):
                 print("Beta exceeds maximum angle.")

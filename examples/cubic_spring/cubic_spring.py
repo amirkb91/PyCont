@@ -103,7 +103,7 @@ class Cubic_Spring:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def time_solve_multiple(cls, T, X0, pose_base, cont_params):
+    def time_solve_multiple(cls, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -113,7 +113,7 @@ class Cubic_Spring:
 
         # initialise
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((np.shape(pose_base)[0], (nsteps + 1) * npartition))
+        pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
 
         for ipart in range(npartition):
@@ -126,22 +126,22 @@ class Cubic_Spring:
             p1 = (ipart + 1) * (nsteps + 1)
 
             # get total displacements from x and pose_base and do time integration
-            X0_total = X0[i:i1].copy()
-            X0_total[:cls.ndof_free] += pose_base[:, ipart].flatten().copy()
+            X_total = X[i:i1].copy()
+            X_total[:cls.ndof_free] += pose_base[:, ipart].flatten().copy()
             t = np.linspace(0, T * delta_S, nsteps + 1)
-            X = np.array(odeint(cls.system_ode, X0_total, t, rtol=rel_tol, tfirst=True))
-            pose_time[:, p:p1] = X[:, :N].T
-            vel_time[:, p:p1] = X[:, N:].T
+            X_out = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+            pose_time[:, p:p1] = X_out[:, :N].T
+            vel_time[:, p:p1] = X_out[:, N:].T
 
             # Monodromy and augmented Jacobian
-            # interpolate x1 = X[0] as needed in monodromy time integration
+            # interpolate x1 = X_out[0] as needed in monodromy time integration
             # odeint selects time points automatically so we need to have x1 at any t during integration
-            x1_interp = spi.splrep(t, X[:, 0])
+            x1_interp = spi.splrep(t, X_out[:, 0])
             M = np.array(
                 odeint(
                     cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
             M = M[-1, :].reshape(twoN, twoN)
-            dHdt = cls.system_ode(None, X[-1, :]) * delta_S
+            dHdt = cls.system_ode(None, X_out[-1, :]) * delta_S
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
@@ -158,40 +158,40 @@ class Cubic_Spring:
              vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
-        # update pose_base with the increments included
-        pose_base_plus_inc = pose_time[:, timesol_partition_index_start]
+        # solution pose and vel at t=0 for each partition
+        pose = pose_time[:, timesol_partition_index_start]
+        vel = vel_time[:, timesol_partition_index_start]
 
         # Energy, conservative system so take initial X values from final partition
-        x = X[0, :N]
-        xdot = X[0, N:]
+        x = X_out[0, :N]
+        xdot = X_out[0, N:]
         fnl = np.array([cls.Knl * x[0]**3, 0])
         energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
 
         cvg = True
-        return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
+        return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def partition_singleshooting_solution(cls, T, X0, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         slicing_index = nsteps * np.arange(npartition)
 
-        # nsteps has to equal to total steps for multiple shooting so solution can be partitioned correctly
-        # get total displacements from x and pose_base and do time integration
-        X0_total = X0.copy()
-        X0_total[:cls.ndof_free] += pose_base.flatten().copy()
+        # do time integration along whole orbit before slicing
+        X_total = X.copy()
+        X_total[:cls.ndof_free] += pose_base.flatten().copy()
         t = np.linspace(0, T, nsteps * npartition + 1)
-        X = np.array(odeint(cls.system_ode, X0, t, rtol=rel_tol, tfirst=True))
-        pose_time = X[:, :cls.ndof_free].T
-        vel_time = X[:, cls.ndof_free:].T
-        V = vel_time[cls.free_dof][:, slicing_index]
-        # update pose_base and set inc to zero
-        pose_base = pose_time[:, slicing_index]
-        X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X = np.reshape(X, (-1), order='F')
+        X_out = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+        pose_time = X_out[:, :cls.ndof_free].T
+        vel_time = X_out[:, cls.ndof_free:].T
+        pose = pose_time[:, slicing_index]
+        V = vel_time[:, slicing_index]
+        # set inc to zero as solution stored in pose, keep velocity
+        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
+        X_out = np.reshape(X_out, (-1), order='F')
 
-        return X, pose_base
+        return X_out, pose
 
     @classmethod
     def get_fe_data(cls):
