@@ -190,7 +190,6 @@ class Cubic_Spring:
         # set inc to zero as solution stored in pose, keep velocity
         X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
         X_out = np.reshape(X_out, (-1), order='F')
-
         return X_out, pose
 
     @classmethod

@@ -24,12 +24,7 @@ def first_point(self):
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
-            self.log.screenout(
-                iter=0,
-                correct=iter_firstpoint,
-                res=residual,
-                freq=1 / self.T0,
-                energy=self.energy0)
+            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual, freq=1 / self.T0, energy=self.energy0)
 
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
@@ -65,14 +60,8 @@ def first_point(self):
             J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        self.log.store(
-            sol_pose=self.pose,
-            sol_vel=self.vel,
-            sol_T=self.T0,
-            sol_tgt=self.tgt0,
-            sol_energy=self.energy0,
-            sol_itercorrect=iter_firstpoint,
-            sol_step=0)
+        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
+                       sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
         if self.prob.cont_params["shooting"]["method"] == "single":
@@ -92,14 +81,8 @@ def first_point(self):
 
             self.log.screenout(
                 iter=0, correct=0, res=residual, freq=1 / self.T0, energy=self.energy0)
-            self.log.store(
-                sol_pose=self.pose,
-                sol_vel=self.vel,
-                sol_T=self.T0,
-                sol_tgt=self.tgt0,
-                sol_energy=self.energy0,
-                sol_itercorrect=0,
-                sol_step=0)
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
+                           sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
         elif self.prob.cont_params["shooting"]["method"] == "multiple":
             pass

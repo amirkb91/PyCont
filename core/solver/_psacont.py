@@ -19,7 +19,7 @@ def psacont(self):
     # continuation step and direction
     step = self.prob.cont_params["continuation"]["s0"]
     direction = self.prob.cont_params["continuation"]["dir"]
-    stepsign = -1 * direction * np.sign(tgt[-1])    # corrections are always added
+    stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # continuation loop
     itercont = 1
@@ -56,13 +56,8 @@ def psacont(self):
                 break
 
             # apply corrections orthogonal to tangent
-            self.log.screenout(
-                iter=itercont,
-                correct=itercorrect,
-                res=residual,
-                freq=1 / T_pred,
-                energy=energy_next,
-                step=step)
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1 / T_pred, energy=energy_next,
+                               step=step)
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -96,23 +91,10 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                self.log.store(
-                    sol_pose=pose,
-                    sol_vel=vel,
-                    sol_T=T_pred,
-                    sol_tgt=tgt_next,
-                    sol_energy=energy_next,
-                    sol_beta=beta,
-                    sol_itercorrect=itercorrect,
-                    sol_step=step)
-                self.log.screenout(
-                    iter=itercont,
-                    correct=itercorrect,
-                    res=residual,
-                    freq=1 / T_pred,
-                    energy=energy_next,
-                    step=step,
-                    beta=beta)
+                self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
+                               sol_beta=beta, sol_itercorrect=itercorrect, sol_step=step)
+                self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1 / T_pred,
+                                   energy=energy_next, step=step, beta=beta)
 
                 itercont += 1
                 T = T_pred

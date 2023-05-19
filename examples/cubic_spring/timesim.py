@@ -14,7 +14,7 @@ file = sys.argv[-1]
 if not file.endswith(".h5"):
     file += ".h5"
 data = h5py.File(str(file), "r")
-pos = data["/Config/POSE"][:, solno]
+pose = data["/Config/POSE"][:, solno]
 vel = data["/Config/VELOCITY"][:, solno]
 T = data["/T"][solno]
 
@@ -26,7 +26,7 @@ if method == "single":
     nperiod = par["shooting"]["single"]["nperiod"]
     nsteps = par["shooting"]["single"]["nsteps_per_period"]
     t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-    X = np.concatenate([pos, vel])
+    X = np.concatenate([pose, vel])
     timesol = np.array(odeint(Cubic_Spring.system_ode, X, t, rtol=1e-8, tfirst=True))
     pose_time = timesol[:, :2]
     vel_time = timesol[:, 2:]
@@ -34,7 +34,7 @@ elif method == "multiple":
     npartition = par["shooting"]["multiple"]["npartition"]
     nsteps = par["shooting"]["multiple"]["nsteps_per_partition"]
     delta_S = 1 / npartition
-    pos = pos.reshape(2, npartition, order="F")
+    pose = pose.reshape(2, npartition, order="F")
     vel = vel.reshape(2, npartition, order="F")
     print("Partition Timestamps (s):")
     t = np.zeros([nsteps + 1, 1, npartition])
@@ -45,7 +45,7 @@ elif method == "multiple":
         print(f"{partition_starttime:.3f}")
         t_part = np.linspace(0, T * delta_S, nsteps + 1)
         t[:, :, ipart] = t_part.reshape(-1, 1) + partition_starttime
-        X = np.concatenate([pos[:, ipart], vel[:, ipart]])
+        X = np.concatenate([pose[:, ipart], vel[:, ipart]])
         timesol = np.array(odeint(Cubic_Spring.system_ode, X, t_part, rtol=1e-8, tfirst=True))
         pose_time[:, :, ipart] = timesol[:, :2]
         vel_time[:, :, ipart] = timesol[:, 2:]
