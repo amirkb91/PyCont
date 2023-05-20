@@ -82,13 +82,13 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        N = cls.ndof_free
+        twoN = 2 * N
         delta_S = 1 / npartition
+
         timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
         timesol_partition_index_end = timesol_partition_index_start - 1
         block_order = (np.arange(npartition) + 1) % npartition
-
-        N = cls.ndof_free
-        twoN = 2 * N
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((np.shape(pose_base)[0], (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
@@ -105,19 +105,19 @@ class BeamCpp:
 
             cls.config_update(pose_base[:, ipart])
             simdata, cvg[ipart] = cls.run_cpp(T * delta_S, X[i:i1], nsteps, rel_tol)
-            energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdt = M[:, -1] * delta_S
             M = np.delete(M, -1, axis=1)
-            pose_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
+            pose_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             simdata.close()
 
-        pose_base_plus_inc = pose_time[:, timesol_partition_index_start]
+        pose = pose_time[:, timesol_partition_index_start]
+        vel = vel_time[:, timesol_partition_index_start]
         energy = np.mean(energy)
         cvg = all(cvg)
         H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
@@ -126,7 +126,7 @@ class BeamCpp:
             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
-        return H, J, pose_time, vel_time, pose_base_plus_inc, energy, cvg
+        return H, J, pose, vel, energy, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -165,18 +165,20 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        cls.config_update(pose_base)
-        # nsteps has to equal to total steps for multiple shooting so it can be sliced
-        simdata, cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
-        pose_time = simdata["/Config/POSE"][:]
-        vel_time = simdata["/Config/VELOCITY"][:]
         slicing_index = nsteps * np.arange(npartition)
+
+        cls.config_update(pose_base)
+        # do time integration along whole orbit before slicing
+        simdata, cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+        vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+
+        pose = pose_time[:, slicing_index]
         V = vel_time[cls.free_dof][:, slicing_index]
-        # update pose_base and set inc to zero
-        pose_base = pose_time[:, slicing_index]
-        X = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X = np.reshape(X, (-1), order='F')
-        return X, pose_base
+        # set inc to zero as solution stored in pose, keep velocity
+        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
+        X_out = np.reshape(X_out, (-1), order='F')
+        return X_out, pose
 
     @classmethod
     def config_update(cls, pose):
