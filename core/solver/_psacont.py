@@ -54,10 +54,10 @@ def psacont(self):
             elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                 cvg_cont = False
                 break
-
-            # apply corrections orthogonal to tangent
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1 / T_pred, energy=energy_next,
                                step=step)
+
+            # apply corrections orthogonal to tangent
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -74,14 +74,12 @@ def psacont(self):
                 J[-1, -1] = 1
             Z = np.zeros((np.shape(J)[0], 1))
             Z[-1] = 1
-            tgt_next = spl.lstsq(
-                J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
             # tgt_next /= spl.norm(tgt_next, np.inf)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.degrees(
-                np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
+            beta = np.degrees(np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
             if (self.prob.cont_params["continuation"]["betacontrol"] and
                     beta > self.prob.cont_params["continuation"]["betamax"]):
                 print("Beta exceeds maximum angle.")

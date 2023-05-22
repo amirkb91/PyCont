@@ -24,6 +24,8 @@ class BeamCpp:
     ndof_free = None
     ndof_fix = None
     ndof_all = None
+    node_config = None
+    ndof_config = None
 
     @classmethod
     def run_eig(cls, cont_params):
@@ -86,12 +88,10 @@ class BeamCpp:
         twoN = 2 * N
         delta_S = 1 / npartition
 
-        timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
-        timesol_partition_index_end = timesol_partition_index_start - 1
-        block_order = (np.arange(npartition) + 1) % npartition
+        # initialise
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((np.shape(pose_base)[0], (nsteps + 1) * npartition))
-        vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        pose_time = np.zeros((cls.ndof_config, (nsteps + 1), npartition))
+        vel_time = np.zeros((cls.ndof_all, (nsteps + 1), npartition))
         energy = np.zeros(npartition)
         cvg = [None] * npartition
 
@@ -100,8 +100,6 @@ class BeamCpp:
             i1 = (ipart + 1) * twoN
             j = (ipart + 1) % npartition * twoN
             j1 = ((ipart + 1) % npartition + 1) * twoN
-            p = ipart * (nsteps + 1)
-            p1 = (ipart + 1) * (nsteps + 1)
 
             cls.config_update(pose_base[:, ipart])
             simdata, cvg[ipart] = cls.run_cpp(T * delta_S, X[i:i1], nsteps, rel_tol)
@@ -111,20 +109,25 @@ class BeamCpp:
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
-            pose_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time[:, p:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            pose_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
             energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             simdata.close()
-
-        pose = pose_time[:, timesol_partition_index_start]
-        vel = vel_time[:, timesol_partition_index_start]
         energy = np.mean(energy)
         cvg = all(cvg)
-        H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-            pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        H2 = vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-            vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
+
+        # solution pose and vel taken from time 0
+        pose = pose_time[:, 0, :]
+        vel = vel_time[:, 0, :]
+
+        # periodicity (to be put in seperate method)
+        partition_order = (np.arange(npartition) + 1) % npartition
+        H = np.array([])
+        for ipart in range(npartition):
+            h_pose = pose_time[cls.free_dof, -1, ipart] - pose_time[cls.free_dof, 0, partition_order[ipart]]
+            h_vel = vel_time[cls.free_dof, -1, ipart] - vel_time[cls.free_dof, 0, partition_order[ipart]]
+            H = np.append(H, np.concatenate([h_pose, h_vel]))
+        H = H.reshape(-1, 1)
 
         return H, J, pose, vel, energy, cvg
 
@@ -192,8 +195,11 @@ class BeamCpp:
         data = h5py.File(cls.cpp_path + cls.model_name + ".h5", "r")
         cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
         cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
+        NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
+        cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
         cls.ndof_free = len(cls.free_dof)
         cls.ndof_fix = len(cls.fix_dof)
+        cls.ndof_config = np.size(cls.node_config)
         cls.ndof_all = cls.ndof_free + cls.ndof_fix
         data.close()
 
@@ -203,7 +209,9 @@ class BeamCpp:
             "free_dof": cls.free_dof,
             "ndof_all": cls.ndof_all,
             "ndof_fix": cls.ndof_fix,
-            "ndof_free": cls.ndof_free
+            "ndof_free": cls.ndof_free,
+            "node_config": cls.node_config,
+            "ndof_config": cls.ndof_config
         }
 
     @classmethod

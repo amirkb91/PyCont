@@ -6,6 +6,7 @@ from ._phase_condition import phase_condition
 def first_point(self):
     restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
     recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
+    method = self.prob.cont_params["shooting"]["method"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
 
@@ -41,9 +42,9 @@ def first_point(self):
         # set inc to zero as solution stored in pose, keep velocity
         self.X0[:N] = 0.0
         # Compute Tangent
-        if self.prob.cont_params["shooting"]["method"] == "single":
+        if method == "single":
             J[-1, :] = np.zeros(np.shape(J)[1])
-        elif self.prob.cont_params["shooting"]["method"] == "multiple":
+        elif method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
                 self.T0, self.X0, self.pose, self.prob.cont_params)
@@ -64,7 +65,7 @@ def first_point(self):
                        sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
-        if self.prob.cont_params["shooting"]["method"] == "single":
+        if method == "single":
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
@@ -84,5 +85,5 @@ def first_point(self):
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
                            sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
-        elif self.prob.cont_params["shooting"]["method"] == "multiple":
+        elif method == "multiple":
             pass
