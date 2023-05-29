@@ -1,17 +1,17 @@
 {
   "continuation": {
     "method": "psa",
-    "tangent": "keller",
+    "tangent": "peeters",
     "dir": 1,
     "npts": 5000,
     "tol": 0.0001,
     "itermin": 0,
     "iteropt": 2,
     "itermax": 4,
-    "s0": 0.05,
-    "nadapt": 10,
+    "s0": 0.1,
+    "nadapt": 100,
     "smin": 0.005,
-    "smax": 4,
+    "smax": 40,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
@@ -21,14 +21,14 @@
     "plot": true
   },
   "shooting": {
-    "method": "single",
+    "method": "multiple",
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 200
     },
     "multiple": {
-      "npartition": 10,
+      "npartition": 3,
       "nsteps_per_partition": 200
     }
   },

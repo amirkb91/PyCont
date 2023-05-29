@@ -6,6 +6,7 @@ from ._phase_condition import phase_condition
 def first_point(self):
     restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
     recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
+    method = self.prob.cont_params["shooting"]["method"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
 
@@ -24,12 +25,7 @@ def first_point(self):
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
-            self.log.screenout(
-                iter=0,
-                correct=iter_firstpoint,
-                res=residual,
-                freq=1 / self.T0,
-                energy=self.energy0)
+            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual, freq=1 / self.T0, energy=self.energy0)
 
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
@@ -43,17 +39,17 @@ def first_point(self):
             dx = dxt[:-1, 0]
             self.X0 += dx
 
+        # set inc to zero as solution stored in pose, keep velocity
+        self.X0[:N] = 0.0
         # Compute Tangent
-        if self.prob.cont_params["shooting"]["method"] == "single":
-            # set inc to zero but keep velocity
-            self.X0[:N] = 0.0
+        if method == "single":
             J[-1, :] = np.zeros(np.shape(J)[1])
-        elif self.prob.cont_params["shooting"]["method"] == "multiple":
+        elif method == "multiple":
             # partition solution
-            self.X0, self.pose0 = self.prob.partitionfunction(
-                self.T0, self.X0, self.pose0, self.prob.cont_params)
-            [_, J, self.pose_time0, self.vel_time0, _, self.energy0, _] = \
-                self.prob.zerofunction(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            self.X0, self.pose = self.prob.partitionfunction(
+                self.T0, self.X0, self.pose, self.prob.cont_params)
+            [_, J, self.pose, self.vel, self.energy0, _] = \
+                self.prob.zerofunction(self.T0, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block(
@@ -65,17 +61,11 @@ def first_point(self):
             J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        self.log.store(
-            sol_pose=self.pose,
-            sol_vel=self.vel,
-            sol_T=self.T0,
-            sol_tgt=self.tgt0,
-            sol_energy=self.energy0,
-            sol_itercorrect=iter_firstpoint,
-            sol_step=0)
+        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
+                       sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
-        if self.prob.cont_params["shooting"]["method"] == "single":
+        if method == "single":
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
                 self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
@@ -92,14 +82,8 @@ def first_point(self):
 
             self.log.screenout(
                 iter=0, correct=0, res=residual, freq=1 / self.T0, energy=self.energy0)
-            self.log.store(
-                sol_pose=self.pose,
-                sol_vel=self.vel,
-                sol_T=self.T0,
-                sol_tgt=self.tgt0,
-                sol_energy=self.energy0,
-                sol_itercorrect=0,
-                sol_step=0)
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
+                           sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
-        elif self.prob.cont_params["shooting"]["method"] == "multiple":
+        elif method == "multiple":
             pass

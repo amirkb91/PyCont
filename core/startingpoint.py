@@ -18,8 +18,7 @@ class StartingPoint:
             self.new_start()
 
     def restart(self):
-        restartsol = h5py.File(
-            self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+")
+        restartsol = h5py.File(self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+")
         index = self.prob.cont_params["first_point"]["restart"]["index"]
         self.T0 = restartsol["/T"][index]
         self.pose0 = restartsol["/Config/POSE"][:, index]

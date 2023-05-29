@@ -42,9 +42,9 @@ class Logger:
         for key, _value in sol_data.items():
             value = copy.copy(_value)
             if key == "sol_pose":
-                self.sol_pose.append(value)
+                self.sol_pose.append(value.flatten(order="F"))
             elif key == "sol_vel":
-                self.sol_vel.append(value)
+                self.sol_vel.append(value.flatten(order="F"))
             elif key == "sol_T":
                 self.sol_T.append(value)
             elif key == "sol_tgt":
