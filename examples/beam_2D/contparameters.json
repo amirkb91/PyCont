@@ -2,16 +2,16 @@
   "continuation": {
     "method": "psa",
     "tangent": "keller",
-    "dir": -1,
-    "npts": 5000,
-    "tol": 0.001,
+    "dir": 1,
+    "npts": 50,
+    "tol": 0.01,
     "itermin": 1,
     "iteropt": 4,
     "itermax": 7,
-    "s0": 0.001,
-    "nadapt": 2,
+    "s0": 0.1,
+    "nadapt": 100,
     "smin": 1e-05,
-    "smax": 0.005,
+    "smax": 0.1,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 40,
@@ -28,8 +28,8 @@
       "nsteps_per_period": 300
     },
     "multiple": {
-      "npartition": 2,
-      "nsteps_per_partition": 200
+      "npartition": 1,
+      "nsteps_per_partition": 300
     }
   },
   "first_point": {
@@ -47,6 +47,6 @@
     }
   },
   "Logger": {
-    "file_name": "nnm1"
+    "file_name": "nnm1_single_scale"
   }
 }

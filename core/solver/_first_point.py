@@ -12,34 +12,44 @@ def first_point(self):
 
     if not restart:
         iter_firstpoint = 0
-        linearsol = self.X0.copy()
+        # apply scaling
+        omega = 1 / self.T0
+        S = np.eye(2 * N)
+        S[N:, N:] *= 1 / omega
+        linearsol = S @ self.X0.copy()
+        Xbar = S @ self.X0.copy()
+        tau = 1.0
+
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
+                omega, tau, Xbar, self.pose0, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
-            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual, freq=1 / self.T0, energy=self.energy0)
+            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual,
+                               freq=omega/tau, energy=self.energy0)
 
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
 
             # correct X0 and T0
             iter_firstpoint += 1
-            hx = np.matmul(self.h, self.X0)
+            hx = np.matmul(self.h, Xbar)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            self.T0 += dxt[-1, 0]
+            tau += dxt[-1, 0]
             dx = dxt[:-1, 0]
-            self.X0 += dx
+            Xbar += dx
 
         # set inc to zero as solution stored in pose, keep velocity
+        self.T0 = tau / omega
+        self.X0 = Xbar[:]
         self.X0[:N] = 0.0
         # Compute Tangent
         if method == "single":
@@ -52,23 +62,22 @@ def first_point(self):
                 self.prob.zerofunction(self.T0, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
-            J = np.block(
-                [[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
+            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
         J[-1, -1] = 1
         Z = np.zeros((np.shape(J)[0], 1))
         Z[-1] = 1
-        self.tgt0 = spl.lstsq(
-            J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+        self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0, sol_energy=self.energy0,
-                       sol_itercorrect=iter_firstpoint, sol_step=0)
+        self.log.store(
+            sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
+            sol_energy=self.energy0, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
         if method == "single":
             # residual and Jacobian and Compute Tangent
-            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = \
-                self.prob.zerofunction_firstpoint(self.T0, self.X0, self.pose0, self.prob.cont_params)
+            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
+                self.T0, self.X0, self.pose0, self.prob.cont_params)
             residual = spl.norm(H)
             if recompute_tangent:
                 J = np.block(

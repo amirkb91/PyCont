@@ -70,7 +70,7 @@ class Logger:
             self.solplot()
 
     def screenout(self, **screen_data):
-        width = 15
+        width = 14
         screen = dict.fromkeys(
             ["Iter Cont", "Iter Corr", "Residual", "Freq", "Energy", "Step", "Beta"],
             " ".ljust(width))
