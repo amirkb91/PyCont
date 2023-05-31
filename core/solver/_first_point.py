@@ -14,10 +14,8 @@ def first_point(self):
         iter_firstpoint = 0
         # apply scaling
         omega = 1 / self.T0
-        S = np.eye(2 * N)
-        S[N:, N:] *= 1 / omega
-        linearsol = S @ self.X0.copy()
-        Xbar = S @ self.X0.copy()
+        linearsol = self.X0.copy()
+        Xbar = self.X0.copy()
         tau = 1.0
 
         while True:
