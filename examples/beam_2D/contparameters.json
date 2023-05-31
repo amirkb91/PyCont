@@ -11,7 +11,7 @@
     "s0": 0.001,
     "nadapt": 5,
     "smin": 1e-05,
-    "smax": 0.003,
+    "smax": 0.004,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 40,
@@ -47,6 +47,6 @@
     }
   },
   "Logger": {
-    "file_name": "nnm1_single_scale"
+    "file_name": "nnm1b"
   }
 }

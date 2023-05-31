@@ -57,15 +57,13 @@ class BeamCpp:
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        N = cls.ndof_free
+        
+        T = tau / omega
+        X = Xbar.copy()
+        X[N:] *= omega
 
         cls.config_update(pose_base)
-        T = tau / omega
-        S = np.eye(2 * cls.ndof_free)
-        Sinv = np.eye(2 * cls.ndof_free)
-        S[cls.ndof_free:, cls.ndof_free:] *= 1 / omega
-        Sinv[cls.ndof_free:, cls.ndof_free:] *= omega
-
-        X = Sinv @ Xbar  # try Sinv
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
@@ -78,7 +76,7 @@ class BeamCpp:
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * nperiod * 1 / omega
             M = np.delete(M, -1, axis=1)
-            M = M @ Sinv
+            M[:, N:] *= omega  # scale velocity derivatives
             M -= np.eye(len(M))
             J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
             simdata.close()

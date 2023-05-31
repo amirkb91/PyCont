@@ -12,11 +12,11 @@ def first_point(self):
 
     if not restart:
         iter_firstpoint = 0
-        # apply scaling
+        # apply scaling, velocities are 0 anyway
+        tau = 1.0
         omega = 1 / self.T0
         linearsol = self.X0.copy()
-        Xbar = self.X0.copy()
-        tau = 1.0
+        Xbar = self.X0.copy()        
 
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:

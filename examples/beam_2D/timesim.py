@@ -29,7 +29,8 @@ par["shooting"]["single"]["nsteps_per_period"] = nsteps
 BeamCpp.run_eig(par)    # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-BeamCpp.runsim_single(T, X, pose, par)
+# BeamCpp.runsim_single(T, X, pose, par)
+BeamCpp.runsim_single(1/T, 1.0, X, pose, par)
 
 # call plotbeam
 subprocess.run(
