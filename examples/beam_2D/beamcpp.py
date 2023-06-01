@@ -53,15 +53,15 @@ class BeamCpp:
         return X0, T0, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xbar, pose_base, cont_params):
+    def runsim_single(cls, omega, tau, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         
         T = tau / omega
-        X = Xbar.copy()
-        X[N:] *= omega
+        X = X.copy()
+        X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
@@ -74,7 +74,7 @@ class BeamCpp:
             vel = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = M[:, -1] * nperiod * 1 / omega
+            dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
             M = np.delete(M, -1, axis=1)
             M[:, N:] *= omega  # scale velocity derivatives
             M -= np.eye(len(M))

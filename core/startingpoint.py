@@ -8,6 +8,8 @@ class StartingPoint:
         self.prob = prob
         self.X0 = None
         self.T0 = None
+        self.omega = None
+        self.tau = None
         self.pose0 = None
         self.tgt0 = None
 
@@ -18,7 +20,8 @@ class StartingPoint:
             self.new_start()
 
     def restart(self):
-        restartsol = h5py.File(self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+")
+        restartsol = h5py.File(
+            self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+")
         index = self.prob.cont_params["first_point"]["restart"]["index"]
         self.T0 = restartsol["/T"][index]
         self.pose0 = restartsol["/Config/POSE"][:, index]
@@ -38,3 +41,9 @@ class StartingPoint:
     def new_start(self):
         # User supplied function provides initial guess
         self.X0, self.T0, self.pose0 = self.prob.icfunction(self.prob.cont_params)
+        if self.prob.cont_params["shooting"]["scaling"] == True:
+            self.omega = 1 / self.T0
+            self.tau = 1.0
+        else:
+            self.omega = 1.0
+            self.tau = self.T0

@@ -11,12 +11,8 @@ def first_point(self):
     N = dofdata["ndof_free"]
 
     if not restart:
-        iter_firstpoint = 0
-        # apply scaling, velocities are 0 anyway
-        tau = 1.0
-        omega = 1 / self.T0
-        linearsol = self.X0.copy()
-        Xbar = self.X0.copy()        
+        iter_firstpoint = 0        
+        linearsol = self.X0.copy()  # velocities are zero so no scaling needed
 
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
@@ -24,30 +20,29 @@ def first_point(self):
 
             # residual and Jacobian with orthogonality to linear solution
             [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                omega, tau, Xbar, self.pose0, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
             self.log.screenout(iter=0, correct=iter_firstpoint, res=residual,
-                               freq=omega/tau, energy=self.energy0)
+                               freq=self.omega/self.tau, energy=self.energy0)
 
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
 
             # correct X0 and T0
             iter_firstpoint += 1
-            hx = np.matmul(self.h, Xbar)
+            hx = np.matmul(self.h, self.X0)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            tau += dxt[-1, 0]
+            self.tau += dxt[-1, 0]
             dx = dxt[:-1, 0]
-            Xbar += dx
+            self.X0 += dx
 
         # set inc to zero as solution stored in pose, keep velocity
-        self.T0 = tau / omega
-        self.X0 = Xbar[:]
+        self.T0 = self.tau / self.omega
         self.X0[:N] = 0.0
         # Compute Tangent
         if method == "single":

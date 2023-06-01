@@ -11,7 +11,7 @@
     "s0": 0.001,
     "nadapt": 5,
     "smin": 1e-05,
-    "smax": 0.004,
+    "smax": 0.003,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 40,
@@ -22,6 +22,7 @@
   },
   "shooting": {
     "method": "single",
+    "scaling": true,
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
@@ -47,6 +48,6 @@
     }
   },
   "Logger": {
-    "file_name": "nnm1b"
+    "file_name": "nnm1_single_scale_update"
   }
 }
