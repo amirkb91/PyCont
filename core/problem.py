@@ -13,10 +13,7 @@ class Prob:
         self.partitionfunction = None
 
     def read_contparams(self, cont_paramfile):
-        if os.path.exists(cont_paramfile):
-            self.cont_params = json.load(open(cont_paramfile))
-        else:
-            raise Exception("Continuation parameter file does not exist!")
+        self.cont_params = json.load(open(cont_paramfile))
 
     def add_doffunction(self, fxn):
         self.doffunction = fxn

@@ -53,10 +53,15 @@ class BeamCpp:
         return X0, T0, pose0
 
     @classmethod
-    def runsim_single(cls, T, X, pose_base, cont_params):
+    def runsim_single(cls, omega, tau, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        N = cls.ndof_free
+
+        T = tau / omega
+        X = X.copy()
+        X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
         simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
@@ -69,10 +74,11 @@ class BeamCpp:
             vel = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
-            dHdt = M[:, -1] * nperiod
+            dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
             M = np.delete(M, -1, axis=1)
+            M[:, N:] *= omega  # scale velocity derivatives
             M -= np.eye(len(M))
-            J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
+            J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
             simdata.close()
         else:
             H = J = pose = vel = energy = None
@@ -124,8 +130,10 @@ class BeamCpp:
         partition_order = (np.arange(npartition) + 1) % npartition
         H = np.array([])
         for ipart in range(npartition):
-            h_pose = pose_time[cls.free_dof, -1, ipart] - pose_time[cls.free_dof, 0, partition_order[ipart]]
-            h_vel = vel_time[cls.free_dof, -1, ipart] - vel_time[cls.free_dof, 0, partition_order[ipart]]
+            h_pose = pose_time[cls.free_dof, -1,
+                               ipart] - pose_time[cls.free_dof, 0, partition_order[ipart]]
+            h_vel = vel_time[cls.free_dof, -1,
+                             ipart] - vel_time[cls.free_dof, 0, partition_order[ipart]]
             H = np.append(H, np.concatenate([h_pose, h_vel]))
         H = H.reshape(-1, 1)
 
@@ -223,5 +231,4 @@ class BeamCpp:
         else:
             # SE formulation
             H = None
-
         return H

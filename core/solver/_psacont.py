@@ -10,13 +10,14 @@ def psacont(self):
     twoN = 2 * N
 
     # first point solution
-    T = self.T0.copy()
     X = self.X0.copy()
     pose_base = self.pose.copy()
     tgt = self.tgt0.copy()
     energy = self.energy0.copy()
+    omega = self.omega
+    tau = self.tau
 
-    # continuation step and direction
+    # continuation parameters
     step = self.prob.cont_params["continuation"]["s0"]
     direction = self.prob.cont_params["continuation"]["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
@@ -25,11 +26,11 @@ def psacont(self):
     itercont = 1
     while True:
         # prediction step along tangent
-        T_pred = T + tgt[-1] * step * stepsign
+        tau_pred = tau + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
 
-        if 1 / T_pred > self.prob.cont_params["continuation"]["fmax"] or \
-                1 / T_pred < self.prob.cont_params["continuation"]["fmin"]:
+        if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
+                omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
             print("Frequency outside of specified boundary.")
             break
 
@@ -37,8 +38,8 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose, vel, energy_next, cvg_zerof] = \
-                self.prob.zerofunction(T_pred, X_pred, pose_base, self.prob.cont_params)
+            [H, J, pose, vel, energy_next, cvg_zerof] = self.prob.zerofunction(
+                omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [tgt]])
 
             if not cvg_zerof:
@@ -54,15 +55,15 @@ def psacont(self):
             elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                 cvg_cont = False
                 break
-            self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1 / T_pred, energy=energy_next,
-                               step=step)
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
+                               freq=omega/tau_pred, energy=energy_next, step=step)
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            T_pred += dxt[-1, 0]
+            tau_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
 
@@ -74,9 +75,9 @@ def psacont(self):
                 J[-1, -1] = 1
             Z = np.zeros((np.shape(J)[0], 1))
             Z[-1] = 1
-            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False,
+                                 lapack_driver="gelsd")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
-            # tgt_next /= spl.norm(tgt_next, np.inf)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
             beta = np.degrees(np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
@@ -89,13 +90,15 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                self.log.store(sol_pose=pose, sol_vel=vel, sol_T=T_pred, sol_tgt=tgt_next, sol_energy=energy_next,
-                               sol_beta=beta, sol_itercorrect=itercorrect, sol_step=step)
-                self.log.screenout(iter=itercont, correct=itercorrect, res=residual, freq=1 / T_pred,
-                                   energy=energy_next, step=step, beta=beta)
+                self.log.store(
+                    sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
+                    sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
+                    sol_step=step)
+                self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
+                                   freq=omega/tau_pred, energy=energy_next, step=step, beta=beta)
 
                 itercont += 1
-                T = T_pred
+                tau = tau_pred
                 X = X_pred[:]
                 tgt = tgt_next[:]
                 energy = energy_next
