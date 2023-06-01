@@ -14,8 +14,8 @@ def psacont(self):
     pose_base = self.pose.copy()
     tgt = self.tgt0.copy()
     energy = self.energy0.copy()
-    omega = self.omega.copy()
-    tau = self.tau.copy()
+    omega = self.omega
+    tau = self.tau
 
     # continuation parameters
     step = self.prob.cont_params["continuation"]["s0"]
@@ -75,9 +75,9 @@ def psacont(self):
                 J[-1, -1] = 1
             Z = np.zeros((np.shape(J)[0], 1))
             Z[-1] = 1
-            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+            tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False,
+                                 lapack_driver="gelsd")[0][:, 0]
             tgt_next /= spl.norm(tgt_next)
-            # tgt_next /= spl.norm(tgt_next, np.inf)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
             beta = np.degrees(np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
@@ -90,10 +90,9 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                self.log.store(
-                    sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
-                    sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
-                    sol_step=step)
+                self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
+                               sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
+                               sol_step=step)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                                    freq=omega/tau_pred, energy=energy_next, step=step, beta=beta)
 

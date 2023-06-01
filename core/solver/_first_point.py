@@ -32,7 +32,7 @@ def first_point(self):
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
 
-            # correct X0 and T0
+            # correct X0 and tau
             iter_firstpoint += 1
             hx = np.matmul(self.h, self.X0)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -42,7 +42,6 @@ def first_point(self):
             self.X0 += dx
 
         # set inc to zero as solution stored in pose, keep velocity
-        self.T0 = self.tau / self.omega
         self.X0[:N] = 0.0
         # Compute Tangent
         if method == "single":
@@ -63,7 +62,7 @@ def first_point(self):
         self.tgt0 /= spl.norm(self.tgt0)
 
         self.log.store(
-            sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
+            sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
             sol_energy=self.energy0, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:

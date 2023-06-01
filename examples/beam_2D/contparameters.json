@@ -48,6 +48,6 @@
     }
   },
   "Logger": {
-    "file_name": "nnm1_single_scale_update"
+    "file_name": "nnm1"
   }
 }

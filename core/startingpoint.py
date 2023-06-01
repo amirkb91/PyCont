@@ -7,7 +7,6 @@ class StartingPoint:
     def __init__(self, prob):
         self.prob = prob
         self.X0 = None
-        self.T0 = None
         self.omega = None
         self.tau = None
         self.pose0 = None
@@ -40,10 +39,10 @@ class StartingPoint:
 
     def new_start(self):
         # User supplied function provides initial guess
-        self.X0, self.T0, self.pose0 = self.prob.icfunction(self.prob.cont_params)
+        self.X0, T, self.pose0 = self.prob.icfunction(self.prob.cont_params)
         if self.prob.cont_params["shooting"]["scaling"] == True:
-            self.omega = 1 / self.T0
+            self.omega = 1 / T
             self.tau = 1.0
         else:
             self.omega = 1.0
-            self.tau = self.T0
+            self.tau = T
