@@ -69,7 +69,7 @@ def first_point(self):
         if method == "single":
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.T0, self.X0, self.pose0, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             residual = spl.norm(H)
             if recompute_tangent:
                 J = np.block(
@@ -84,8 +84,8 @@ def first_point(self):
                 self.tgt0 /= spl.norm(self.tgt0)
 
             self.log.screenout(iter=0, correct=0, res=residual,
-                               freq=1/self.T0, energy=self.energy0)
-            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0,
+                               freq=self.omega/self.tau, energy=self.energy0)
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
                            sol_tgt=self.tgt0, sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
         elif method == "multiple":
