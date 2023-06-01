@@ -58,7 +58,7 @@ class BeamCpp:
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
-        
+
         T = tau / omega
         X = X.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
@@ -231,5 +231,4 @@ class BeamCpp:
         else:
             # SE formulation
             H = None
-
         return H

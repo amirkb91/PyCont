@@ -11,7 +11,7 @@ def first_point(self):
     N = dofdata["ndof_free"]
 
     if not restart:
-        iter_firstpoint = 0        
+        iter_firstpoint = 0
         linearsol = self.X0.copy()  # velocities are zero so no scaling needed
 
         while True:
@@ -50,8 +50,8 @@ def first_point(self):
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
                 self.T0, self.X0, self.pose, self.prob.cont_params)
-            [_, J, self.pose, self.vel, self.energy0, _] = \
-                self.prob.zerofunction(self.T0, self.X0, self.pose, self.prob.cont_params)
+            [_, J, self.pose, self.vel, self.energy0, _] = self.prob.zerofunction(
+                self.T0, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
@@ -73,18 +73,20 @@ def first_point(self):
             residual = spl.norm(H)
             if recompute_tangent:
                 J = np.block(
-                    [[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
+                    [[J],
+                     [self.h, np.zeros((self.nphase, 1))],
+                     [np.zeros(np.shape(J)[1])]])
                 J[-1, -1] = 1
                 Z = np.zeros((np.shape(J)[0], 1))
                 Z[-1] = 1
-                self.tgt0 = spl.lstsq(
-                    J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+                self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False,
+                                      lapack_driver="gelsd")[0][:, 0]
                 self.tgt0 /= spl.norm(self.tgt0)
 
-            self.log.screenout(
-                iter=0, correct=0, res=residual, freq=1 / self.T0, energy=self.energy0)
-            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0, sol_tgt=self.tgt0,
-                           sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
+            self.log.screenout(iter=0, correct=0, res=residual,
+                               freq=1/self.T0, energy=self.energy0)
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.T0,
+                           sol_tgt=self.tgt0, sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
 
         elif method == "multiple":
             pass

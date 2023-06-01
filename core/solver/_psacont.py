@@ -29,8 +29,8 @@ def psacont(self):
         tau_pred = tau + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
 
-        if omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or \
-                omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]:
+        if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
+                omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
             print("Frequency outside of specified boundary.")
             break
 
@@ -38,8 +38,8 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose, vel, energy_next, cvg_zerof] = \
-                self.prob.zerofunction(omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            [H, J, pose, vel, energy_next, cvg_zerof] = self.prob.zerofunction(
+                omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [tgt]])
 
             if not cvg_zerof:
@@ -90,9 +90,10 @@ def psacont(self):
                 if frml == "peeters":
                     stepsign = np.sign(stepsign * tgt_next.T @ tgt)
 
-                self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
-                               sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
-                               sol_step=step)
+                self.log.store(
+                    sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
+                    sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
+                    sol_step=step)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                                    freq=omega/tau_pred, energy=energy_next, step=step, beta=beta)
 

@@ -71,9 +71,8 @@ class Logger:
 
     def screenout(self, **screen_data):
         width = 14
-        screen = dict.fromkeys(
-            ["Iter Cont", "Iter Corr", "Residual", "Freq", "Energy", "Step", "Beta"],
-            " ".ljust(width))
+        screen = dict.fromkeys(["Iter Cont", "Iter Corr", "Residual", "Freq",
+                               "Energy", "Step", "Beta"], " ".ljust(width))
         header = list(screen.keys())
         printborder = False
         iterprinted = None
@@ -145,9 +144,8 @@ class Logger:
             self.ax[0].set_ylabel("Frequency (Hz)")
             self.ax[0].ticklabel_format(useOffset=False, axis="y")
             self.ax[0].set_xlim(1e-4, self.prob.cont_params["continuation"]["Emax"])
-            self.ax[0].set_ylim(
-                self.prob.cont_params["continuation"]["fmin"],
-                self.prob.cont_params["continuation"]["fmax"])
+            self.ax[0].set_ylim(self.prob.cont_params["continuation"]["fmin"],
+                                self.prob.cont_params["continuation"]["fmax"])
             self.ln.append(self.ax[0].plot(Energy, 1 / T, marker=".", fillstyle="none"))
             # Frequency energy plot zoom
             self.ax[1].grid()
@@ -171,12 +169,8 @@ class Logger:
                 self.ax[2].xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))
                 self.ln.append(
                     self.ax[2].plot(
-                        range(1,
-                              len(beta) + 1),
-                        beta,
-                        marker=".",
-                        fillstyle="none",
-                        color="red"))
+                        range(1, len(beta) + 1),
+                        beta, marker=".", fillstyle="none", color="red"))
             plt.pause(0.01)
         else:
             self.ln[0][0].set_data(Energy, 1 / T)
