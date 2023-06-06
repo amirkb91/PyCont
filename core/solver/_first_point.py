@@ -20,7 +20,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
@@ -28,7 +28,7 @@ def first_point(self):
 
             residual = spl.norm(H)
             self.log.screenout(iter=0, correct=iter_firstpoint, res=residual,
-                               freq=self.omega/self.tau, energy=self.energy0)
+                               freq=self.omega/self.tau, energy=energy)
 
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
@@ -51,7 +51,7 @@ def first_point(self):
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
                 self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
-            [_, J, self.pose, self.vel, self.energy0, _] = self.prob.zerofunction(
+            [_, J, self.pose, self.vel, energy, _] = self.prob.zerofunction(
                 self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
@@ -64,12 +64,12 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
-            sol_energy=self.energy0, sol_itercorrect=iter_firstpoint, sol_step=0)
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
         if method == "single":
             # residual and Jacobian and Compute Tangent
-            [H, J, self.pose, self.vel, self.energy0, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             residual = spl.norm(H)
             if recompute_tangent:
@@ -85,9 +85,9 @@ def first_point(self):
                 self.tgt0 /= spl.norm(self.tgt0)
 
             self.log.screenout(iter=0, correct=0, res=residual,
-                               freq=self.omega/self.tau, energy=self.energy0)
+                               freq=self.omega/self.tau, energy=energy)
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
-                           sol_tgt=self.tgt0, sol_energy=self.energy0, sol_itercorrect=0, sol_step=0)
+                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
 
         elif method == "multiple":
             pass

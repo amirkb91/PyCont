@@ -17,7 +17,6 @@ class ConX:
         self.tgt0 = start.tgt0
         self.pose = None
         self.vel = None
-        self.energy0 = None
         self.log = log
 
     def solve(self):

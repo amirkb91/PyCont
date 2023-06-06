@@ -14,7 +14,6 @@ def psacont(self):
     X = dp(self.X0)
     pose_base = dp(self.pose)
     tgt = dp(self.tgt0)
-    energy = self.energy0
     omega = self.omega
     tau = self.tau
 
@@ -39,7 +38,7 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose, vel, energy_next, cvg_zerof] = self.prob.zerofunction(
+            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [tgt]])
 
@@ -57,7 +56,7 @@ def psacont(self):
                 cvg_cont = False
                 break
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                               freq=omega/tau_pred, energy=energy_next, step=step)
+                               freq=omega/tau_pred, energy=energy, step=step)
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
@@ -93,16 +92,15 @@ def psacont(self):
 
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
-                    sol_energy=energy_next, sol_beta=beta, sol_itercorrect=itercorrect,
+                    sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
                     sol_step=step)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                                   freq=omega/tau_pred, energy=energy_next, step=step, beta=beta)
+                                   freq=omega/tau_pred, energy=energy, step=step, beta=beta)
 
                 itercont += 1
                 tau = tau_pred
                 X = dp(X_pred)
                 tgt = dp(tgt_next)
-                energy = energy_next
                 # update pose_base and set inc to zero (slice 0:N on each partition)
                 pose_base = dp(pose)
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
