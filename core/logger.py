@@ -91,7 +91,7 @@ class Logger:
             elif key == "energy":
                 screen["Energy"] = f"{value:.4e}".ljust(width)
             elif key == "step":
-                screen["Step"] = f"{value:.4f}".ljust(width)
+                screen["Step"] = f"{value:.3e}".ljust(width)
             elif key == "beta":
                 screen["Beta"] = f"{value:.4f}".ljust(width)
                 printborder = True

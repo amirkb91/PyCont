@@ -35,7 +35,7 @@ class StartingPoint:
         self.X0 = np.concatenate([np.zeros(N), v])
 
         if self.prob.cont_params["shooting"]["scaling"] == True:
-            self.omega = 1 / T0
+            self.omega = 1 / T0  # omega fixed using period of linear mode
             self.tau = self.omega * T
             self.X0[N:] *= 1 / self.omega  # scale velocities from X to Xtilde
         else:

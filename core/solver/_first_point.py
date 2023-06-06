@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._phase_condition import phase_condition
 
@@ -12,7 +13,7 @@ def first_point(self):
 
     if not restart:
         iter_firstpoint = 0
-        linearsol = self.X0.copy()  # velocities are zero so no scaling needed
+        linearsol = dp(self.X0)  # velocities are zero so no scaling needed
 
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
@@ -49,9 +50,9 @@ def first_point(self):
         elif method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
-                self.T0, self.X0, self.pose, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
             [_, J, self.pose, self.vel, self.energy0, _] = self.prob.zerofunction(
-                self.T0, self.X0, self.pose, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])

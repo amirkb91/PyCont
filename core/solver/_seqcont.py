@@ -1,80 +1,88 @@
 import numpy as np
+from copy import deepcopy as dp
 import scipy.linalg as spl
+from ._cont_step import cont_step
 
 
-## ************* NEEDS REVISION ************* ##
 def seqcont(self):
-    print("Sequential continuation started.")
+    dofdata = self.prob.doffunction()
+    N = dofdata["ndof_free"]
+    twoN = 2 * N
 
-    # start from first point solution
-    X = self.X0.copy()
-    T = self.T0.copy()
+    # first point solution
+    X = dp(self.X0)
+    pose_base = dp(self.pose)
+    omega = self.omega
+    tau = self.tau
 
-    # default values for first iteration
-    itercont = 1    # point 0 is first point which is found already
+    # continuation parameters
     step = self.prob.cont_params["continuation"]["s0"]
     direction = self.prob.cont_params["continuation"]["dir"]
+    stepsign = -1 * direction  # corrections are always added
 
     # continuation loop
+    itercont = 1
     while True:
-        print("\n**************************************\n")
-        print(f"Continuation point {itercont}, freq = {1 / T[0]:.3f}:")
-        print(f"step: s = {step:.3e}.")
+        # increment period
+        tau_pred = tau + step * stepsign
+        X_pred = dp(X)
+
+        if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
+                omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
+            print("Frequency outside of specified boundary.")
+            break
+
+        # correction step
+        itercorrect = 0
+        while True:
+            # residual and block Jacobian (remove time derivative from J)
+            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+                omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            J = np.block([[J[:,:-1]], [self.h]])
+
+            if not cvg_zerof:
+                cvg_cont = False
+                print("Zero function failed to converge.")
+                break
+
+            residual = spl.norm(H)
+            if (residual < self.prob.cont_params["continuation"]["tol"] and
+                    itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
+                cvg_cont = True
+                break
+            elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
+                cvg_cont = False
+                break
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
+                    freq=omega/tau_pred, energy=energy, step=step)            
+
+            # correction
+            itercorrect += 1
+            hx = np.matmul(self.h, X_pred)
+            Z = np.vstack([H, hx.reshape(-1, 1)])
+            dx = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            X_pred[:] += dx[:, 0]
+
+        if cvg_cont:
+            self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred / omega,
+                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step)
+            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
+                    freq=omega/tau_pred, energy=energy, step=step, beta=0.0)            
+            
+            itercont += 1
+            tau = tau_pred
+            X = dp(X_pred)
+            # update pose_base and set inc to zero (slice 0:N on each partition)
+            pose_base = dp(pose)
+            X[np.mod(np.arange(X.size), twoN) < N] = 0.0          
+
+        # adaptive step size for next point
+        if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
+            step = cont_step(self, step, itercorrect, cvg_cont)
 
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
-
-        # increment period. seq doesn't turn so direction is fixed throughout
-        # store in case we need to change back if not converged
-        _T = T.copy()
-        T -= step * direction
-
-        if 1 / T > self.prob.cont_params["continuation"]["fmax"]:
-            print("Maximum frequency reached.")
+        if energy > self.prob.cont_params["continuation"]["Emax"]:
+            print("Energy exceeds Emax.")
             break
-
-        # shoot to find X
-        itershoot = 0
-        while True:
-            # find residual
-            [H, Mm0, dHdt, outputs, zerof_cvg] = self.prob.run_sim(T, X)
-
-            if not zerof_cvg:
-                cvg = False
-                print("Zero function failed to converge.")
-                break
-
-            residual = spl.norm(H) / spl.norm(X)
-            print(f"{itershoot} \t {residual:.5e}")
-
-            if (residual < self.prob.cont_params["continuation"]["tol"] and
-                    itershoot >= self.prob.cont_params["continuation"]["itermin"]):
-                cvg = True
-                print("Solution converged.")
-                break
-
-            if itershoot >= self.prob.cont_params["continuation"]["itermax"]:
-                cvg = False
-                print("Max number of iterations reached without convergence.")
-                break
-
-            # correction
-            itershoot += 1
-            J = np.concatenate((Mm0, self.h), axis=0)
-            hx = np.matmul(self.h, X)
-            H = np.vstack([H, hx.reshape(-1, 1)])
-            dx = spl.lstsq(J, -H, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            X[:] += dx[:, 0]
-
-        # adaptive step size for next point
-        if (itercont >= self.prob.cont_params["continuation"]["nadapt"] or not zerof_cvg):
-            step = self.cont_step(step, itershoot, cvg)
-
-        if cvg:
-            itercont += 1
-            # store solution in logger
-            self.log.store(solX=X.copy(), solT=T.copy(), out=outputs.copy())
-        else:
-            # revert as convergence failed
-            T = _T.copy()
