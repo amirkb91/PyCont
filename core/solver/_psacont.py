@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
 
@@ -10,10 +11,10 @@ def psacont(self):
     twoN = 2 * N
 
     # first point solution
-    X = self.X0.copy()
-    pose_base = self.pose.copy()
-    tgt = self.tgt0.copy()
-    energy = self.energy0.copy()
+    X = dp(self.X0)
+    pose_base = dp(self.pose)
+    tgt = dp(self.tgt0)
+    energy = self.energy0
     omega = self.omega
     tau = self.tau
 
@@ -99,11 +100,11 @@ def psacont(self):
 
                 itercont += 1
                 tau = tau_pred
-                X = X_pred[:]
-                tgt = tgt_next[:]
+                X = dp(X_pred)
+                tgt = dp(tgt_next)
                 energy = energy_next
                 # update pose_base and set inc to zero (slice 0:N on each partition)
-                pose_base = pose[:]
+                pose_base = dp(pose)
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point

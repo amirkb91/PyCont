@@ -2,6 +2,7 @@ import h5py
 import json
 import subprocess
 import numpy as np
+from copy import deepcopy as dp
 import sys
 
 
@@ -60,7 +61,7 @@ class BeamCpp:
         N = cls.ndof_free
 
         T = tau / omega
-        X = Xtilde.copy()
+        X = dp(Xtilde)
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
@@ -108,7 +109,7 @@ class BeamCpp:
             j = (ipart + 1) % npartition * twoN
             j1 = ((ipart + 1) % npartition + 1) * twoN
 
-            X = Xtilde[i:i1].copy()
+            X = dp(Xtilde[i:i1])
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
             simdata, cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
@@ -182,7 +183,7 @@ class BeamCpp:
         slicing_index = nsteps * np.arange(npartition)
 
         T = tau / omega
-        X = Xtilde.copy()
+        X = dp(Xtilde)
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)

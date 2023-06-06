@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._phase_condition import phase_condition
 
@@ -12,7 +13,7 @@ def first_point(self):
 
     if not restart:
         iter_firstpoint = 0
-        linearsol = self.X0.copy()  # velocities are zero so no scaling needed
+        linearsol = dp(self.X0)  # velocities are zero so no scaling needed
 
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
