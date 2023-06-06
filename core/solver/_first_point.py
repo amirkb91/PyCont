@@ -49,9 +49,9 @@ def first_point(self):
         elif method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
-                self.T0, self.X0, self.pose, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
             [_, J, self.pose, self.vel, self.energy0, _] = self.prob.zerofunction(
-                self.T0, self.X0, self.pose, self.prob.cont_params)
+                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
