@@ -1,7 +1,7 @@
 [style]
-based_on_style = google
-column_limit = 95
-spaces_before_comment = 4
+based_on_style = facebook
+column_limit = 100
+spaces_before_comment = 2
 join_multiple_lines = false
 split_before_first_argument = true
 indent_dictionary_value = true
