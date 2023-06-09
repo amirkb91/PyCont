@@ -1,8 +1,7 @@
 [style]
 based_on_style = facebook
-column_limit = 100
+column_limit = 99
 spaces_before_comment = 2
-join_multiple_lines = false
+join_multiple_lines = true
 split_before_first_argument = true
-indent_dictionary_value = true
-split_arguments_when_comma_terminated = true
+dedent_closing_brackets = true

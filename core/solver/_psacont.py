@@ -58,11 +58,14 @@ def psacont(self):
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                                freq=omega/tau_pred, energy=energy, step=step)
 
-            # apply corrections orthogonal to tangent
+            # apply corrections orthogonal to tangent (orth only on first partition and period)          
+            # below has no effect on single shooting
+            J_corr = dp(J)
+            J_corr[-1, twoN:-1] = 0.0
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            dxt = spl.lstsq(J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             tau_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
@@ -84,7 +87,10 @@ def psacont(self):
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.degrees(np.arccos((tgt_next.T @ tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
+            # performed using tangent of first partition + T only (no effect on single shooting)
+            mask = np.ones(np.shape(tgt), dtype=bool)
+            mask[twoN:-1] = False
+            beta = np.degrees(np.arccos((tgt_next[mask].T @ tgt[mask]) / (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))))
             if (self.prob.cont_params["continuation"]["betacontrol"] and
                     beta > self.prob.cont_params["continuation"]["betamax"]):
                 print("Beta exceeds maximum angle.")
@@ -92,7 +98,7 @@ def psacont(self):
             else:
                 # passed check, finalise and update for next step
                 if frml == "peeters":
-                    stepsign = np.sign(stepsign * tgt_next.T @ tgt)
+                    stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
 
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
