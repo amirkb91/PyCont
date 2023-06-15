@@ -18,8 +18,8 @@ class Cubic_Spring:
     ndof_free = 2
 
     @classmethod
-    def system_ode(cls, t, X):
-        # ODE of the mass spring system. Xdot(t) = g(X(t))
+    def state_eqn(cls, X):
+        # State equation of the mass spring system. Xdot(t) = g(X(t))
         x = X[:cls.ndof_free]
         xdot = X[cls.ndof_free:]
         KX = cls.K @ x
@@ -28,20 +28,31 @@ class Cubic_Spring:
         return Xdot
 
     @classmethod
-    def monodromy_ode(cls, t, dXdX0, x1_interp):
-        # ODE to solve for Monodromy matrix. dXdX0dot = dg(X)dX . dXdX0
-        # estimate the value of x1(t) from interpolated curve
+    def augsystem_ode(cls, t, X_aug):
+        # Augemented ODE of system + Monodromy, to be solved together
+        # System: Xdot(t) = g(X(t))
+        # Monodromy: dXdX0dot = dg(X)dX . dXdX0
         M = cls.M
+        Minv = cls.Minv
         K = cls.K
         knl = cls.Knl
-        x1_t = spi.splev(t, x1_interp)
+        N = cls.ndof_free
+        twoN = 2 * N
+
+        X, dXdX0 = X_aug[:twoN], X_aug[twoN:]
+        x = X[:N]
+        xdot = X[N:]
+        KX = K @ x
+        fnl = np.array([cls.Knl * x[0]**3, 0])
+        Xdot = np.concatenate((xdot, -Minv @ (KX + fnl)))
         dgdz = np.array(
             [[0, 0, 1, 0], [0, 0, 0, 1],
-             [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t**2), -1 / M[0, 0] * K[0, 1], 0, 0],
+             [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x[0]**2), -1 / M[0, 0] * K[0, 1], 0, 0],
              [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]
              ])
-        dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
-        return dXdX0dot.flatten()
+        dXdX0dot = dgdz @ dXdX0.reshape(4, 4)                       
+
+        return np.concatenate([Xdot, dXdX0dot.flatten()])
 
     @classmethod
     def eigen_solve(cls, cont_params):
@@ -74,7 +85,15 @@ class Cubic_Spring:
         X_total = X.copy()
         X_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-        Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+        initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
+        Xsol_aug = np.array(odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True))
+        Xsol, M = Xsol_aug[:,:twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
+
+        # Monodromy and augmented Jacobian
+        M -= np.eye(twoN)
+        dHdt = cls.state_eqn(Xsol[-1, :]) * nperiod
+        J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
+
         # solution pose and vel taken from time 0
         pose = Xsol[0, :N].T
         vel = Xsol[0, N:].T
@@ -82,6 +101,7 @@ class Cubic_Spring:
         # periodicity condition
         H = Xsol[-1, :] - Xsol[0, :]
         H = H.reshape(-1, 1)
+
         # Energy, conservative system so take mean of all time
         E = np.zeros(nsteps * nperiod + 1)
         for i in range(nsteps * nperiod + 1):
@@ -90,17 +110,6 @@ class Cubic_Spring:
             Fnl = 0.25 * cls.Knl * x[0]**4
             E[i] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl
         energy = np.mean(E)
-
-        # Monodromy and augmented Jacobian
-        # interpolate x1 = Xsol[0] as needed in monodromy time integration
-        # odeint selects time points automatically so we need to have x1 at any t during integration
-        x1_interp = spi.splrep(t, Xsol[:, 0])
-        M = np.array(
-            odeint(cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
-        M = M[-1, :].reshape(twoN, twoN)
-        M -= np.eye(twoN)
-        dHdt = cls.system_ode(None, Xsol[-1, :]) * nperiod
-        J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
         cvg = True
         return H, J, pose, vel, energy, cvg
