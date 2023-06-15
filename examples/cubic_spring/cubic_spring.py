@@ -36,11 +36,10 @@ class Cubic_Spring:
         knl = cls.Knl
         x1_t = spi.splev(t, x1_interp)
         dgdz = np.array(
-            [
-                [0, 0, 1, 0], [0, 0, 0, 1],
-                [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t**2), -1 / M[0, 0] * K[0, 1], 0, 0],
-                [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]
-            ])
+            [[0, 0, 1, 0], [0, 0, 0, 1],
+             [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x1_t**2), -1 / M[0, 0] * K[0, 1], 0, 0],
+             [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]
+             ])
         dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
         return dXdX0dot.flatten()
 
@@ -63,12 +62,13 @@ class Cubic_Spring:
         return X0, T0, pose0
 
     @classmethod
-    def time_solve(cls, T, X, pose_base, cont_params):
+    def time_solve(cls, omega, tau, X, pose_base, cont_params):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
+        T = tau / omega
 
         # Add increment onto pose and do time sim
         X_total = X.copy()
@@ -82,11 +82,14 @@ class Cubic_Spring:
         # periodicity condition
         H = Xsol[-1, :] - Xsol[0, :]
         H = H.reshape(-1, 1)
-        # Energy, conservative system so take initial Xsol values
-        x = Xsol[0, :N]
-        xdot = Xsol[0, N:]
-        fnl = np.array([cls.Knl * x[0]**3, 0])
-        energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
+        # Energy, conservative system so take mean of all time
+        E = np.zeros(nsteps * nperiod + 1)
+        for i in range(nsteps * nperiod + 1):
+            x = Xsol[i, :N]
+            xdot = Xsol[i, N:]
+            Fnl = 0.25 * cls.Knl * x[0]**4
+            E[i] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl
+        energy = np.mean(E)
 
         # Monodromy and augmented Jacobian
         # interpolate x1 = Xsol[0] as needed in monodromy time integration
@@ -103,18 +106,20 @@ class Cubic_Spring:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def time_solve_multiple(cls, T, X, pose_base, cont_params):
+    def time_solve_multiple(cls, omega, tau, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
+        T = tau / omega
 
         # initialise
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        E = np.zeros([nsteps + 1, npartition])
 
         for ipart in range(npartition):
             # index values required for looping the partitions
@@ -129,23 +134,30 @@ class Cubic_Spring:
             X_total = X[i:i1].copy()
             X_total[:cls.ndof_free] += pose_base[:, ipart].flatten().copy()
             t = np.linspace(0, T * delta_S, nsteps + 1)
-            X_out = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
-            pose_time[:, p:p1] = X_out[:, :N].T
-            vel_time[:, p:p1] = X_out[:, N:].T
+            Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+            pose_time[:, p:p1] = Xsol[:, :N].T
+            vel_time[:, p:p1] = Xsol[:, N:].T
 
             # Monodromy and augmented Jacobian
-            # interpolate x1 = X_out[0] as needed in monodromy time integration
+            # interpolate x1 = Xsol[0] as needed in monodromy time integration
             # odeint selects time points automatically so we need to have x1 at any t during integration
-            x1_interp = spi.splrep(t, X_out[:, 0])
+            x1_interp = spi.splrep(t, Xsol[:, 0])
             M = np.array(
                 odeint(
                     cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
             M = M[-1, :].reshape(twoN, twoN)
-            dHdt = cls.system_ode(None, X_out[-1, :]) * delta_S
+            dHdt = cls.system_ode(None, Xsol[-1, :]) * delta_S
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
 
+            # Energy
+            for k in range(len(t)):
+                x = Xsol[k, :N]
+                xdot = Xsol[k, N:]
+                Fnl = 0.25 * cls.Knl * x[0]**4
+                E[k, ipart] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl        
+        
         # time solution indicies which enclose each partition & order of the partitions for periodicity
         timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
         timesol_partition_index_end = timesol_partition_index_start - 1
@@ -153,44 +165,42 @@ class Cubic_Spring:
 
         # Periodicity condition for all partitions
         H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-             pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
+            pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H2 = vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
-             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
+            vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
         # solution pose and vel at t=0 for each partition
         pose = pose_time[:, timesol_partition_index_start]
         vel = vel_time[:, timesol_partition_index_start]
 
-        # Energy, conservative system so take initial X values from final partition
-        x = X_out[0, :N]
-        xdot = X_out[0, N:]
-        fnl = np.array([cls.Knl * x[0]**3, 0])
-        energy = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x + x @ fnl)
+        # Energy, conservative system so take mean of all time
+        energy = np.mean(E)
 
         cvg = True
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, omega, tau, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         slicing_index = nsteps * np.arange(npartition)
+        T = tau / omega
 
         # do time integration along whole orbit before slicing
         X_total = X.copy()
         X_total[:cls.ndof_free] += pose_base.flatten().copy()
         t = np.linspace(0, T, nsteps * npartition + 1)
-        X_out = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
-        pose_time = X_out[:, :cls.ndof_free].T
-        vel_time = X_out[:, cls.ndof_free:].T
+        Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+        pose_time = Xsol[:, :cls.ndof_free].T
+        vel_time = Xsol[:, cls.ndof_free:].T
         pose = pose_time[:, slicing_index]
         V = vel_time[:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity
-        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X_out = np.reshape(X_out, (-1), order='F')
-        return X_out, pose
+        Xsol = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
+        Xsol = np.reshape(Xsol, (-1), order='F')
+        return Xsol, pose
 
     @classmethod
     def get_fe_data(cls):

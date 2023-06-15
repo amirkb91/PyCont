@@ -104,6 +104,7 @@ class BeamCpp:
         cvg = [None] * npartition
 
         for ipart in range(npartition):
+            # index values required for looping the partitions
             i = ipart * twoN
             i1 = (ipart + 1) * twoN
             j = (ipart + 1) % npartition * twoN

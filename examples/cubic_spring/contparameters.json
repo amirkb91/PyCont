@@ -8,28 +8,29 @@
     "itermin": 0,
     "iteropt": 2,
     "itermax": 4,
-    "s0": 0.1,
-    "nadapt": 100,
+    "s0": 0.05,
+    "nadapt": 2,
     "smin": 0.005,
-    "smax": 40,
+    "smax": 3,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
     "fmax": 0.23,
     "Emax": 1000000,
     "phase_cond_index": "2,3",
-    "plot": true
+    "plot": false
   },
   "shooting": {
     "method": "multiple",
+    "scaling": false,
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 200
+      "nsteps_per_period": 210
     },
     "multiple": {
       "npartition": 3,
-      "nsteps_per_partition": 200
+      "nsteps_per_partition": 70
     }
   },
   "first_point": {
@@ -47,6 +48,6 @@
     }
   },
   "Logger": {
-    "file_name": "cubic"
+    "file_name": "nnm_mult"
   }
 }
