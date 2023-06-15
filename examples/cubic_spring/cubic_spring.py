@@ -18,7 +18,7 @@ class Cubic_Spring:
     ndof_free = 2
 
     @classmethod
-    def state_eqn(cls, X):
+    def system_ode(cls, t, X):
         # State equation of the mass spring system. Xdot(t) = g(X(t))
         x = X[:cls.ndof_free]
         xdot = X[cls.ndof_free:]
@@ -91,7 +91,7 @@ class Cubic_Spring:
 
         # Monodromy and augmented Jacobian
         M -= np.eye(twoN)
-        dHdt = cls.state_eqn(Xsol[-1, :]) * nperiod
+        dHdt = cls.system_ode(None, Xsol[-1, :]) * nperiod
         J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
 
         # solution pose and vel taken from time 0
@@ -141,27 +141,22 @@ class Cubic_Spring:
 
             # get total displacements from x and pose_base and do time integration
             X_total = X[i:i1].copy()
-            X_total[:cls.ndof_free] += pose_base[:, ipart].flatten().copy()
+            X_total[:N] += pose_base[:, ipart].flatten().copy()
             t = np.linspace(0, T * delta_S, nsteps + 1)
-            Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+            initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
+            Xsol_aug = np.array(odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True))
+            Xsol, M = Xsol_aug[:,:twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)            
             pose_time[:, p:p1] = Xsol[:, :N].T
             vel_time[:, p:p1] = Xsol[:, N:].T
 
             # Monodromy and augmented Jacobian
-            # interpolate x1 = Xsol[0] as needed in monodromy time integration
-            # odeint selects time points automatically so we need to have x1 at any t during integration
-            x1_interp = spi.splrep(t, Xsol[:, 0])
-            M = np.array(
-                odeint(
-                    cls.monodromy_ode, np.eye(4).flatten(), t, args=(x1_interp,), tfirst=True))
-            M = M[-1, :].reshape(twoN, twoN)
             dHdt = cls.system_ode(None, Xsol[-1, :]) * delta_S
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
 
             # Energy
-            for k in range(len(t)):
+            for k in range(nsteps + 1):
                 x = Xsol[k, :N]
                 xdot = Xsol[k, N:]
                 Fnl = 0.25 * cls.Knl * x[0]**4
@@ -179,7 +174,7 @@ class Cubic_Spring:
             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
 
-        # solution pose and vel at t=0 for each partition
+        # solution pose and vel taken from time 0 for each partition
         pose = pose_time[:, timesol_partition_index_start]
         vel = vel_time[:, timesol_partition_index_start]
 
@@ -194,20 +189,21 @@ class Cubic_Spring:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
         T = tau / omega
 
         # do time integration along whole orbit before slicing
         X_total = X.copy()
-        X_total[:cls.ndof_free] += pose_base.flatten().copy()
+        X_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T, nsteps * npartition + 1)
         Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
-        pose_time = Xsol[:, :cls.ndof_free].T
-        vel_time = Xsol[:, cls.ndof_free:].T
+        pose_time = Xsol[:, :N].T
+        vel_time = Xsol[:, N:].T
         pose = pose_time[:, slicing_index]
         V = vel_time[:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity
-        Xsol = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
+        Xsol = np.concatenate((np.zeros((N, npartition)), V))
         Xsol = np.reshape(Xsol, (-1), order='F')
         return Xsol, pose
 
