@@ -3,7 +3,7 @@ import json
 import subprocess
 import numpy as np
 from copy import deepcopy as dp
-import sys
+import os
 
 
 class BeamCpp:
@@ -65,8 +65,9 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        simdata, cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
+            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
@@ -113,7 +114,8 @@ class BeamCpp:
             X = dp(Xtilde[i:i1])
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
-            simdata, cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
+            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
             M = np.delete(M, -1, axis=1)
@@ -166,14 +168,16 @@ class BeamCpp:
             cpprun = subprocess.run(
                 "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
                 shell=True,
-                timeout=300,
+                timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w"))
+            cvg = not bool(cpprun.returncode)
         except subprocess.TimeoutExpired:
-            sys.exit("C++ code timed out.")
-        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-        cvg = not bool(cpprun.returncode)
-        return simdata, cvg
+            print("C++ code timed out ------- ", end="")
+            cvg = False
+            os.remove(cls.cpp_path + cls.simout_file + ".h5")
+
+        return cvg
 
     @classmethod
     def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
@@ -190,7 +194,8 @@ class BeamCpp:
         cls.config_update(pose_base)
         # do time integration along whole orbit before slicing.
         # run nsteps per partition to ensure slicing is done at correct indices
-        simdata, cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
 

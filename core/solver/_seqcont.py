@@ -38,13 +38,12 @@ def seqcont(self):
             # residual and block Jacobian (remove time derivative from J)
             [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
-            J = np.block([[J[:,:-1]], [self.h]])
-
             if not cvg_zerof:
                 cvg_cont = False
                 print("Zero function failed to converge.")
                 break
 
+            J = np.block([[J[:,:-1]], [self.h]])
             residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
@@ -83,6 +82,6 @@ def seqcont(self):
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
-        if energy > self.prob.cont_params["continuation"]["Emax"]:
+        if energy and energy > self.prob.cont_params["continuation"]["Emax"]:
             print("Energy exceeds Emax.")
             break

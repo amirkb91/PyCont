@@ -61,11 +61,6 @@ node = 1;
 % Y
 dof_VK   = 3*node + 2;  dof_SE23 = 4*node + 4;
 
-%% Fundamental Frequency for FFT
-% read value from FEP corresponding to point for which time plot is taken
-fund_VK = 45.7;
-fund_SE = 48.83;
-
 %% Data Load
 load('pose0.mat');
 %===============================================
@@ -98,7 +93,8 @@ vel2 = h5read(file2,'/Config/VELOCITY').';
 p2 = (pose2(dof_SE23,:)-pose0_SE23(dof_SE23))/beamthickness;
 t2 = h5read(file2,'/time');
 vel2_rot = vel2;
-% Rotate velocities
+
+%% Rotate velocities
 for j=1:length(t2)
     for i=0:30
         q1 = pose2(4*i+1,j);  %cos
@@ -123,6 +119,7 @@ plot(a1,t2,p2,'-.','LineWidth',plotlinew,'Color','r','DisplayName',name2);
 plot(a3,p1,v1,'-','LineWidth',plotlinew,'Color','k','DisplayName',name1);
 plot(a3,p2,v2,'-.','LineWidth',plotlinew,'Color','r','DisplayName',name2);
 % plot(a3,p2,vel2(dof_VK,:),'-.','LineWidth',plotlinew,'Color','g','DisplayName',name2);
+
 %% Plot FFT
 Fs = 1/(t1(2)-t1(1));
 L = length(t1)-1;
@@ -135,6 +132,7 @@ P(2:end-1) = 2*P(2:end-1);
 P2 = ZP(1:L2+1);
 f = Fs*(0:(L2))/L;
 color = 'k';
+fund_VK = 1/t1(end);  % fundamental frequencies are the end times
 plot(a2,f/fund_VK,P,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1);
 
 Fs = 1/(t2(2)-t2(1));
@@ -148,4 +146,5 @@ P(2:end-1) = 2*P(2:end-1);
 P2 = ZP(1:L2+1);
 f = Fs*(0:(L2))/L;
 color = [0.9290 0.6940 0.1250];
+fund_SE = 1/t2(end);  % fundamental frequencies are the end times
 plot(a2,f/fund_SE,P,'-.','LineWidth',plotlinew,'Color',color,'DisplayName',name2);
