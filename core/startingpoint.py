@@ -25,7 +25,10 @@ class StartingPoint:
         T = restartsol["/T"][index]
         self.pose0 = restartsol["/Config/POSE"][:, index]
         vel = restartsol["/Config/VELOCITY"][:, index]
-        self.tgt0 = restartsol["/Tangent"][:, index]
+        try:
+            self.tgt0 = restartsol["/Tangent"][:, index]
+        except:
+            self.tft0 = None
 
         # run icfunction to get dof data and perform scaling if required
         _, T0, _ = self.prob.icfunction(self.prob.cont_params)
