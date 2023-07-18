@@ -15,7 +15,7 @@ a = axes(f,'FontSize',afont,'LineWidth',aline,...
     'TickLabelInterpreter','latex','Box','on');
 a.XLabel.Interpreter = "latex";
 a.YLabel.Interpreter = "latex";
-legend(a,'Interpreter','latex','Location','northwest');
+% legend(a,'Interpreter','latex','Location','northwest');
 grid(a, 'off'); hold(a, 'on');
 
 a.XScale = 'log';

@@ -3,7 +3,7 @@
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
-    "npts": 150,
+    "npts": 1500,
     "tol": 0.001,
     "itermin": 1,
     "iteropt": 4,
@@ -22,7 +22,7 @@
   },
   "shooting": {
     "method": "single",
-    "scaling": true,
+    "scaling": false,
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,

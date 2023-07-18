@@ -71,17 +71,17 @@ load('pose0_new-node-order.mat');
 %% DoF Index 
 % node10 = 0.3 / node12 = 0.36 / node16 = 0.5 / node30 = 1.0
 node = 30;
-% dof_VK   = 3*node+1;  dof_SE = 4*node+3;  % X
-dof_VK   = 3*node+2;  dof_SE = 4*node+4;  % Y
+dof_VK   = 3*node+1;  dof_SE = 4*node+3;  % X
+% dof_VK   = 3*node+2;  dof_SE = 4*node+4;  % Y
 
 %% Data Load
-folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/NNM1/';
+folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/NNM2/';
 name1 = 'vonK';
-file1 = [folder 'VK_reducedintegration/Time_VK.h5'];
-fileeig1 = [folder 'VK_reducedintegration/beam_eig.h5'];
+file1 = [folder 'VK/Time_BB.h5'];
+fileeig1 = [folder 'VK/beam_eig.h5'];
 pose0_VK = pose0.VK_cclamped;
 name2 = 'SE(2)';
-file2 = [folder 'SE/Time_SE_lowtongue.h5'];
+file2 = [folder 'SE/Time_BB.h5'];
 fileeig2 = [folder 'SE/beam_eig.h5'];
 pose0_SE = pose0.SE23_cclamped;
 
@@ -113,11 +113,11 @@ for j=1:length(t2)
         q1 = pose2(4*i+1,j);  %cos
         q2 = pose2(4*i+2,j);  %sin
         % either theta calculation works fine
-%         theta = 2*atan(q2/q1);
-        theta2 = sign(q2)*2*acos(q1);
+        theta = 2*atan(q2/q1);
+%         theta = sign(q2)*2*acos(q1);
         vx = vel2(3*i+1,j);
         vy = vel2(3*i+2,j);
-        V = [cos(theta2),-sin(theta2);sin(theta2),cos(theta2)]*[vx;vy];
+        V = [cos(theta),-sin(theta);sin(theta),cos(theta)]*[vx;vy];
         vel2(3*i+1,j) = V(1);
         vel2(3*i+2,j) = V(2);
     end
