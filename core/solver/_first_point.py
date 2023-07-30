@@ -5,8 +5,7 @@ from ._phase_condition import phase_condition
 
 
 def first_point(self):
-    restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
-    recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
+    restart = "restart" in self.prob.cont_params["first_point"].keys()
     method = self.prob.cont_params["shooting"]["method"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
@@ -67,6 +66,7 @@ def first_point(self):
             sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
+        recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
         if method == "single":
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(

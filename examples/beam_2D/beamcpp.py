@@ -29,29 +29,21 @@ class BeamCpp:
     ndof_config = None
 
     @classmethod
-    def run_eig(cls, cont_params):
+    def run_eig(cls):
         subprocess.run(
             "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" + cls.cppeig_exe + " " +
             cls.cpp_paramfile,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
-            stderr=open(cls.cpp_path + "cpp.err", "w"))
+            stderr=open(cls.cpp_path + "cpp.err", "w")
+        )
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
-        cls.read_dofdata()
-
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors/MOTION"])
         frq = eigdata["/eigen_analysis/Frequencies"]
-        # eig[np.abs(eig) < 1e-10] = 0.0
-        nnm = cont_params["first_point"]["eig_start"]["NNM"]
-        scale = cont_params["first_point"]["eig_start"]["scale"]
-        x0 = scale * eig[:, nnm - 1]
-        x0 = x0[cls.free_dof]
-        v0 = np.zeros_like(x0)
-        X0 = np.concatenate([x0, v0])
-        T0 = 1 / frq[nnm - 1, 0]
         pose0 = np.array(eigdata["/eigen_analysis/POSE/MOTION"])[:, 0]
+        cls.read_dofdata()
 
-        return X0, T0, pose0
+        return eig, frq, pose0
 
     @classmethod
     def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False):

@@ -38,8 +38,12 @@
       "NNM": 1,
       "scale": 0.0001
     },
-    "restart": {
-      "file_name": "",
+    "_force_start": {
+      "NNM": 1,
+      "scale": 0.7
+    },
+    "_restart": {
+      "file_name": "nnm1",
       "index": 10,
       "recompute_tangent": false,
       "fixF": false,
