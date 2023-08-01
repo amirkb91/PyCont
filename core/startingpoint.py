@@ -19,14 +19,13 @@ class StartingPoint:
 
         if "eig_start" in self.prob.cont_params["first_point"].keys():
             self.eig_start()
-        elif "force_start" in self.prob.cont_params["first_point"].keys():
-            self.force_start()
         elif "restart" in self.prob.cont_params["first_point"].keys():
             self.restart()
 
     def eig_start(self):
         nnm = self.prob.cont_params["first_point"]["eig_start"]["NNM"]
         scale = self.prob.cont_params["first_point"]["eig_start"]["scale"]
+        force_freq_scale = self.prob.cont_params["first_point"]["eig_start"]["force_freq_scale"]
         dofdata = self.prob.doffunction()
         x0 = scale * self.eig[:, nnm - 1]
         x0 = x0[dofdata["free_dof"]]
@@ -34,16 +33,16 @@ class StartingPoint:
         self.X0 = np.concatenate([x0, v0])
         T0 = 1 / self.frq[nnm - 1, 0]
 
-        if self.prob.cont_params["shooting"]["scaling"] == True:
+        if self.prob.cont_params["continuation"]["forced"]:
+            T0 /= force_freq_scale
+        
+        if self.prob.cont_params["shooting"]["scaling"]:
             self.omega = 1 / T0
             self.tau = 1.0
         else:
             self.omega = 1.0
             self.tau = T0
-
-    def force_start(self):
-        pass
-
+        
     def restart(self):
         restartsol = h5py.File(
             self.prob.cont_params["first_point"]["restart"]["file_name"] + ".h5", "r+"
