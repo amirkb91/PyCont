@@ -1,6 +1,6 @@
 {
   "continuation": {
-    "forced": true,
+    "forced": false,
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
@@ -24,6 +24,7 @@
     "method": "single",
     "scaling": false,
     "rel_tol": 1e-08,
+    "genalpha_rho": 1.0,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 300
@@ -34,9 +35,9 @@
     }
   },
   "forcing": {
-    "amplitude": 50,
-    "damping": 0.02,
-    "phase": 0.0
+    "amplitude": 40,
+    "damping": 0.1,
+    "phase": 0
   },  
   "first_point": {
     "itermax": 30,

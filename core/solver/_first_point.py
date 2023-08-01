@@ -104,7 +104,6 @@ def first_point(self):
             # residual and Jacobian
             [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
-            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
@@ -115,14 +114,12 @@ def first_point(self):
             if residual < self.prob.cont_params["continuation"]["tol"]:
                 break
 
-            # correct X0 and tau
+            # correct only X0
             iter_firstpoint += 1
-            hx = np.matmul(self.h, self.X0)
-            Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            self.tau += dxt[-1, 0]
-            dx = dxt[:-1, 0]
-            self.X0 += dx
+            J = J[:,:-1]
+            Z = H
+            dx = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            self.X0 += dx[:, 0]
 
         # set inc to zero as solution stored in pose, keep velocity
         self.X0[:N] = 0.0

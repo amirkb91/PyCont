@@ -51,6 +51,7 @@ class BeamCpp:
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
 
         T = tau / omega
@@ -58,7 +59,7 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol, genalpha_rho)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
@@ -90,6 +91,7 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
@@ -112,7 +114,7 @@ class BeamCpp:
             X = dp(Xtilde[i:i1])
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol, genalpha_rho)
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
@@ -147,6 +149,7 @@ class BeamCpp:
     def runsim_forced(cls, omega, tau, Xtilde, pose_base, cont_params):
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         amplitude = cont_params["forcing"]["amplitude"]
         damping = cont_params["forcing"]["damping"]
         N = cls.ndof_free
@@ -155,7 +158,7 @@ class BeamCpp:
         X = dp(Xtilde)
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp_forced(T, X, amplitude, damping, nsteps, rel_tol)
+        cvg = cls.run_cpp_forced(T, X, amplitude, damping, nsteps, rel_tol, genalpha_rho)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
@@ -177,7 +180,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg    
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, rel_tol):
+    def run_cpp(cls, T, X, nsteps, rel_tol, genalpha_rho):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -191,6 +194,7 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = genalpha_rho
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
         json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
@@ -211,7 +215,7 @@ class BeamCpp:
         return cvg
     
     @classmethod
-    def run_cpp_forced(cls, T, X, amplitude, damping, nsteps, rel_tol):
+    def run_cpp_forced(cls, T, X, amplitude, damping, nsteps, rel_tol, genalpha_rho):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -225,6 +229,7 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = genalpha_rho
         cls.cpp_params["ForcingParameters"]["period"] = T
         cls.cpp_params["ForcingParameters"]["amplitude"] = amplitude
         cls.cpp_params["ModelDef"]["tau"] = damping
@@ -252,6 +257,7 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
+        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
@@ -262,7 +268,7 @@ class BeamCpp:
         cls.config_update(pose_base)
         # do time integration along whole orbit before slicing.
         # run nsteps per partition to ensure slicing is done at correct indices
-        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol, genalpha_rho)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
