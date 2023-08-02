@@ -1,8 +1,8 @@
 {
   "continuation": {
     "forced": true,
-    "method": "psa",
-    "tangent": "keller",
+    "method": "seq",
+    "tangent": "peeters",
     "dir": 1,
     "npts": 1500,
     "tol": 0.001,
@@ -11,11 +11,11 @@
     "itermax": 7,
     "s0": 0.001,
     "nadapt": 5,
-    "smin": 1e-05,
-    "smax": 0.003,
+    "smin": 1e-06,
+    "smax": 0.001,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 40,
+    "fmin": 20,
     "fmax": 80,
     "Emax": 10000,
     "phase_index_unforced": "allvel"

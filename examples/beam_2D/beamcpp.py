@@ -51,7 +51,7 @@ class BeamCpp:
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
+        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
 
         T = tau / omega
@@ -59,7 +59,7 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol, genalpha_rho)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
@@ -91,7 +91,7 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
+        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
@@ -114,7 +114,7 @@ class BeamCpp:
             X = dp(Xtilde[i:i1])
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol, genalpha_rho)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
@@ -162,7 +162,7 @@ class BeamCpp:
         cvg = cls.run_cpp_forced(T, X, amplitude, phase, damping, nsteps, rel_tol, genalpha_rho)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
+            energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:])
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
@@ -181,7 +181,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg    
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, rel_tol, genalpha_rho):
+    def run_cpp(cls, T, X, nsteps, rel_tol, genalpha_rho=1.0):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -259,7 +259,7 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
+        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
@@ -270,7 +270,7 @@ class BeamCpp:
         cls.config_update(pose_base)
         # do time integration along whole orbit before slicing.
         # run nsteps per partition to ensure slicing is done at correct indices
-        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol, genalpha_rho)
+        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]

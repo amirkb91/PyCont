@@ -96,7 +96,6 @@ def first_point(self):
 
     elif eig_start and forced:
         iter_firstpoint = 0
-
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
@@ -116,29 +115,21 @@ def first_point(self):
 
             # correct only X0
             iter_firstpoint += 1
-            J = J[:,:-1]
+            J_corr = dp(J)
+            J_corr = J_corr[:,:-1]
             Z = H
-            dx = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            dx = spl.solve(J_corr, -Z)
             self.X0 += dx[:, 0]
 
         # set inc to zero as solution stored in pose, keep velocity
         self.X0[:N] = 0.0
+
         # Compute Tangent
-        if shooting_method == "single":
-            J[-1, :] = np.zeros(np.shape(J)[1])
-        elif shooting_method == "multiple":
-            # partition solution
-            self.X0, self.pose = self.prob.partitionfunction(
-                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
-            [_, J, self.pose, self.vel, energy, _] = self.prob.zerofunction(
-                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
-            # size of X0 has changed so reconfigure phase condition matrix
-            phase_condition(self)
-            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
+        J = np.block([[J],[np.zeros(np.shape(J)[1])]])
         J[-1, -1] = 1
         Z = np.zeros((np.shape(J)[0], 1))
         Z[-1] = 1
-        self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
+        self.tgt0 = spl.solve(J, Z)[:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
         self.log.store(
