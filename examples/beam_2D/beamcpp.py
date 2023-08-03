@@ -51,7 +51,6 @@ class BeamCpp:
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
 
         T = tau / omega
@@ -91,7 +90,6 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
@@ -149,7 +147,7 @@ class BeamCpp:
     def runsim_forced(cls, omega, tau, Xtilde, pose_base, cont_params):
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        genalpha_rho = cont_params["shooting"]["genalpha_rho"]
+        ga_rho_forced = cont_params["shooting"]["ga_rho_forced"]
         amplitude = cont_params["forcing"]["amplitude"]
         phase = cont_params["forcing"]["phase"]
         damping = cont_params["forcing"]["damping"]
@@ -159,7 +157,7 @@ class BeamCpp:
         X = dp(Xtilde)
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp_forced(T, X, amplitude, phase, damping, nsteps, rel_tol, genalpha_rho)
+        cvg = cls.run_cpp_forced(T, X, amplitude, phase, damping, nsteps, rel_tol, ga_rho_forced)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:])
@@ -181,7 +179,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg    
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, rel_tol, genalpha_rho=1.0):
+    def run_cpp(cls, T, X, nsteps, rel_tol):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -195,7 +193,6 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = genalpha_rho
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
         json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
@@ -216,7 +213,7 @@ class BeamCpp:
         return cvg
     
     @classmethod
-    def run_cpp_forced(cls, T, X, amplitude, phase, damping, nsteps, rel_tol, genalpha_rho):
+    def run_cpp_forced(cls, T, X, amplitude, phase, damping, nsteps, rel_tol, ga_rho_forced):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -230,7 +227,7 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = genalpha_rho
+        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = ga_rho_forced
         cls.cpp_params["ForcingParameters"]["period"] = T
         cls.cpp_params["ForcingParameters"]["amplitude"] = amplitude
         cls.cpp_params["ForcingParameters"]["phase"] = phase
@@ -259,7 +256,6 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        # genalpha_rho = cont_params["shooting"]["genalpha_rho"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 

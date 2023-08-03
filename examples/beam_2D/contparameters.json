@@ -7,15 +7,15 @@
     "npts": 1500,
     "tol": 0.001,
     "itermin": 1,
-    "iteropt": 4,
-    "itermax": 7,
+    "iteropt": 7,
+    "itermax": 10,
     "s0": 0.001,
     "nadapt": 5,
     "smin": 1e-06,
     "smax": 0.001,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 20,
+    "fmin": 35,
     "fmax": 80,
     "Emax": 10000,
     "phase_index_unforced": "allvel"
@@ -24,7 +24,7 @@
     "method": "single",
     "scaling": false,
     "rel_tol": 1e-08,
-    "genalpha_rho": 0.8,
+    "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 300
