@@ -144,7 +144,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg
     
     @classmethod
-    def runsim_forced(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def runsim_forced(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False):
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         ga_rho_forced = cont_params["shooting"]["ga_rho_forced"]
@@ -166,6 +166,8 @@ class BeamCpp:
             # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
             pose = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:, 0]
             vel = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, 0]
+            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1]
@@ -176,7 +178,10 @@ class BeamCpp:
         else:
             H = J = pose = vel = energy = None
 
-        return H, J, pose, vel, energy, cvg    
+        if not return_time:
+            return H, J, pose, vel, energy, cvg
+        elif return_time:
+            return pose_time, vel_time    
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
