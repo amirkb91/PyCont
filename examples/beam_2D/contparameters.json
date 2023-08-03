@@ -17,8 +17,7 @@
     "fmin": 40,
     "fmax": 80,
     "Emax": 10000,
-    "phase_cond_index": "allvel",
-    "plot": true
+    "phase_cond_index": "allvel"
   },
   "shooting": {
     "method": "single",
@@ -48,6 +47,7 @@
     }
   },
   "Logger": {
+    "plot": true,
     "file_name": "nnm1"
   }
 }

@@ -24,7 +24,7 @@ class Logger:
         self.plot = False
         self.betaplot = False
 
-        if prob.cont_params["continuation"]["plot"]:
+        if prob.cont_params["Logger"]["plot"]:
             self.plot = True
             self.fig = plt.figure(figsize=(11, 9))
             self.gs = GridSpec(2, 2)

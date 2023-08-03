@@ -54,7 +54,7 @@ class BeamCpp:
         return X0, T0, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -74,6 +74,8 @@ class BeamCpp:
             # solution pose and vel taken from time 0
             pose = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:, 0]
             vel = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, 0]
+            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
@@ -85,7 +87,10 @@ class BeamCpp:
         else:
             H = J = pose = vel = energy = None
 
-        return H, J, pose, vel, energy, cvg
+        if not return_time:
+            return H, J, pose, vel, energy, cvg
+        elif return_time:
+            return pose_time, vel_time
 
     @classmethod
     def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):
