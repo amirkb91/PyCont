@@ -40,7 +40,7 @@ class BeamCpp:
         )
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors/MOTION"])
-        frq = eigdata["/eigen_analysis/Frequencies"]
+        frq = np.array(eigdata["/eigen_analysis/Frequencies"])
         pose0 = np.array(eigdata["/eigen_analysis/POSE/MOTION"])[:, 0]
         cls.read_dofdata()
 
