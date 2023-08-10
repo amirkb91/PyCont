@@ -67,7 +67,7 @@ def first_point(self):
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
             sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
-    elif restart and not forced:
+    elif restart:
         recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
         if shooting_method == "single":
             # residual and Jacobian and Compute Tangent
