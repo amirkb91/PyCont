@@ -10,13 +10,17 @@ prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_doffunction(BeamCpp.get_dofdata)
 prob.add_icfunction(BeamCpp.run_eig)
-if prob.cont_params["shooting"]["method"] == "single":
-    prob.add_zerofunction(BeamCpp.runsim_single)
+if prob.cont_params["continuation"]["forced"]:
+    prob.add_zerofunction(BeamCpp.runsim_forced)
     prob.zerofunction_firstpoint = prob.zerofunction
-elif prob.cont_params["shooting"]["method"] == "multiple":
-    prob.add_zerofunction(BeamCpp.runsim_multiple)
-    prob.add_zerofunction_firstpoint(BeamCpp.runsim_single)
-    prob.add_partitionfunction(BeamCpp.partition_singleshooting_solution)
+else:    
+    if prob.cont_params["shooting"]["method"] == "single":
+        prob.add_zerofunction(BeamCpp.runsim_single)
+        prob.zerofunction_firstpoint = prob.zerofunction
+    elif prob.cont_params["shooting"]["method"] == "multiple":
+        prob.add_zerofunction(BeamCpp.runsim_multiple)
+        prob.add_zerofunction_firstpoint(BeamCpp.runsim_single)
+        prob.add_partitionfunction(BeamCpp.partition_singleshooting_solution)
 
 # Continuation starting point
 start = StartingPoint(prob)

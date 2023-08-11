@@ -16,6 +16,14 @@ vel = data["/Config/VELOCITY"][:]
 T = data["/T"][:]
 par = data["/Parameters"]
 par = json.loads(par[()])
+try:
+    forced = par["continuation"]["forced"]
+except:
+    forced = False
+if forced:
+    runsim_function = BeamCpp.runsim_forced
+else:
+    runsim_function = BeamCpp.runsim_single
 
 # create new file to store time histories
 new_file = file.strip(".h5") + "_withtime.h5"
@@ -24,7 +32,7 @@ if os.path.isfile(new_file):
 shutil.copy(file, new_file)
 
 # run sims
-BeamCpp.run_eig(par)  # To get nodal data in class
+BeamCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
 pose_time = np.zeros([np.shape(pose)[0], nsteps + 1, n_solpoints])
@@ -35,7 +43,7 @@ with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-        [pose_time[:, :, i], vel_time[:, :, i]] = BeamCpp.runsim_single(
+        [pose_time[:, :, i], vel_time[:, :, i]] = runsim_function(
             1.0, T[i], X, pose[:, i], par, return_time=True
         )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)

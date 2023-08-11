@@ -5,13 +5,14 @@ from ._phase_condition import phase_condition
 
 
 def first_point(self):
-    restart = self.prob.cont_params["first_point"]["restart"]["file_name"]
-    recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
-    method = self.prob.cont_params["shooting"]["method"]
+    eig_start = "eig_start" in self.prob.cont_params["first_point"].keys()
+    restart = "restart" in self.prob.cont_params["first_point"].keys()
+    forced = self.prob.cont_params["continuation"]["forced"]
+    shooting_method = self.prob.cont_params["shooting"]["method"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
 
-    if not restart:
+    if eig_start and not forced:
         iter_firstpoint = 0
         linearsol = dp(self.X0)  # velocities are zero so no scaling needed
 
@@ -45,9 +46,9 @@ def first_point(self):
         # set inc to zero as solution stored in pose, keep velocity
         self.X0[:N] = 0.0
         # Compute Tangent
-        if method == "single":
+        if shooting_method == "single":
             J[-1, :] = np.zeros(np.shape(J)[1])
-        elif method == "multiple":
+        elif shooting_method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
                 self.omega, self.tau, self.X0, self.pose, self.prob.cont_params)
@@ -67,7 +68,8 @@ def first_point(self):
             sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
-        if method == "single":
+        recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
+        if shooting_method == "single":
             # residual and Jacobian and Compute Tangent
             [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
@@ -89,5 +91,47 @@ def first_point(self):
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
                            sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
 
-        elif method == "multiple":
+        elif shooting_method == "multiple":
             pass
+
+    elif eig_start and forced:
+        iter_firstpoint = 0
+        while True:
+            if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
+                raise Exception("Max number of iterations reached without convergence.")
+
+            # residual and Jacobian
+            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
+            if not cvg_zerof:
+                raise Exception("Zero function failed.")
+
+            residual = spl.norm(H)
+            self.log.screenout(iter=0, correct=iter_firstpoint, res=residual,
+                               freq=self.omega/self.tau, energy=energy)
+
+            if residual < self.prob.cont_params["continuation"]["tol"]:
+                break
+
+            # correct only X0
+            iter_firstpoint += 1
+            J_corr = dp(J)
+            J_corr = J_corr[:,:-1]
+            Z = H
+            dx = spl.solve(J_corr, -Z)
+            self.X0 += dx[:, 0]
+
+        # set inc to zero as solution stored in pose, keep velocity
+        self.X0[:N] = 0.0
+
+        # Compute Tangent
+        J = np.block([[J],[np.zeros(np.shape(J)[1])]])
+        J[-1, -1] = 1
+        Z = np.zeros((np.shape(J)[0], 1))
+        Z[-1] = 1
+        self.tgt0 = spl.solve(J, Z)[:, 0]
+        self.tgt0 /= spl.norm(self.tgt0)
+
+        self.log.store(
+            sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)

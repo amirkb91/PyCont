@@ -24,12 +24,19 @@ par = data["/Parameters"]
 par = json.loads(par[()])
 par["shooting"]["single"]["nperiod"] = nperiod
 par["shooting"]["single"]["nsteps_per_period"] = nsteps
+try:
+    forced = par["continuation"]["forced"]
+except:
+    forced = False
 
 # run sim
-BeamCpp.run_eig(par)    # To get nodal data in class
+BeamCpp.run_eig()    # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-BeamCpp.runsim_single(1.0, T, X, pose, par)
+if forced:
+    BeamCpp.runsim_forced(1.0, T, X, pose, par)
+else:
+    BeamCpp.runsim_single(1.0, T, X, pose, par)
 
 # call plotbeam
 subprocess.run(
