@@ -7,45 +7,56 @@ from examples.beam_2D.beamcpp import BeamCpp
 
 dat_output = False
 
-# read solution file
-pose_ind = int(input("POSE index to plot: "))  # 63 for beam mid
+files = sys.argv[1:]
+for i, file in enumerate(files):
+    if not file.endswith(".h5"):
+        files[i] += ".h5"
 
-file = sys.argv[-1]
-if not file.endswith(".h5"):
-    file += ".h5"
-data = h5py.File(str(file), "r")
-pose_time = data["/Config_Time/POSE"][:]
-T = data["/T"][:]
+pose_ind2plot = 63  # 63 for beam mid
+h = 0.01  # beam thickness
+
+plt.style.use("ggplot")
+f, a = plt.subplots(figsize=(10, 7))
+a.set(xlabel="Freq/Omega", ylabel="Amplitude/h")
+
+# eig info from first file, all files should therefore be from same NNM
+file1 = files[0]
+data = h5py.File(str(file1), "r")
 par = data["/Parameters"]
 par = json.loads(par[()])
 try:
     nnm = par["first_point"]["eig_start"]["NNM"]
 except:
     nnm = par["first_point"]["_eig_start"]["NNM"]
-
 # get pose0 and eig
 [eig, frq, pose0] = BeamCpp.run_eig()
 Omega = frq[nnm - 1, 0]
+data.close()
 
-# calculate amplitude
-# Need to find INC between pose0 and pose, for now just take difference (2D)
-h = 0.01  # beam thickness
-n_solpoints = len(T)
-amp = np.zeros(n_solpoints)
-for i in range(n_solpoints):
-    amp[i] = np.max(np.abs(pose_time[pose_ind, :, i] - pose0[pose_ind])) / h
+# plot sols
+line = []
+for file in files:
+    data = h5py.File(str(file), "r")
+    pose_time = data["/Config_Time/POSE"][:]
+    T = data["/T"][:]
 
-# figure
-plt.style.use("ggplot")
-f, a = plt.subplots(figsize=(10, 7))
-a.set(xlabel="Freq/Omega", ylabel="Amplitude/h")
-a.plot(1 / (T * Omega), amp, marker=".", fillstyle="none", color="darkmagenta")
+    n_solpoints = len(T)
+    amp = np.zeros(n_solpoints)
+    for i in range(n_solpoints):
+        amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i] - pose0[pose_ind2plot])) / h
 
-if dat_output:
-    F_omega = 1 / (T * Omega)
-    np.savetxt(
-        file.strip(".h5") + ".dat",
-        np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1)
+    line.append(
+        a.plot(1 / (T * Omega), amp, marker=".", fillstyle="none", label=file.split(".h5")[0])
     )
+
+    if dat_output:
+        F_omega = 1 / (T * Omega)
+        np.savetxt(
+            file.strip(".h5") + ".dat",
+            np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1)
+        )
+
+a.legend()
+
 plt.draw()
 plt.show()

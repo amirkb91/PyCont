@@ -7,7 +7,13 @@ from examples.beam_2D.beamcpp import BeamCpp
 ''' Run time simulations for all NNM solutions and store '''
 
 # read solution file
-file = sys.argv[-1]
+file = sys.argv[1]
+inplace = sys.argv[-1]
+if inplace == "-i":
+    inplace = True
+else:
+    inplace = False
+
 if not file.endswith(".h5"):
     file += ".h5"
 data = h5py.File(str(file), "r")
@@ -16,6 +22,7 @@ vel = data["/Config/VELOCITY"][:]
 T = data["/T"][:]
 par = data["/Parameters"]
 par = json.loads(par[()])
+data.close()
 try:
     forced = par["continuation"]["forced"]
 except:
@@ -25,11 +32,12 @@ if forced:
 else:
     runsim_function = BeamCpp.runsim_single
 
-# create new file to store time histories
-new_file = file.strip(".h5") + "_withtime.h5"
-if os.path.isfile(new_file):
-    prompt = input("Time history file already exists, CTRL+C to stop, Enter to continue: \n")
-shutil.copy(file, new_file)
+# create new file to store time histories or append inplace
+if inplace:
+    new_file = file
+else:
+    new_file = file.strip(".h5") + "_withtime.h5"
+    shutil.copy(file, new_file)
 
 # run sims
 BeamCpp.run_eig()  # To get nodal data in class
