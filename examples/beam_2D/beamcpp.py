@@ -149,7 +149,7 @@ class BeamCpp:
         rel_tol = cont_params["shooting"]["rel_tol"]
         ga_rho_forced = cont_params["shooting"]["ga_rho_forced"]
         amplitude = cont_params["forcing"]["amplitude"]
-        phase = cont_params["forcing"]["phase"]
+        phase_ratio = cont_params["forcing"]["phase_ratio"]
         damping = cont_params["forcing"]["damping"]
         N = cls.ndof_free
 
@@ -157,7 +157,7 @@ class BeamCpp:
         X = dp(Xtilde)
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp_forced(T, X, amplitude, phase, damping, nsteps, rel_tol, ga_rho_forced)
+        cvg = cls.run_cpp_forced(T, X, amplitude, phase_ratio, damping, nsteps, rel_tol, ga_rho_forced)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:])
@@ -218,7 +218,7 @@ class BeamCpp:
         return cvg
     
     @classmethod
-    def run_cpp_forced(cls, T, X, amplitude, phase, damping, nsteps, rel_tol, ga_rho_forced):
+    def run_cpp_forced(cls, T, X, amplitude, phase_ratio, damping, nsteps, rel_tol, ga_rho_forced):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -233,9 +233,8 @@ class BeamCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
         cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = ga_rho_forced
-        cls.cpp_params["ForcingParameters"]["period"] = T
         cls.cpp_params["ForcingParameters"]["amplitude"] = amplitude
-        cls.cpp_params["ForcingParameters"]["phase"] = phase
+        cls.cpp_params["ForcingParameters"]["phase_ratio"] = phase_ratio
         cls.cpp_params["ModelDef"]["tau"] = damping
         cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
             cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
