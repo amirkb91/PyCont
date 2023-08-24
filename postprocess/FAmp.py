@@ -3,7 +3,13 @@ import sys
 import h5py
 import json
 import numpy as np
+import mplcursors
 from examples.beam_2D.beamcpp import BeamCpp
+
+# show point data on figure
+def show_annotation(sel):
+    ind = int(sel.index)
+    sel.annotation.set_text(f"index:{ind}")
 
 dat_output = False
 
@@ -58,5 +64,7 @@ for file in files:
 
 a.legend()
 
+cursor = mplcursors.cursor(line[0], hover=False)
+cursor.connect("add", show_annotation)
 plt.draw()
 plt.show()

@@ -55,7 +55,7 @@ def psacont(self):
                 cvg_cont = False
                 break
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                               freq=omega/tau_pred, energy=energy, step=step)
+                               freq=omega/tau_pred, energy=energy, step=stepsign*step)
 
             # apply corrections orthogonal to tangent (orth only on first partition and period)
             # below has no effect on single shooting
@@ -72,8 +72,9 @@ def psacont(self):
         if cvg_cont:
             # find new tangent with converged solution
             if frml == "secant":
-                # technically need to find the difference between pose and vel for previous two sols
-                tgt_next = (np.concatenate((X_pred, [tau_pred])) - np.concatenate((X, [tau])))
+                # X_pred[:N]==INC and technically is already the diff between POSE for previous two sols
+                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau])) * stepsign
+                # tgt_next = (np.concatenate((X_pred, [tau_pred])) - np.concatenate((X, [tau]))) * stepsign
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
@@ -102,9 +103,9 @@ def psacont(self):
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
                     sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
-                    sol_step=step)
+                    sol_step=stepsign*step)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                                   freq=omega/tau_pred, energy=energy, step=step, beta=beta)
+                                   freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
 
                 itercont += 1
                 tau = tau_pred
