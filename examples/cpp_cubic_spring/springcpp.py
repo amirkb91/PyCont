@@ -8,7 +8,7 @@ import os
 
 class SpringCpp:
     cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/my_cubic_spring/"
-    cpp_exe  = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/my_cubic_spring"
+    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/my_cubic_spring"
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
@@ -17,11 +17,12 @@ class SpringCpp:
     cpp_params_eig = json.load(open(cpp_path + cpp_paramfile_eig))
     cpp_params_sim = json.load(open(cpp_path + cpp_paramfile_sim))
     model_name = model_def["ModelDef"]["model_name"]
-    
+
     eig_file = cpp_params_eig["EigenSolverParameters"]["Logger"]["file_name"]
     simout_file = cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
-    analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["analysis_name"]
+    analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"][
+        "analysis_name"]
 
     free_dof = None
     fix_dof = None
@@ -34,7 +35,8 @@ class SpringCpp:
     @classmethod
     def run_eig(cls):
         subprocess.run(
-            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" + cls.cpp_exe + " " + cls.cpp_modelfile + " " + cls.cpp_paramfile_eig,
+            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" + cls.cpp_exe + " " +
+            cls.cpp_modelfile + " " + cls.cpp_paramfile_eig,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w")
@@ -100,7 +102,9 @@ class SpringCpp:
         X = dp(Xtilde)
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp_forced(T, X, amplitude, phase_ratio, damping, nsteps, rel_tol, ga_rho_forced)
+        cvg = cls.run_cpp_forced(
+            T, X, amplitude, phase_ratio, damping, nsteps, rel_tol, ga_rho_forced
+        )
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:])
@@ -124,7 +128,7 @@ class SpringCpp:
         if not return_time:
             return H, J, pose, vel, energy, cvg
         elif return_time:
-            return pose_time, vel_time    
+            return pose_time, vel_time
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
@@ -141,7 +145,8 @@ class SpringCpp:
         cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
+        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = cls.cpp_params[
+            "TimeIntegrationSolverParameters"]["_initial_conditions"]
         json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
 
         try:
@@ -150,7 +155,8 @@ class SpringCpp:
                 shell=True,
                 timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w"))
+                stderr=open(cls.cpp_path + "cpp.err", "w")
+            )
             cvg = not bool(cpprun.returncode)
         except subprocess.TimeoutExpired:
             print("C++ code timed out ------- ", end="")
@@ -158,7 +164,7 @@ class SpringCpp:
             os.remove(cls.cpp_path + cls.simout_file + ".h5")
 
         return cvg
-    
+
     @classmethod
     def run_cpp_forced(cls, T, X, amplitude, phase_ratio, damping, nsteps, rel_tol, ga_rho_forced):
         inc = np.zeros(cls.ndof_all)
@@ -188,14 +194,15 @@ class SpringCpp:
                 shell=True,
                 timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w"))
+                stderr=open(cls.cpp_path + "cpp.err", "w")
+            )
             cvg = not bool(cpprun.returncode)
         except subprocess.TimeoutExpired:
             print("C++ code timed out ------- ", end="")
             cvg = False
             os.remove(cls.cpp_path + cls.simout_file + ".h5")
 
-        return cvg    
+        return cvg
 
     @classmethod
     def config_update(cls, pose):
