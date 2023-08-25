@@ -1,22 +1,22 @@
 {
   "continuation": {
-    "forced": true,
-    "method": "seq",
+    "forced": false,
+    "method": "psa",
     "tangent": "peeters",
     "dir": 1,
     "npts": 1500,
-    "tol": 0.001,
+    "tol": 1e-6,
     "itermin": 1,
-    "iteropt": 7,
-    "itermax": 10,
+    "iteropt": 3,
+    "itermax": 5,
     "s0": 0.001,
     "nadapt": 5,
     "smin": 1e-06,
-    "smax": 0.001,
+    "smax": 0.01,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 35,
-    "fmax": 80,
+    "fmin": 0.15,
+    "fmax": 0.25,
     "Emax": 10000,
     "phase_index_unforced": "allvel"
   },
@@ -43,7 +43,7 @@
     "itermax": 30,
     "eig_start": {
       "NNM": 1,
-      "scale": 0.0001,
+      "scale": 0.1,
       "force_freq_scale": 0.7
     },
     "_restart": {

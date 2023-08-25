@@ -16,8 +16,8 @@ class SpringCpp:
     model_def = json.load(open(cpp_path + cpp_modelfile))
     cpp_params_eig = json.load(open(cpp_path + cpp_paramfile_eig))
     cpp_params_sim = json.load(open(cpp_path + cpp_paramfile_sim))
-    model_name = model_def["ModelDef"]["model_name"]
 
+    model_name = model_def["ModelDef"]["model_name"]
     eig_file = cpp_params_eig["EigenSolverParameters"]["Logger"]["file_name"]
     simout_file = cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
@@ -142,16 +142,17 @@ class SpringCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
-        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = cls.cpp_params[
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = cls.cpp_params_sim[
             "TimeIntegrationSolverParameters"]["_initial_conditions"]
-        json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
+        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
 
         try:
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cppsim_exe + " _" + cls.cpp_paramfile,
+                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " " + cls.cpp_modelfile + " _" +
+                cls.cpp_paramfile_sim,
                 shell=True,
                 timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
@@ -177,20 +178,20 @@ class SpringCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        cls.cpp_params["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
-        cls.cpp_params["TimeIntegrationSolverParameters"]["time"] = T
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params["TimeIntegrationSolverParameters"]["rho"] = ga_rho_forced
-        cls.cpp_params["ForcingParameters"]["amplitude"] = amplitude
-        cls.cpp_params["ForcingParameters"]["phase_ratio"] = phase_ratio
-        cls.cpp_params["ModelDef"]["tau"] = damping
-        cls.cpp_params["TimeIntegrationSolverParameters"]["initial_conditions"] = \
-            cls.cpp_params["TimeIntegrationSolverParameters"]["_initial_conditions"]
-        json.dump(cls.cpp_params, open(cls.cpp_path + "_" + cls.cpp_paramfile, "w"), indent=2)
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = ga_rho_forced
+        cls.cpp_params_sim["ForcingParameters"]["amplitude"] = amplitude
+        cls.cpp_params_sim["ForcingParameters"]["phase_ratio"] = phase_ratio
+        cls.cpp_params_sim["ModelDef"]["tau"] = damping
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = \
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]
+        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
 
         try:
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cppfrc_exe + " _" + cls.cpp_paramfile,
+                "cd " + cls.cpp_path + "&&" + cls.cppfrc_exe + " _" + cls.cpp_paramfile_sim,
                 shell=True,
                 timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
