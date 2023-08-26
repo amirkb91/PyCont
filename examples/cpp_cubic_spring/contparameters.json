@@ -1,24 +1,24 @@
 {
   "continuation": {
     "forced": false,
-    "method": "psa",
+    "method": "seq",
     "tangent": "peeters",
     "dir": 1,
-    "npts": 1500,
-    "tol": 1e-6,
+    "npts": 20,
+    "tol": 0.0001,
     "itermin": 1,
-    "iteropt": 3,
-    "itermax": 5,
+    "iteropt": 2,
+    "itermax": 4,
     "s0": 0.001,
-    "nadapt": 5,
-    "smin": 1e-06,
-    "smax": 0.01,
+    "nadapt": 2,
+    "smin": 0.0001,
+    "smax": 3,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
-    "fmax": 0.25,
-    "Emax": 10000,
-    "phase_index_unforced": "allvel"
+    "fmax": 0.23,
+    "Emax": 1000000,
+    "phase_index_unforced": "2,3"
   },
   "shooting": {
     "method": "single",
@@ -27,15 +27,15 @@
     "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 300
+      "nsteps_per_period": 210
     },
     "multiple": {
-      "npartition": 1,
-      "nsteps_per_partition": 300
+      "npartition": 3,
+      "nsteps_per_partition": 70
     }
   },
-  "forcing": {
-    "amplitude": 40,
+"forcing": {
+    "amplitude": 0,
     "phase_ratio": 0.5,
     "damping": 0.1    
   },  
@@ -47,15 +47,15 @@
       "force_freq_scale": 0.7
     },
     "_restart": {
-      "file_name": "nnm1",
-      "index": 10,
+      "file_name": "",
+      "index": 50,
       "recompute_tangent": false,
       "fixF": false,
       "F": 60
     }
   },
   "Logger": {
-    "plot": true,
+    "plot": false,
     "file_name": "nnm1"
   }
 }
