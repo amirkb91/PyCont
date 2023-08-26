@@ -55,25 +55,19 @@ class Cubic_Spring:
         return np.concatenate([Xdot, dXdX0dot.flatten()])
 
     @classmethod
-    def eigen_solve(cls, cont_params):
+    def eigen_solve(cls):
         # Continuation variables initial guess from eigenvalues
         frq, eig = spl.eigh(cls.K, cls.M)
         frq = np.sqrt(frq) / (2 * np.pi)
-
-        nnm = cont_params["first_point"]["eig_start"]["NNM"]
-        scale = cont_params["first_point"]["eig_start"]["scale"]
-        x0 = eig[:, nnm - 1] * scale
-        v0 = np.zeros_like(x0)
-        X0 = np.concatenate([x0, v0])
-        T0 = 1 / frq[nnm - 1]
+        frq = frq.reshape(-1, 1)
 
         # initial position taken as zero for both dofs.
         pose0 = np.zeros(cls.ndof_free)
 
-        return X0, T0, pose0
+        return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, tau, X, pose_base, cont_params):
+    def time_solve(cls, omega, tau, X, pose_base, cont_params, return_time=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]

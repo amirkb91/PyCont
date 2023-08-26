@@ -1,29 +1,30 @@
 {
   "continuation": {
-    "method": "psa",
+    "forced": false,
+    "method": "seq",
     "tangent": "peeters",
     "dir": 1,
-    "npts": 5000,
+    "npts": 20,
     "tol": 0.0001,
-    "itermin": 0,
+    "itermin": 1,
     "iteropt": 2,
     "itermax": 4,
-    "s0": 0.05,
+    "s0": 0.001,
     "nadapt": 2,
-    "smin": 0.005,
+    "smin": 0.0001,
     "smax": 3,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
     "fmax": 0.23,
     "Emax": 1000000,
-    "phase_cond_index": "2,3",
-    "plot": false
+    "phase_index_unforced": "2,3"
   },
   "shooting": {
-    "method": "multiple",
+    "method": "single",
     "scaling": false,
     "rel_tol": 1e-08,
+    "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 210
@@ -37,9 +38,10 @@
     "itermax": 30,
     "eig_start": {
       "NNM": 1,
-      "scale": 0.1
+      "scale": 0.1,
+      "force_freq_scale": 0.7
     },
-    "restart": {
+    "_restart": {
       "file_name": "",
       "index": 50,
       "recompute_tangent": false,
@@ -48,6 +50,7 @@
     }
   },
   "Logger": {
-    "file_name": "nnm_mult"
+    "plot": false,
+    "file_name": "nnm1"
   }
 }
