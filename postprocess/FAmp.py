@@ -12,18 +12,17 @@ def show_annotation(sel):
     sel.annotation.set_text(f"index:{ind}")
 
 dat_output = False
+pose_ind2plot = 63  # 63 for beam mid
+normalise = 0.01  # beam thickness
 
 files = sys.argv[1:]
 for i, file in enumerate(files):
     if not file.endswith(".h5"):
         files[i] += ".h5"
 
-pose_ind2plot = 63  # 63 for beam mid
-h = 0.01  # beam thickness
-
 plt.style.use("ggplot")
 f, a = plt.subplots(figsize=(10, 7))
-a.set(xlabel="Freq/Omega", ylabel="Amplitude/h")
+a.set(xlabel="Freq/Omega", ylabel="Normalised Amplitude")
 
 # eig info from first file, all files should therefore be from same NNM
 file1 = files[0]
@@ -49,7 +48,7 @@ for file in files:
     n_solpoints = len(T)
     amp = np.zeros(n_solpoints)
     for i in range(n_solpoints):
-        amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i] - pose0[pose_ind2plot])) / h
+        amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i] - pose0[pose_ind2plot])) / normalise
 
     line.append(
         a.plot(1 / (T * Omega), amp, marker=".", fillstyle="none", label=file.split(".h5")[0])

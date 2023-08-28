@@ -7,8 +7,8 @@ import os
 
 
 class SpringCpp:
-    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/my_cubic_spring/"
-    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/my_cubic_spring"
+    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mycubic_spring/"
+    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mycubic_spring"
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
