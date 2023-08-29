@@ -44,14 +44,14 @@ class SpringCpp:
             cls.model_def["ModelDef"]["damping_M"] = cont_params["forcing"]["damping"]
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
         
+        subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
-        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+        # json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
     
     @classmethod
     def run_eig(cls):
         subprocess.run(
-            "cd " + cls.cpp_path + "&&" + "./clean_dir.sh" + "&&" + cls.cpp_exe + " " +
-            cls.cpp_modelfile + " " + cls.cpp_paramfile_eig,
+            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " " + cls.cpp_paramfile_eig,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w")
@@ -167,10 +167,9 @@ class SpringCpp:
 
         try:
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " " + cls.cpp_modelfile + " _" +
+                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
                 cls.cpp_paramfile_sim,
                 shell=True,
-                timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w")
             )

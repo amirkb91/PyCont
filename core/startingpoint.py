@@ -24,8 +24,7 @@ class StartingPoint:
 
     def eig_start(self):
         nnm = self.prob.cont_params["first_point"]["eig_start"]["NNM"]
-        scale = self.prob.cont_params["first_point"]["eig_start"]["scale"]
-        force_freq_scale = self.prob.cont_params["first_point"]["eig_start"]["force_freq_scale"]
+        scale = self.prob.cont_params["first_point"]["eig_start"]["scale"]        
         dofdata = self.prob.doffunction()
         x0 = scale * self.eig[:, nnm - 1]
         x0 = x0[dofdata["free_dof"]]
@@ -34,7 +33,8 @@ class StartingPoint:
         T0 = 1 / self.frq[nnm - 1, 0]
 
         if self.prob.cont_params["continuation"]["forced"]:
-            T0 /= force_freq_scale
+            freq_scale = self.prob.cont_params["forcing"]["starting_freq_scale"]
+            T0 /= freq_scale
         
         if self.prob.cont_params["shooting"]["scaling"]:
             self.omega = 1 / T0

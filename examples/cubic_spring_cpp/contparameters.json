@@ -43,7 +43,8 @@
   "first_point": {
     "itermax": 30,
     "eig_start": {
-      "NNM": 1
+      "NNM": 1,
+      "scale": 0.1
     },
     "_restart": {
       "file_name": "",
