@@ -17,10 +17,10 @@ class SpringCpp:
     cpp_params_eig = json.load(open(cpp_path + cpp_paramfile_eig))
     cpp_params_sim = json.load(open(cpp_path + cpp_paramfile_sim))
 
-    model_name = model_def["ModelDef"]["model_name"]
     eig_file = cpp_params_eig["EigenSolverParameters"]["Logger"]["file_name"]
     simout_file = cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"]
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
+    model_name = model_def["ModelDef"]["model_name"]
     analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"][
         "analysis_name"]
 
@@ -32,6 +32,21 @@ class SpringCpp:
     node_config = None
     ndof_config = None
 
+    @classmethod
+    def initialise(cls, cont_params):
+        if not cont_params["continuation"]["forced"]:
+            cls.model_def["ModelDef"]["amplitude"] = 0.0
+            cls.model_def["ModelDef"]["damping_M"] = 0.0
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 1.0
+        elif cont_params["continuation"]["forced"]:
+            cls.model_def["ModelDef"]["amplitude"] = cont_params["forcing"]["amplitude"]
+            cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
+            cls.model_def["ModelDef"]["damping_M"] = cont_params["forcing"]["damping"]
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
+        
+        json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
+        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+    
     @classmethod
     def run_eig(cls):
         subprocess.run(

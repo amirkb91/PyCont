@@ -16,6 +16,9 @@ else:
     prob.add_zerofunction(SpringCpp.runsim_single)
 prob.zerofunction_firstpoint = prob.zerofunction
 
+# Initialise class based on continuation parameters
+SpringCpp.initialise(prob.cont_params)
+
 # Continuation starting point
 start = StartingPoint(prob)
 start.get_startingpoint()

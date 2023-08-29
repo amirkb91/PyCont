@@ -11,8 +11,8 @@
     "itermax": 4,
     "s0": 0.005,
     "nadapt": 2,
-    "smin": 1e-3,
-    "smax": 5.0,
+    "smin": 0.001,
+    "smax": 5,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
@@ -24,7 +24,6 @@
     "method": "single",
     "scaling": false,
     "rel_tol": 1e-08,
-    "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 300
@@ -34,17 +33,17 @@
       "nsteps_per_partition": 70
     }
   },
-"forcing": {
-    "amplitude": 0,
+  "forcing": {
+    "amplitude": 0.05,
     "phase_ratio": 0.5,
-    "damping": 0.1    
-  },  
+    "damping": 0.025,
+    "rho_GA": 1,
+    "starting_freq_scale": 0.7
+  },
   "first_point": {
     "itermax": 30,
     "eig_start": {
-      "NNM": 1,
-      "scale": 0.1,
-      "force_freq_scale": 0.7
+      "NNM": 1
     },
     "_restart": {
       "file_name": "",
