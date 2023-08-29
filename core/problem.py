@@ -21,8 +21,12 @@ class Prob:
     def add_icfunction(self, fxn):
         self.icfunction = fxn
 
-    def add_zerofunction(self, fxn):
+    def add_zerofunction(self, fxn, fxn2=None):
         self.zerofunction = fxn
+        if not fxn2:
+            self.zerofunction_firstpoint = fxn
+        else:
+            self.zerofunction_firstpoint = fxn2
 
     def add_zerofunction_firstpoint(self, fxn):
         self.zerofunction_firstpoint = fxn

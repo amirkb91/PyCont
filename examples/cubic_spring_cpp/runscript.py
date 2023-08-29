@@ -10,11 +10,7 @@ prob = Prob()
 prob.read_contparams("contparameters.json")
 prob.add_doffunction(SpringCpp.get_dofdata)
 prob.add_icfunction(SpringCpp.run_eig)
-if prob.cont_params["continuation"]["forced"]:
-    prob.add_zerofunction(SpringCpp.runsim_forced)
-else:
-    prob.add_zerofunction(SpringCpp.runsim_single)
-prob.zerofunction_firstpoint = prob.zerofunction
+prob.add_zerofunction(SpringCpp.runsim_single)
 
 # Initialise class based on continuation parameters
 SpringCpp.initialise(prob.cont_params)

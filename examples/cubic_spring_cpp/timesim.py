@@ -18,8 +18,6 @@ data = h5py.File(str(file), "r")
 pose = data["/Config/POSE"][:, solno]
 vel = data["/Config/VELOCITY"][:, solno]
 T = data["/T"][solno]
-
-# read parameters from solution file and modify
 par = data["/Parameters"]
 par = json.loads(par[()])
 par["shooting"]["single"]["nperiod"] = nperiod
@@ -28,15 +26,13 @@ try:
     forced = par["continuation"]["forced"]
 except:
     forced = False
+data.close()
 
 # run sim
 SpringCpp.initialise(par)
 SpringCpp.run_eig()  # To get nodal data in class
 X = np.concatenate([pose, vel])
-if forced:
-    SpringCpp.runsim_forced(1.0, T, X, pose, par)
-else:
-    SpringCpp.runsim_single(1.0, T, X, np.array([0, 0]), par)
+SpringCpp.runsim_single(1.0, T, X, np.array([0, 0]), par)
 
 # call plotbeam
 subprocess.run(

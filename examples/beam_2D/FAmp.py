@@ -4,7 +4,7 @@ import h5py
 import json
 import numpy as np
 import mplcursors
-from examples.beam_2D.beamcpp import BeamCpp
+from beamcpp import BeamCpp
 
 # show point data on figure
 def show_annotation(sel):

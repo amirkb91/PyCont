@@ -23,14 +23,6 @@ T = data["/T"][:]
 par = data["/Parameters"]
 par = json.loads(par[()])
 data.close()
-try:
-    forced = par["continuation"]["forced"]
-except:
-    forced = False
-if forced:
-    runsim_function = SpringCpp.runsim_forced
-else:
-    runsim_function = SpringCpp.runsim_single
 
 # create new file to store time histories or append inplace
 if inplace:
@@ -50,10 +42,9 @@ time = np.zeros([n_solpoints, nsteps + 1])
 
 with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
-        x = vel[SpringCpp.free_dof, i]
-        X = np.concatenate([np.zeros(SpringCpp.ndof_free), x])
-        [pose_time[:, :, i], vel_time[:, :, i]] = runsim_function(
-            1.0, T[i], X, pose[:, i], par, return_time=True
+        X = np.concatenate([pose[:, i], vel[:, i]])
+        [pose_time[:, :, i], vel_time[:, :, i]] = SpringCpp.runsim_single(
+            1.0, T[i], X, np.array([0, 0]), par, return_time=True
         )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         bar()
