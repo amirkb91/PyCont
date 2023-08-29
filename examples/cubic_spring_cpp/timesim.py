@@ -30,6 +30,7 @@ except:
     forced = False
 
 # run sim
+SpringCpp.initialise(par)
 SpringCpp.run_eig()  # To get nodal data in class
 X = np.concatenate([pose, vel])
 if forced:

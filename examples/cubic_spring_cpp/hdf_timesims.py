@@ -40,6 +40,7 @@ else:
     shutil.copy(file, new_file)
 
 # run sims
+SpringCpp.initialise(par)
 SpringCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
