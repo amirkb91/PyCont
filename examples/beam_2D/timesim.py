@@ -18,8 +18,6 @@ data = h5py.File(str(file), "r")
 pose = data["/Config/POSE"][:, solno]
 vel = data["/Config/VELOCITY"][:, solno]
 T = data["/T"][solno]
-
-# read parameters from solution file and modify
 par = data["/Parameters"]
 par = json.loads(par[()])
 par["shooting"]["single"]["nperiod"] = nperiod
@@ -30,13 +28,11 @@ except:
     forced = False
 
 # run sim
+BeamCpp.initialise(par)
 BeamCpp.run_eig()    # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-if forced:
-    BeamCpp.runsim_forced(1.0, T, X, pose, par)
-else:
-    BeamCpp.runsim_single(1.0, T, X, pose, par)
+BeamCpp.runsim_single(1.0, T, X, pose, par)
 
 # call plotbeam
 subprocess.run(

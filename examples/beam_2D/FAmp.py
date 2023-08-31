@@ -34,6 +34,7 @@ try:
 except:
     nnm = par["first_point"]["_eig_start"]["NNM"]
 # get pose0 and eig
+BeamCpp.initialise(par)
 [eig, frq, pose0] = BeamCpp.run_eig()
 Omega = frq[nnm - 1, 0]
 data.close()

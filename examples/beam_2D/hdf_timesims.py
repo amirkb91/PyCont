@@ -23,14 +23,6 @@ T = data["/T"][:]
 par = data["/Parameters"]
 par = json.loads(par[()])
 data.close()
-try:
-    forced = par["continuation"]["forced"]
-except:
-    forced = False
-if forced:
-    runsim_function = BeamCpp.runsim_forced
-else:
-    runsim_function = BeamCpp.runsim_single
 
 # create new file to store time histories or append inplace
 if inplace:
@@ -40,6 +32,7 @@ else:
     shutil.copy(file, new_file)
 
 # run sims
+BeamCpp.initialise(par)
 BeamCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
@@ -51,7 +44,7 @@ with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-        [pose_time[:, :, i], vel_time[:, :, i]] = runsim_function(
+        [pose_time[:, :, i], vel_time[:, :, i]] = BeamCpp.runsim_single(
             1.0, T[i], X, pose[:, i], par, return_time=True
         )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)

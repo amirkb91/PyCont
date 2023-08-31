@@ -1,21 +1,21 @@
 {
   "continuation": {
-    "forced": true,
-    "method": "seq",
-    "tangent": "peeters",
+    "forced": false,
+    "method": "psa",
+    "tangent": "keller",
     "dir": 1,
     "npts": 1500,
     "tol": 0.001,
     "itermin": 1,
-    "iteropt": 7,
-    "itermax": 10,
+    "iteropt": 3,
+    "itermax": 5,
     "s0": 0.001,
     "nadapt": 5,
-    "smin": 1e-06,
-    "smax": 0.001,
+    "smin": 1e-05,
+    "smax": 0.004,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 35,
+    "fmin": 40,
     "fmax": 80,
     "Emax": 10000,
     "phase_index_unforced": "allvel"
@@ -24,7 +24,6 @@
     "method": "single",
     "scaling": false,
     "rel_tol": 1e-08,
-    "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
       "nsteps_per_period": 300
@@ -37,14 +36,15 @@
   "forcing": {
     "amplitude": 40,
     "phase_ratio": 0.5,
-    "damping": 0.1    
-  },  
+    "damping": 0.1,
+    "rho_GA": 0.95,
+    "starting_freq_scale": 0.7
+  },
   "first_point": {
     "itermax": 30,
     "eig_start": {
       "NNM": 1,
-      "scale": 0.0001,
-      "force_freq_scale": 0.7
+      "scale": 0.0001
     },
     "_restart": {
       "file_name": "nnm1",
@@ -56,6 +56,6 @@
   },
   "Logger": {
     "plot": true,
-    "file_name": "nnm1"
+    "file_name": "NNM1"
   }
 }
