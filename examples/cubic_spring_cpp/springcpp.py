@@ -2,13 +2,12 @@ import h5py
 import json
 import subprocess
 import numpy as np
-from copy import deepcopy as dp
 import os
 
 
-class BeamCpp:
-    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_2D/"
-    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_2D"
+class SpringCpp:
+    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mycubic_spring/"
+    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mycubic_spring"
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
@@ -36,13 +35,12 @@ class BeamCpp:
     def initialise(cls, cont_params):
         if not cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = 0.0
-            cls.model_def["ModelDef"]["tau"] = 0.0
+            cls.model_def["ModelDef"]["damping_M"] = 0.0
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 1.0
         elif cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = cont_params["forcing"]["amplitude"]
-            cls.model_def["ModelDef"]["tau"] = cont_params["forcing"]["damping"]
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
-            cls.model_def["ModelDef"]["def_period"] = 1.0
+            cls.model_def["ModelDef"]["damping_M"] = cont_params["forcing"]["damping"]
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
@@ -73,10 +71,11 @@ class BeamCpp:
         N = cls.ndof_free
 
         T = tau / omega
-        X = dp(Xtilde)
-        X[N:] *= omega  # scale velocities from Xtilde to X
 
-        cls.config_update(pose_base)
+        pose_sim = Xtilde[:N].copy() + pose_base.copy()
+        vel_sim = Xtilde[N:] * omega # scale velocities
+        X = np.concatenate([pose_sim, vel_sim])
+
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
@@ -84,8 +83,8 @@ class BeamCpp:
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]            
-            # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            # solution pose and vel taken from time 0
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -105,72 +104,14 @@ class BeamCpp:
             return pose_time, vel_time
 
     @classmethod
-    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):
-        npartition = cont_params["shooting"]["multiple"]["npartition"]
-        nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        N = cls.ndof_free
-        twoN = 2 * N
-        delta_S = 1 / npartition
-        T = tau / omega
-
-        # initialise
-        J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((cls.ndof_config, (nsteps + 1), npartition))
-        vel_time = np.zeros((cls.ndof_all, (nsteps + 1), npartition))
-        energy = np.zeros(npartition)
-        cvg = [None] * npartition
-
-        for ipart in range(npartition):
-            # index values required for looping the partitions
-            i = ipart * twoN
-            i1 = (ipart + 1) * twoN
-            j = (ipart + 1) % npartition * twoN
-            j1 = ((ipart + 1) % npartition + 1) * twoN
-
-            X = dp(Xtilde[i:i1])
-            X[N:] *= omega  # scale velocities from Xtilde to X
-            cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
-            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            M = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
-            M = np.delete(M, -1, axis=1)
-            M[:, N:] *= omega  # scale velocity derivatives
-            J[i:i1, i:i1] = M
-            J[i:i1, j:j1] -= np.eye(twoN)
-            J[i:i1, -1] = dHdtau
-            pose_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
-            simdata.close()
-        energy = np.mean(energy)
-        cvg = all(cvg)
-
-        # solution pose and vel taken from time 0
-        pose = pose_time[:, 0, :]
-        vel = vel_time[:, 0, :]
-
-        # periodicity (to be put in seperate method)
-        partition_order = (np.arange(npartition) + 1) % npartition
-        H = np.array([])
-        for ipart in range(npartition):
-            h_pose = pose_time[cls.free_dof, -1, ipart] - pose_time[cls.free_dof, 0, partition_order[ipart]]
-            h_vel = vel_time[cls.free_dof, -1, ipart] - vel_time[cls.free_dof, 0, partition_order[ipart]]
-            H = np.append(H, np.concatenate([h_pose, h_vel]))
-        H = H.reshape(-1, 1)
-
-        return H, J, pose, vel, energy, cvg
-
-    @classmethod
     def run_cpp(cls, T, X, nsteps, rel_tol):
-        inc = np.zeros(cls.ndof_all)
+        pose = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
-        inc[cls.free_dof] = X[:cls.ndof_free]
+        pose[cls.free_dof] = X[:cls.ndof_free]
         vel[cls.free_dof] = X[cls.ndof_free:]
 
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
-        icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        icdata["/" + cls.analysis_name + "/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
@@ -186,7 +127,6 @@ class BeamCpp:
                 "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
                 cls.cpp_paramfile_sim,
                 shell=True,
-                timeout=10,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w")
             )
@@ -199,45 +139,10 @@ class BeamCpp:
         return cvg
 
     @classmethod
-    def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
-        npartition = cont_params["shooting"]["multiple"]["npartition"]
-        nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        N = cls.ndof_free
-        slicing_index = nsteps * np.arange(npartition)
-
-        T = tau / omega
-        X = dp(Xtilde)
-        X[N:] *= omega  # scale velocities from Xtilde to X
-
-        cls.config_update(pose_base)
-        # do time integration along whole orbit before slicing.
-        # run nsteps per partition to ensure slicing is done at correct indices
-        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
-        simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-        pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-        vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-
-        pose = pose_time[:, slicing_index]
-        V = vel_time[cls.free_dof][:, slicing_index]
-        # set inc to zero as solution stored in pose, keep velocity but scale first
-        V *= 1 / omega
-        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X_out = np.reshape(X_out, (-1), order='F')
-        return X_out, pose
-
-    @classmethod
-    def config_update(cls, pose):
-        # update beam configuration by writing initial conditions pose
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
-        icdata["/" + cls.analysis_name + "/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
-        icdata.close()
-
-    @classmethod
     def read_dofdata(cls):
         data = h5py.File(cls.cpp_path + cls.model_name + ".h5", "r")
         cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
-        cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
+        cls.fix_dof = np.array([])
         NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
         cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
         cls.ndof_free = len(cls.free_dof)
@@ -256,14 +161,3 @@ class BeamCpp:
             "node_config": cls.node_config,
             "ndof_config": cls.ndof_config
         }
-
-    # @classmethod
-    # def periodicity(cls, pose, vel, target):
-    #     if len(pose) == cls.ndof_all:
-    #         # VK formulation
-    #         posevel = np.concatenate([pose[cls.free_dof], vel[cls.free_dof]])
-    #         H = posevel - target
-    #     else:
-    #         # SE formulation
-    #         H = None
-    #     return H

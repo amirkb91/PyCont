@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 import numpy as np
-from examples.beam_2D.beamcpp import BeamCpp
+from springcpp import SpringCpp
 
 # inputs
 solno = int(input("Solution Index: "))
@@ -26,14 +26,15 @@ try:
     forced = par["continuation"]["forced"]
 except:
     forced = False
+data.close()
 
 # run sim
-BeamCpp.initialise(par)
-BeamCpp.run_eig()    # To get nodal data in class
-x = vel[BeamCpp.free_dof]
-X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-BeamCpp.runsim_single(1.0, T, X, pose, par)
+SpringCpp.initialise(par)
+SpringCpp.run_eig()  # To get nodal data in class
+X = np.concatenate([pose, vel])
+SpringCpp.runsim_single(1.0, T, X, np.array([0, 0]), par)
 
 # call plotbeam
 subprocess.run(
-    "cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5", shell=True)
+    "cd " + SpringCpp.cpp_path + "&&" + "python3 post_processing_simulation.py ", shell=True
+)

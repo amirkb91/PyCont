@@ -3,7 +3,7 @@ import json
 from alive_progress import alive_bar
 import sys, shutil, os
 import numpy as np
-from examples.beam_2D.beamcpp import BeamCpp
+from springcpp import SpringCpp
 ''' Run time simulations for all NNM solutions and store '''
 
 # read solution file
@@ -32,8 +32,8 @@ else:
     shutil.copy(file, new_file)
 
 # run sims
-BeamCpp.initialise(par)
-BeamCpp.run_eig()  # To get nodal data in class
+SpringCpp.initialise(par)
+SpringCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
 pose_time = np.zeros([np.shape(pose)[0], nsteps + 1, n_solpoints])
@@ -42,10 +42,9 @@ time = np.zeros([n_solpoints, nsteps + 1])
 
 with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
-        x = vel[BeamCpp.free_dof, i]
-        X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-        [pose_time[:, :, i], vel_time[:, :, i]] = BeamCpp.runsim_single(
-            1.0, T[i], X, pose[:, i], par, return_time=True
+        X = np.concatenate([pose[:, i], vel[:, i]])
+        [pose_time[:, :, i], vel_time[:, :, i]] = SpringCpp.runsim_single(
+            1.0, T[i], X, np.array([0, 0]), par, return_time=True
         )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         bar()

@@ -1,18 +1,18 @@
 {
   "continuation": {
     "forced": false,
-    "method": "seq",
-    "tangent": "peeters",
+    "method": "psa",
+    "tangent": "keller",
     "dir": 1,
-    "npts": 20,
+    "npts": 1500,
     "tol": 0.0001,
     "itermin": 1,
     "iteropt": 2,
     "itermax": 4,
-    "s0": 0.001,
+    "s0": 0.005,
     "nadapt": 2,
-    "smin": 0.0001,
-    "smax": 3,
+    "smin": 1e-3,
+    "smax": 5.0,
     "betacontrol": false,
     "betamax": 20,
     "fmin": 0.15,
@@ -27,7 +27,7 @@
     "ga_rho_forced": 0.8,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 210
+      "nsteps_per_period": 300
     },
     "multiple": {
       "npartition": 3,
