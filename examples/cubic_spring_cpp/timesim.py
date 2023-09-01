@@ -22,10 +22,6 @@ par = data["/Parameters"]
 par = json.loads(par[()])
 par["shooting"]["single"]["nperiod"] = nperiod
 par["shooting"]["single"]["nsteps_per_period"] = nsteps
-try:
-    forced = par["continuation"]["forced"]
-except:
-    forced = False
 data.close()
 
 # run sim

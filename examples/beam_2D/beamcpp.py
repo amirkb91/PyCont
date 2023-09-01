@@ -34,6 +34,15 @@ class BeamCpp:
 
     @classmethod
     def initialise(cls, cont_params):
+        # prep para file and assign fixed values
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
+            "shooting"]["rel_tol"]
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"][
+            "initial_conditions"] = cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop(
+                "_initial_conditions"
+            )
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions_eig")
+
         if not cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = 0.0
             cls.model_def["ModelDef"]["tau"] = 0.0
@@ -69,7 +78,6 @@ class BeamCpp:
     def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
 
         T = tau / omega
@@ -77,14 +85,14 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, rel_tol)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]            
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
             # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
@@ -108,7 +116,6 @@ class BeamCpp:
     def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
@@ -131,7 +138,7 @@ class BeamCpp:
             X = dp(Xtilde[i:i1])
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, rel_tol)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps)
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             M = simdata["/Sensitivity/Monodromy"][:]
             dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
@@ -163,7 +170,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, rel_tol):
+    def run_cpp(cls, T, X, nsteps):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -176,9 +183,6 @@ class BeamCpp:
 
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = cls.cpp_params_sim[
-            "TimeIntegrationSolverParameters"]["_initial_conditions"]
         json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
 
         try:
