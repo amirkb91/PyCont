@@ -73,8 +73,8 @@ def psacont(self):
             # find new tangent with converged solution
             if frml == "secant":
                 # X_pred[:N]==INC and technically is already the diff between POSE for previous two sols
-                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau])) * stepsign
-                # tgt_next = (np.concatenate((X_pred, [tau_pred])) - np.concatenate((X, [tau]))) * stepsign
+                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
+                # tgt_next = np.concatenate((X_pred - X, [tau_pred - tau]))
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
@@ -87,7 +87,7 @@ def psacont(self):
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            # performed using tangent of first partition + T only (no effect on single shooting)
+            # performed using tangent of first partition + T only (mask has no effect on single shooting)
             mask = np.ones(np.shape(tgt), dtype=bool)
             mask[twoN:-1] = False
             beta = np.degrees(np.arccos((tgt_next[mask].T @ tgt[mask]) / (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))))
@@ -96,10 +96,7 @@ def psacont(self):
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
-                # passed check, finalise and update for next step
-                if frml == "peeters":
-                    stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
-
+                # passed check, store and update for next step
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
                     sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
@@ -108,6 +105,8 @@ def psacont(self):
                                    freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
 
                 itercont += 1
+                if frml in ("peeters", "secant"):
+                    stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
                 tau = tau_pred
                 X = dp(X_pred)
                 tgt = dp(tgt_next)

@@ -170,7 +170,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps):
+    def run_cpp(cls, T, X, nsteps, sensoff=False):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -180,10 +180,13 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
-
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+        
+        cpp_params_sim = dp(cls.cpp_params_sim)
+        cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
+        cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
+        if sensoff:
+            cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+        json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
 
         try:
             cpprun = subprocess.run(
