@@ -4,18 +4,18 @@
     "method": "psa",
     "tangent": "keller",
     "dir": 1,
-    "npts": 1500,
+    "npts": 500,
     "tol": 0.001,
     "itermin": 1,
     "iteropt": 3,
     "itermax": 5,
     "s0": 0.001,
-    "nadapt": 5,
+    "nadapt": 1,
     "smin": 1e-05,
-    "smax": 0.004,
+    "smax": 0.003,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 40,
+    "fmin": 30,
     "fmax": 80,
     "Emax": 10000,
     "phase_index_unforced": "allvel"
@@ -36,8 +36,8 @@
   "forcing": {
     "amplitude": 40,
     "phase_ratio": 0.5,
-    "damping": 0.1,
-    "rho_GA": 0.95,
+    "damping": 0.0001,
+    "rho_GA": 1.0,
     "starting_freq_scale": 0.7
   },
   "first_point": {

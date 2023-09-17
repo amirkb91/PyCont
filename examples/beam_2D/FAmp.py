@@ -12,7 +12,7 @@ def show_annotation(sel):
     sel.annotation.set_text(f"index:{ind}")
 
 dat_output = False
-pose_ind2plot = 63  # 63 for beam mid
+pose_ind2plot = 63  # 63 for beam mid SE4node , 46 for beam mid VK
 normalise = 0.01  # beam thickness
 
 files = sys.argv[1:]
