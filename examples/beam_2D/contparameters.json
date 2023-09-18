@@ -36,7 +36,8 @@
   "forcing": {
     "amplitude": 40,
     "phase_ratio": 0.5,
-    "damping": 0.0001,
+    "tau0": 0.0001,
+    "tau1": 0.0001,
     "rho_GA": 1.0,
     "starting_freq_scale": 0.7
   },

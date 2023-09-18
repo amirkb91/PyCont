@@ -45,11 +45,13 @@ class BeamCpp:
 
         if not cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = 0.0
-            cls.model_def["ModelDef"]["tau"] = 0.0
+            cls.model_def["ModelDef"]["tau0"] = 0.0
+            cls.model_def["ModelDef"]["tau1"] = 0.0
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 1.0
         elif cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = cont_params["forcing"]["amplitude"]
-            cls.model_def["ModelDef"]["tau"] = cont_params["forcing"]["damping"]
+            cls.model_def["ModelDef"]["tau0"] = cont_params["forcing"]["tau0"]
+            cls.model_def["ModelDef"]["tau1"] = cont_params["forcing"]["tau1"]
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
             cls.model_def["ModelDef"]["def_period"] = 1.0
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
