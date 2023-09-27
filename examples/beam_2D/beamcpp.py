@@ -77,7 +77,7 @@ class BeamCpp:
         return eig, frq, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False):
+    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensoff=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         N = cls.ndof_free
@@ -87,7 +87,7 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensoff)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
@@ -99,12 +99,15 @@ class BeamCpp:
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
-            M = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
-            M = np.delete(M, -1, axis=1)
-            M[:, N:] *= omega  # scale velocity derivatives
-            M -= np.eye(len(M))
-            J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
+            if not sensoff:
+                M = simdata["/Sensitivity/Monodromy"][:]
+                dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
+                M = np.delete(M, -1, axis=1)
+                M[:, N:] *= omega  # scale velocity derivatives
+                M -= np.eye(len(M))
+                J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
+            else:
+                J = None
             simdata.close()
         else:
             H = J = pose = vel = energy = None
@@ -172,7 +175,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, sensoff=False):
+    def run_cpp(cls, T, X, nsteps, sensoff):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]

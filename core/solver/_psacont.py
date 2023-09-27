@@ -2,10 +2,12 @@ import numpy as np
 from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
-
+# import warnings
+# warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
 
 def psacont(self):
     frml = self.prob.cont_params["continuation"]["tangent"].lower()
+    forced = self.prob.cont_params["continuation"]["forced"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
@@ -64,7 +66,10 @@ def psacont(self):
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
-            dxt = spl.lstsq(J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            if not forced:
+                dxt = spl.lstsq(J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+            elif forced:
+                dxt = spl.solve(J_corr, -Z, check_finite=False)
             tau_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
@@ -82,8 +87,11 @@ def psacont(self):
                     J[-1, -1] = 1
                 Z = np.zeros((np.shape(J)[0], 1))
                 Z[-1] = 1
-                tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False,
-                                    lapack_driver="gelsd")[0][:, 0]
+                if not forced:
+                    tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False,
+                                        lapack_driver="gelsd")[0][:, 0]                
+                elif forced:    
+                    tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails

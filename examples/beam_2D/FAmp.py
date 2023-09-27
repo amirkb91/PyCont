@@ -6,14 +6,23 @@ import numpy as np
 import mplcursors
 from beamcpp import BeamCpp
 
+
 # show point data on figure
 def show_annotation(sel):
     ind = int(sel.index)
     sel.annotation.set_text(f"index:{ind}")
 
+
+SE = True
 dat_output = False
-pose_ind2plot = 63  # 63 for beam mid SE4node , 46 for beam mid VK
-normalise = 0.01  # beam thickness
+
+if SE:
+    pose_ind2plot = 63
+    normalise_freq = 53.1305
+else:
+    pose_ind2plot = 46
+    normalise_freq = 53.1660
+normalise_amp = 0.01  # beam thickness
 
 files = sys.argv[1:]
 for i, file in enumerate(files):
@@ -29,14 +38,6 @@ file1 = files[0]
 data = h5py.File(str(file1), "r")
 par = data["/Parameters"]
 par = json.loads(par[()])
-try:
-    nnm = par["first_point"]["eig_start"]["NNM"]
-except:
-    nnm = par["first_point"]["_eig_start"]["NNM"]
-# get pose0 and eig
-BeamCpp.initialise(par)
-[eig, frq, pose0] = BeamCpp.run_eig()
-Omega = frq[nnm - 1, 0]
 data.close()
 
 # plot sols
@@ -49,14 +50,20 @@ for file in files:
     n_solpoints = len(T)
     amp = np.zeros(n_solpoints)
     for i in range(n_solpoints):
-        amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i] - pose0[pose_ind2plot])) / normalise
+        amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i])) / normalise_amp
 
     line.append(
-        a.plot(1 / (T * Omega), amp, marker=".", fillstyle="none", label=file.split(".h5")[0])
+        a.plot(
+            1 / (T * normalise_freq),
+            amp,
+            marker=".",
+            fillstyle="none",
+            label=file.split(".h5")[0]
+        )
     )
 
     if dat_output:
-        F_omega = 1 / (T * Omega)
+        F_omega = 1 / (T * normalise_freq)
         np.savetxt(
             file.strip(".h5") + ".dat",
             np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1)
