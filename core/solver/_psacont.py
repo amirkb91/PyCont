@@ -113,8 +113,9 @@ def psacont(self):
                                    freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
 
                 itercont += 1
-                if frml in ("peeters", "secant"):
-                    stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
+                if frml in ("peeters", "secant"): # and beta >= 90:
+                    # stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
+                    stepsign = np.sign(stepsign * np.cos(np.radians(beta)))
                 tau = tau_pred
                 X = dp(X_pred)
                 tgt = dp(tgt_next)

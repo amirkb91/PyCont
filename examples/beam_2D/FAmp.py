@@ -16,11 +16,12 @@ def show_annotation(sel):
 SE = True
 dat_output = False
 
+node2plot = 15
 if SE:
-    pose_ind2plot = 63
+    pose_ind2plot = 4 * node2plot + 3  # Y disp
     normalise_freq = 53.1305
 else:
-    pose_ind2plot = 46
+    pose_ind2plot = 3 * node2plot + 1  # Y disp
     normalise_freq = 53.1660
 normalise_amp = 0.01  # beam thickness
 

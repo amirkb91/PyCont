@@ -31,7 +31,7 @@ def first_point(self):
             self.log.screenout(iter=0, correct=iter_firstpoint, res=residual,
                                freq=self.omega/self.tau, energy=energy)
 
-            if residual < self.prob.cont_params["continuation"]["tol"]:
+            if residual < self.prob.cont_params["continuation"]["tol"] and iter_firstpoint > 0:
                 break
 
             # correct X0 and tau

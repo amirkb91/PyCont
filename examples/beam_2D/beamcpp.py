@@ -90,7 +90,7 @@ class BeamCpp:
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensoff)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            energy = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
+            energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])  # max energy important for forced response
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]

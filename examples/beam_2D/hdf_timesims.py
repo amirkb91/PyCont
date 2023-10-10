@@ -6,6 +6,8 @@ import numpy as np
 from examples.beam_2D.beamcpp import BeamCpp
 ''' Run time simulations for all NNM solutions and store '''
 
+new_nsteps = input("Specify new nsteps if desired: ")
+
 # read solution file
 file = sys.argv[1]
 inplace = sys.argv[-1]
@@ -35,6 +37,8 @@ else:
 BeamCpp.initialise(par)
 BeamCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
+if new_nsteps:
+    par["shooting"]["single"]["nsteps_per_period"] = int(new_nsteps)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
 pose_time = np.zeros([np.shape(pose)[0], nsteps + 1, n_solpoints])
 vel_time = np.zeros([np.shape(vel)[0], nsteps + 1, n_solpoints])
@@ -52,6 +56,12 @@ with alive_bar(n_solpoints) as bar:
 
 # write to file
 time_data = h5py.File(new_file, "a")
+if "/Config_Time/POSE" in time_data.keys():
+    del time_data["/Config_Time/POSE"]
+if "/Config_Time/VELOCITY" in time_data.keys():
+    del time_data["/Config_Time/VELOCITY"]
+if "/Config_Time/Time" in time_data.keys():
+    del time_data["/Config_Time/Time"]        
 time_data["/Config_Time/POSE"] = pose_time
 time_data["/Config_Time/VELOCITY"] = vel_time
 time_data["/Config_Time/Time"] = time
