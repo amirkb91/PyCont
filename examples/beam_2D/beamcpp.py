@@ -2,6 +2,7 @@ import h5py
 import json
 import subprocess
 import numpy as np
+import scipy.linalg as spl
 from copy import deepcopy as dp
 import os
 
@@ -104,16 +105,17 @@ class BeamCpp:
                 dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
                 M = np.delete(M, -1, axis=1)
                 M[:, N:] *= omega  # scale velocity derivatives
+                floq = spl.eigvals(M)
                 M -= np.eye(len(M))
                 J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
             else:
                 J = None
             simdata.close()
         else:
-            H = J = pose = vel = energy = None
+            H = J = floq = pose = vel = energy = None
 
         if not return_time:
-            return H, J, pose, vel, energy, cvg
+            return H, J, floq, pose, vel, energy, cvg
         elif return_time:
             return pose_time, vel_time
 

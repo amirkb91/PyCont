@@ -40,7 +40,7 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, J, floq, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False
@@ -108,7 +108,7 @@ def psacont(self):
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
                     sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
-                    sol_step=stepsign*step)
+                    sol_step=stepsign*step, sol_floq=floq)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                                    freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
 

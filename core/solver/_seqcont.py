@@ -36,7 +36,7 @@ def seqcont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian (remove time derivative from J)
-            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, J, floq, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False

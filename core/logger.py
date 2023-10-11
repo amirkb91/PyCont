@@ -21,6 +21,7 @@ class Logger:
         self.sol_beta = []
         self.sol_itercorrect = []
         self.sol_step = []
+        self.sol_floq = []
         self.plot = False
         self.betaplot = False
 
@@ -63,6 +64,8 @@ class Logger:
                 self.sol_itercorrect.append(value)
             elif key == "sol_step":
                 self.sol_step.append(value)
+            elif key == "sol_floq":
+                self.sol_floq.append(value)                
 
         # save to disk and plot if required
         self.savetodisk()
@@ -120,6 +123,7 @@ class Logger:
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/itercorrect"] = np.asarray(self.sol_itercorrect).T
         savefile["/step"] = np.asarray(self.sol_step).T
+        savefile["/Floquet"] = np.asarray(self.sol_floq).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
 

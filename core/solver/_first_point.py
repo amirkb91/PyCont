@@ -21,7 +21,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
@@ -67,33 +67,6 @@ def first_point(self):
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
             sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
-    elif restart:
-        recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
-        if shooting_method == "single":
-            # residual and Jacobian and Compute Tangent
-            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
-            residual = spl.norm(H)
-            if recompute_tangent:
-                J = np.block(
-                    [[J],
-                     [self.h, np.zeros((self.nphase, 1))],
-                     [np.zeros(np.shape(J)[1])]])
-                J[-1, -1] = 1
-                Z = np.zeros((np.shape(J)[0], 1))
-                Z[-1] = 1
-                self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False,
-                                      lapack_driver="gelsd")[0][:, 0]
-                self.tgt0 /= spl.norm(self.tgt0)
-
-            self.log.screenout(iter=0, correct=0, res=residual,
-                               freq=self.omega/self.tau, energy=energy)
-            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
-                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
-
-        elif shooting_method == "multiple":
-            pass
-
     elif eig_start and forced:
         iter_firstpoint = 0
         while True:
@@ -101,7 +74,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian
-            [H, J, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -135,3 +108,31 @@ def first_point(self):
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
             sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
+
+    elif restart:
+        recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
+        if shooting_method == "single":
+            # residual and Jacobian and Compute Tangent
+            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
+            residual = spl.norm(H)
+            if recompute_tangent:
+                J = np.block(
+                    [[J],
+                     [self.h, np.zeros((self.nphase, 1))],
+                     [np.zeros(np.shape(J)[1])]])
+                J[-1, -1] = 1
+                Z = np.zeros((np.shape(J)[0], 1))
+                Z[-1] = 1
+                self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False,
+                                      lapack_driver="gelsd")[0][:, 0]
+                self.tgt0 /= spl.norm(self.tgt0)
+
+            self.log.screenout(iter=0, correct=0, res=residual,
+                               freq=self.omega/self.tau, energy=energy)
+            self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
+                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
+
+        elif shooting_method == "multiple":
+            pass
+
