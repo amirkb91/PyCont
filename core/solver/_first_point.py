@@ -65,7 +65,7 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
-            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0, sol_floq=floq)
 
     elif eig_start and forced:
         iter_firstpoint = 0
@@ -107,7 +107,7 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
-            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0, sol_floq=floq)
 
     elif restart:
         recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
@@ -131,7 +131,7 @@ def first_point(self):
             self.log.screenout(iter=0, correct=0, res=residual,
                                freq=self.omega/self.tau, energy=energy)
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
-                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
+                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0, sol_floq=floq)
 
         elif shooting_method == "multiple":
             pass

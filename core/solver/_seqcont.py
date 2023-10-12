@@ -64,7 +64,7 @@ def seqcont(self):
 
         if cvg_cont:
             self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred / omega,
-                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step)
+                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step, sol_floq=floq)
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                     freq=omega/tau_pred, energy=energy, step=step, beta=0.0)            
             
