@@ -34,7 +34,7 @@ class BeamCpp:
     ndof_config = None
 
     @classmethod
-    def initialise(cls, cont_params):
+    def initialise(cls, cont_params, ForcePeriod=False):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
             "shooting"]["rel_tol"]
@@ -55,7 +55,14 @@ class BeamCpp:
             cls.model_def["ModelDef"]["tau1"] = cont_params["forcing"]["tau1"]
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
             cls.model_def["ModelDef"]["def_period"] = 1.0
+            cls.model_def["ModelDef"]["with_ratio"] = True
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
+        
+        if ForcePeriod:
+            # if force period is specified, we want to de-couple force period from sim time
+            # useful when running time simulation as post processing
+            cls.model_def["ModelDef"]["def_period"] = ForcePeriod
+            cls.model_def["ModelDef"]["with_ratio"] = False
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)

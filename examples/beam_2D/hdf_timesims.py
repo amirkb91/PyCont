@@ -6,7 +6,7 @@ import numpy as np
 from examples.beam_2D.beamcpp import BeamCpp
 ''' Run time simulations for all NNM solutions and store '''
 
-new_nsteps = input("Specify new nsteps if desired: ")
+new_nsteps = input("Specify new nsteps per period if desired: ")
 
 # read solution file
 file = sys.argv[1]
