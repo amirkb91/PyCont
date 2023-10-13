@@ -109,7 +109,7 @@ class BeamCpp:
                 M -= np.eye(len(M))
                 J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
             else:
-                J = None
+                J = floq = None
             simdata.close()
         else:
             H = J = floq = pose = vel = energy = None

@@ -26,11 +26,10 @@ data.close()
 
 # run sim
 BeamCpp.initialise(par)
-BeamCpp.run_eig()    # To get nodal data in class
+BeamCpp.run_eig()  # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-BeamCpp.runsim_single(1.0, T, X, pose, par)
+BeamCpp.runsim_single(1.0, T, X, pose, par, sensoff=True)
 
 # call plotbeam
-subprocess.run(
-    "cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py " + BeamCpp.simout_file + ".h5", shell=True)
+subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)
