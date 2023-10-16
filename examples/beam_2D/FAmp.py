@@ -16,14 +16,14 @@ def show_annotation(sel):
 SE = True
 dat_output = False
 
-node2plot = 15
+node2plot = 21
 if SE:
     pose_ind2plot = 4 * node2plot + 3  # Y disp
-    normalise_freq = 53.1305
+    normalise_freq = 41.82280070074808
 else:
     pose_ind2plot = 3 * node2plot + 1  # Y disp
     normalise_freq = 53.1660
-normalise_amp = 0.01  # beam thickness
+normalise_amp = 1.0  # beam thickness
 
 files = sys.argv[1:]
 for i, file in enumerate(files):
@@ -33,13 +33,6 @@ for i, file in enumerate(files):
 plt.style.use("ggplot")
 f, a = plt.subplots(figsize=(10, 7))
 a.set(xlabel="F/\u03C9\u2099", ylabel="Normalised Amplitude")
-
-# eig info from first file, all files should therefore be from same NNM
-file1 = files[0]
-data = h5py.File(str(file1), "r")
-par = data["/Parameters"]
-par = json.loads(par[()])
-data.close()
 
 # plot sols
 line = []
@@ -53,11 +46,24 @@ for file in files:
     for i in range(n_solpoints):
         amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i])) / normalise_amp
 
+    if "/Floquet" in data.keys():
+        floq = data["/Floquet"][:]
+        floq_abs = np.abs(floq) > 1
+        stable_bool = ~np.any(floq_abs, axis=0)
+        stable_index = np.argwhere(np.diff(stable_bool)).squeeze() + 1
+        a.plot(
+            1 / (T[stable_index] * normalise_freq),
+            amp[stable_index],
+            marker='.',
+            linestyle="none",
+            color="k"
+        )
+
     line.append(
         a.plot(
             1 / (T * normalise_freq),
             amp,
-            marker=".",
+            marker="none",
             fillstyle="none",
             label=file.split(".h5")[0]
         )

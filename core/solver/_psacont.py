@@ -2,6 +2,7 @@ import numpy as np
 from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
+from ._bifurcation import bifurcation_functions
 # import warnings
 # warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
 
@@ -40,7 +41,7 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, floq, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, J, M, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False
@@ -105,10 +106,11 @@ def psacont(self):
                 cvg_cont = False
             else:
                 # passed check, store and update for next step
+                bifurcation_functions(self, M)
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
                     sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
-                    sol_step=stepsign*step, sol_floq=floq)
+                    sol_step=stepsign*step)
                 self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                                    freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
 

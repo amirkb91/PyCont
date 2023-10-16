@@ -2,6 +2,7 @@ import numpy as np
 from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
+from ._bifurcation import bifurcation_functions
 
 
 def seqcont(self):
@@ -36,7 +37,7 @@ def seqcont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian (remove time derivative from J)
-            [H, J, floq, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, J, M, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False
@@ -63,8 +64,9 @@ def seqcont(self):
             X_pred[:] += dx[:, 0]
 
         if cvg_cont:
+            bifurcation_functions(self, M)
             self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred / omega,
-                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step, sol_floq=floq)
+                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step)
             self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
                     freq=omega/tau_pred, energy=energy, step=step, beta=0.0)            
             

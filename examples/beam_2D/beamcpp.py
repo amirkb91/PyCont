@@ -112,17 +112,16 @@ class BeamCpp:
                 dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
                 M = np.delete(M, -1, axis=1)
                 M[:, N:] *= omega  # scale velocity derivatives
-                floq = spl.eigvals(M)
-                M -= np.eye(len(M))
-                J = np.concatenate((M, dHdtau.reshape(-1, 1)), axis=1)
+                Mm1 = M - np.eye(len(M))
+                J = np.concatenate((Mm1, dHdtau.reshape(-1, 1)), axis=1)
             else:
-                J = floq = None
+                J = M = None
             simdata.close()
         else:
-            H = J = floq = pose = vel = energy = None
+            H = J = M = pose = vel = energy = None
 
         if not return_time:
-            return H, J, floq, pose, vel, energy, cvg
+            return H, J, M, pose, vel, energy, cvg
         elif return_time:
             return pose_time, vel_time
 

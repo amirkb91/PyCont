@@ -2,6 +2,7 @@ import numpy as np
 from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._phase_condition import phase_condition
+from ._bifurcation import bifurcation_functions
 
 
 def first_point(self):
@@ -21,7 +22,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian with orthogonality to linear solution
-            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
@@ -65,7 +66,7 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
-            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0, sol_floq=floq)
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif eig_start and forced:
         iter_firstpoint = 0
@@ -74,7 +75,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             # residual and Jacobian
-            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -105,15 +106,16 @@ def first_point(self):
         self.tgt0 = spl.solve(J, Z)[:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
+        bifurcation_functions(self, M)
         self.log.store(
             sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega, sol_tgt=self.tgt0,
-            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0, sol_floq=floq)
+            sol_energy=energy, sol_itercorrect=iter_firstpoint, sol_step=0)
 
     elif restart:
         recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
         if shooting_method == "single":
             # residual and Jacobian and Compute Tangent
-            [H, J, floq, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params)
             residual = spl.norm(H)
             if recompute_tangent:
@@ -131,7 +133,7 @@ def first_point(self):
             self.log.screenout(iter=0, correct=0, res=residual,
                                freq=self.omega/self.tau, energy=energy)
             self.log.store(sol_pose=self.pose, sol_vel=self.vel, sol_T=self.tau/self.omega,
-                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0, sol_floq=floq)
+                           sol_tgt=self.tgt0, sol_energy=energy, sol_itercorrect=0, sol_step=0)
 
         elif shooting_method == "multiple":
             pass
