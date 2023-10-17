@@ -40,23 +40,25 @@ for file in files:
     data = h5py.File(str(file), "r")
     pose_time = data["/Config_Time/POSE"][:]
     T = data["/T"][:]
+    par = data["/Parameters"]
+    par = json.loads(par[()])
+    forced = par["continuation"]["forced"]
 
     n_solpoints = len(T)
     amp = np.zeros(n_solpoints)
     for i in range(n_solpoints):
         amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i])) / normalise_amp
 
-    if "/Floquet" in data.keys():
-        floq = data["/Floquet"][:]
-        floq_abs = np.abs(floq) > 1
-        stable_bool = ~np.any(floq_abs, axis=0)
-        stable_index = np.argwhere(np.diff(stable_bool)).squeeze() + 1
+    if forced:
+        stability = data["/Bifurcation/Stability"][:]
+        stable_index = np.argwhere(np.diff(stability)).squeeze() + 1
         a.plot(
             1 / (T[stable_index] * normalise_freq),
             amp[stable_index],
-            marker='.',
+            marker='o',
             linestyle="none",
-            color="k"
+            markerfacecolor="none",
+            markeredgecolor="k"
         )
 
     line.append(

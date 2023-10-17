@@ -8,12 +8,18 @@ def bifurcation_functions(self, M):
     stability = ~np.any(np.abs(floq) > 1)
 
     # bifurcation test functions
-    phi_fold = spl.det(M - np.eye(len(M)))
-    phi_flip = spl.det(M + np.eye(len(M)))
+    phi_fold = np.sign(spl.det(M - np.eye(len(M))))
+    phi_flip = np.sign(spl.det(M + np.eye(len(M))))
+    n = len(floq)
+    phi_NS = 1
+    for i in range(n):
+        for j in range(i + 1, n):
+            phi_NS *= floq[i] * floq[j] - 1
+    phi_NS = np.sign(np.real(phi_NS))
+
     # floq_conjugates_index = np.where(np.diff(np.real(floq)) == 0)[0]
-    floq_conjugates_index = np.where(np.abs(np.diff(np.real(floq))) < 1e-15)[0]
-    phi_NS = np.prod(floq[floq_conjugates_index] * floq[floq_conjugates_index + 1] - 1)
-    phi_NS = np.real(phi_NS)
+    # phi_NS = np.prod(floq[floq_conjugates_index] * floq[floq_conjugates_index + 1] - 1)
+    # phi_NS = np.real(phi_NS)
 
     # Alternative test functions (bialternate product is very expensive)
     # phi_fold = np.real(np.prod(floq - 1))
@@ -22,7 +28,13 @@ def bifurcation_functions(self, M):
     # phi_NS = spl.det(M_bi_M - np.eye(len(M_bi_M)))
 
     # store
-    self.log.store(sol_floq=floq, sol_stability=stability, sol_biffold=phi_fold, sol_bifflip=phi_flip, sol_bifNS=phi_NS)
+    self.log.store(
+        sol_floq=floq,
+        sol_stability=stability,
+        sol_biffold=phi_fold,
+        sol_bifflip=phi_flip,
+        sol_bifNS=phi_NS
+    )
 
 
 def bialternate_same(A):
