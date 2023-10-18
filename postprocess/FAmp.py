@@ -4,7 +4,6 @@ import h5py
 import json
 import numpy as np
 import mplcursors
-from beamcpp import BeamCpp
 
 
 # show point data on figure
@@ -13,17 +12,15 @@ def show_annotation(sel):
     sel.annotation.set_text(f"index:{ind}")
 
 
-SE = True
-dat_output = False
-
 node2plot = 21
+normalise_freq = 41.823
+normalise_amp = 1.0
+
+SE = True
 if SE:
     pose_ind2plot = 4 * node2plot + 3  # Y disp
-    normalise_freq = 41.82280070074808
 else:
     pose_ind2plot = 3 * node2plot + 1  # Y disp
-    normalise_freq = 53.1660
-normalise_amp = 1.0  # beam thickness
 
 files = sys.argv[1:]
 for i, file in enumerate(files):
@@ -49,16 +46,16 @@ for file in files:
     for i in range(n_solpoints):
         amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i])) / normalise_amp
 
-    if forced:
+    if forced and "/Bifurcation/Stability" in data.keys():
         stability = data["/Bifurcation/Stability"][:]
         stable_index = np.argwhere(np.diff(stability)).squeeze() + 1
         a.plot(
             1 / (T[stable_index] * normalise_freq),
             amp[stable_index],
-            marker='o',
+            marker="o",
             linestyle="none",
             markerfacecolor="none",
-            markeredgecolor="k"
+            markeredgecolor="k",
         )
 
     line.append(
@@ -67,16 +64,9 @@ for file in files:
             amp,
             marker="none",
             fillstyle="none",
-            label=file.split(".h5")[0]
+            label=file.split(".h5")[0],
         )
     )
-
-    if dat_output:
-        F_omega = 1 / (T * normalise_freq)
-        np.savetxt(
-            file.strip(".h5") + ".dat",
-            np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1)
-        )
 
 a.legend()
 
