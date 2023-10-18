@@ -5,7 +5,7 @@ import scipy.linalg as spl
 def bifurcation_functions(self, M):
     # floquet multipliers
     floq = np.sort(spl.eigvals(M))
-    stability = ~np.any(np.abs(floq) > 1)
+    stability = ~np.any(np.abs(floq) > 1) * 1.0
 
     # bifurcation test functions
     phi_fold = np.sign(spl.det(M - np.eye(len(M))))
