@@ -85,11 +85,8 @@ for i=1:length(files2)
     pose = permute(pose,[3,2,1]);
     T = h5read(files2{i},'/T');
     f = 1./T/normalise_frq;
-    floq = h5read(files2{i},'/Floquet');
-    floq = complex(floq.r.', floq.i.');
-    floq_abs = abs(floq)>1;
-    stable_bool = ~any(floq_abs(:,1:end));
-    stable_index = find(diff(stable_bool))+1;
+    stability = h5read(files2{i},'/Bifurcation/Stability');
+    stable_index = find(diff(stability))+1;
     stable_index = [1, stable_index, length(T)];
     
     % find normalised max pose for each cont solution
@@ -99,7 +96,7 @@ for i=1:length(files2)
     color = [0.8500 0.3250 0.0980];
     
     for j=1:length(stable_index)-1
-        is_stable = stable_bool(stable_index(j+1)-1);
+        is_stable = stability(stable_index(j+1)-1);
         if is_stable
             linestyle = '-';
         else
