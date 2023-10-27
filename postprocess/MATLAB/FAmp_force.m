@@ -31,7 +31,7 @@ normalise_frq = 41.82280070074808;
 
 %% DoF Index (+1 for MATLAB starting index)
 node = 21;
-dof = 4*node + 4;
+dof = 4*node + 3+1;
 
 %% Data Load
 files1 = {}; files2 = {};
@@ -87,7 +87,7 @@ for i=1:length(files2)
     f = 1./T/normalise_frq;
     stability = h5read(files2{i},'/Bifurcation/Stability');
     stable_index = find(diff(stability))+1;
-    stable_index = [1, stable_index, length(T)];
+    stable_index = [1, stable_index', length(T)];
     
     % find normalised max pose for each cont solution
     [amp, ~] = max(abs(pose(dof,:,:))/normalise_amp);

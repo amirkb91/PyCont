@@ -106,7 +106,8 @@ def psacont(self):
                 cvg_cont = False
             else:
                 # passed check, store and update for next step
-                bifurcation_functions(self, M)
+                if forced:
+                    bifurcation_functions(self, M)
                 self.log.store(
                     sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
                     sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
