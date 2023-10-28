@@ -2,18 +2,28 @@ import h5py
 import json
 import subprocess
 import numpy as np
-import scipy.linalg as spl
 from copy import deepcopy as dp
 import os
 
 
 class BeamCpp:
-    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_2D/"
-    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_2D"
+    #--------- Choose example case from mb_sef_cpp ---------#
+    cpp_example = "beam_2D"
+    # cpp_example = "beam_rightangle"
+
+    if cpp_example == "beam_2D":
+        # beam_2D (doubly clamped, arch, cantilever)
+        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_2D/"
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_2D"
+    elif cpp_example == "beam_rightangle":
+        # beam_rightagnle
+        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/"
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
+    #-------------------------------------------------------#    
+    
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
-
     model_def = json.load(open(cpp_path + cpp_modelfile))
     cpp_params_eig = json.load(open(cpp_path + cpp_paramfile_eig))
     cpp_params_sim = json.load(open(cpp_path + cpp_paramfile_sim))
@@ -206,7 +216,7 @@ class BeamCpp:
                 "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
                 cls.cpp_paramfile_sim,
                 shell=True,
-                timeout=10,
+                timeout=30,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w")
             )

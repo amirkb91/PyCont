@@ -3,7 +3,7 @@ import json
 from alive_progress import alive_bar
 import sys, shutil, os
 import numpy as np
-from examples.beam_2D.beamcpp import BeamCpp
+from examples.beam_cpp.beamcpp import BeamCpp
 ''' Run time simulations for all NNM solutions and store '''
 
 new_nsteps = input("Specify new nsteps per period if desired: ")
