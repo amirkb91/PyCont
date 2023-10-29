@@ -4,7 +4,7 @@ from alive_progress import alive_bar
 import sys, shutil, os
 import numpy as np
 from examples.beam_cpp.beamcpp import BeamCpp
-''' Run time simulations for all NNM solutions and store '''
+""" Run time simulations for all NNM solutions and store """
 
 new_nsteps = input("Specify new nsteps per period if desired: ")
 
@@ -61,7 +61,7 @@ if "/Config_Time/POSE" in time_data.keys():
 if "/Config_Time/VELOCITY" in time_data.keys():
     del time_data["/Config_Time/VELOCITY"]
 if "/Config_Time/Time" in time_data.keys():
-    del time_data["/Config_Time/Time"]        
+    del time_data["/Config_Time/Time"]
 time_data["/Config_Time/POSE"] = pose_time
 time_data["/Config_Time/VELOCITY"] = vel_time
 time_data["/Config_Time/Time"] = time

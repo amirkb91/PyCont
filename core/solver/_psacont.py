@@ -3,8 +3,10 @@ from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
 from ._bifurcation import bifurcation_functions
+
 # import warnings
 # warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
+
 
 def psacont(self):
     frml = self.prob.cont_params["continuation"]["tangent"].lower()
@@ -41,8 +43,8 @@ def psacont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian
-            [H, J, M, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
-                omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            [H, J, M, pose, vel, energy, cvg_zerof
+            ] = self.prob.zerofunction(omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False
                 print("Zero function failed to converge.")
@@ -57,8 +59,14 @@ def psacont(self):
             elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                 cvg_cont = False
                 break
-            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                               freq=omega/tau_pred, energy=energy, step=stepsign*step)
+            self.log.screenout(
+                iter=itercont,
+                correct=itercorrect,
+                res=residual,
+                freq=omega / tau_pred,
+                energy=energy,
+                step=stepsign * step,
+            )
 
             # apply corrections orthogonal to tangent (orth only on first partition and period)
             # below has no effect on single shooting
@@ -68,7 +76,9 @@ def psacont(self):
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
-                dxt = spl.lstsq(J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
+                dxt = spl.lstsq(
+                    J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd"
+                )[0]
             elif forced:
                 dxt = spl.solve(J_corr, -Z, check_finite=False)
             tau_pred += dxt[-1, 0]
@@ -89,9 +99,10 @@ def psacont(self):
                 Z = np.zeros((np.shape(J)[0], 1))
                 Z[-1] = 1
                 if not forced:
-                    tgt_next = spl.lstsq(J, Z, cond=None, check_finite=False,
-                                        lapack_driver="gelsd")[0][:, 0]                
-                elif forced:    
+                    tgt_next = spl.lstsq(
+                        J, Z, cond=None, check_finite=False, lapack_driver="gelsd"
+                    )[0][:, 0]
+                elif forced:
                     tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
             tgt_next /= spl.norm(tgt_next)
 
@@ -99,7 +110,12 @@ def psacont(self):
             # performed using tangent of first partition + T only (mask has no effect on single shooting)
             mask = np.ones(np.shape(tgt), dtype=bool)
             mask[twoN:-1] = False
-            beta = np.degrees(np.arccos((tgt_next[mask].T @ tgt[mask]) / (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))))
+            beta = np.degrees(
+                np.arccos(
+                    (tgt_next[mask].T @ tgt[mask]) /
+                    (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))
+                )
+            )
             if (self.prob.cont_params["continuation"]["betacontrol"] and
                     beta > self.prob.cont_params["continuation"]["betamax"]):
                 print("Beta exceeds maximum angle.")
@@ -109,14 +125,27 @@ def psacont(self):
                 if forced:
                     bifurcation_functions(self, M)
                 self.log.store(
-                    sol_pose=pose, sol_vel=vel, sol_T=tau_pred/omega, sol_tgt=tgt_next,
-                    sol_energy=energy, sol_beta=beta, sol_itercorrect=itercorrect,
-                    sol_step=stepsign*step)
-                self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                                   freq=omega/tau_pred, energy=energy, step=stepsign*step, beta=beta)
+                    sol_pose=pose,
+                    sol_vel=vel,
+                    sol_T=tau_pred / omega,
+                    sol_tgt=tgt_next,
+                    sol_energy=energy,
+                    sol_beta=beta,
+                    sol_itercorrect=itercorrect,
+                    sol_step=stepsign * step,
+                )
+                self.log.screenout(
+                    iter=itercont,
+                    correct=itercorrect,
+                    res=residual,
+                    freq=omega / tau_pred,
+                    energy=energy,
+                    step=stepsign * step,
+                    beta=beta,
+                )
 
                 itercont += 1
-                if frml in ("peeters", "secant"): # and beta >= 90:
+                if frml in ("peeters", "secant"):  # and beta >= 90:
                     # stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
                     stepsign = np.sign(stepsign * np.cos(np.radians(beta)))
                 tau = tau_pred

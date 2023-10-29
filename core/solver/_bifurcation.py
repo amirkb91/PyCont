@@ -33,7 +33,7 @@ def bifurcation_functions(self, M):
         sol_stability=stability,
         sol_biffold=phi_fold,
         sol_bifflip=phi_flip,
-        sol_bifNS=phi_NS
+        sol_bifNS=phi_NS,
     )
 
 

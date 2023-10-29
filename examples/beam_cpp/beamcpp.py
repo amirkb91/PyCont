@@ -7,7 +7,7 @@ import os
 
 
 class BeamCpp:
-    #--------- Choose example case from mb_sef_cpp ---------#
+    # --------- Choose example case from mb_sef_cpp ---------#
     cpp_example = "beam_2D"
     # cpp_example = "beam_rightangle"
 
@@ -19,8 +19,8 @@ class BeamCpp:
         # beam_rightagnle
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/"
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
-    #-------------------------------------------------------#    
-    
+    # -------------------------------------------------------#
+
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
@@ -66,8 +66,9 @@ class BeamCpp:
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
             cls.model_def["ModelDef"]["def_period"] = 1.0
             cls.model_def["ModelDef"]["with_ratio"] = True
-            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"]["rho_GA"]
-        
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"][
+                "rho_GA"]
+
         if ForcePeriod:
             # if force period is specified, we want to de-couple force period from sim time
             # useful when running time simulation as post processing
@@ -84,7 +85,7 @@ class BeamCpp:
             cls.cpp_paramfile_eig,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
-            stderr=open(cls.cpp_path + "cpp.err", "w")
+            stderr=open(cls.cpp_path + "cpp.err", "w"),
         )
         eigdata = h5py.File(cls.cpp_path + cls.eig_file + ".h5", "r")
         eig = np.array(eigdata["/eigen_analysis/Eigenvectors/MOTION"])
@@ -95,7 +96,9 @@ class BeamCpp:
         return eig, frq, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensoff=False):
+    def runsim_single(
+        cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensoff=False
+    ):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         N = cls.ndof_free
@@ -108,7 +111,9 @@ class BeamCpp:
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensoff)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])  # max energy important for forced response
+            energy = np.max(
+                simdata["/dynamic_analysis/FEModel/energy"][:, :]
+            )  # max energy important for forced response
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
@@ -185,8 +190,14 @@ class BeamCpp:
         partition_order = (np.arange(npartition) + 1) % npartition
         H = np.array([])
         for ipart in range(npartition):
-            h_pose = pose_time[cls.free_dof, -1, ipart] - pose_time[cls.free_dof, 0, partition_order[ipart]]
-            h_vel = vel_time[cls.free_dof, -1, ipart] - vel_time[cls.free_dof, 0, partition_order[ipart]]
+            h_pose = (
+                pose_time[cls.free_dof, -1, ipart] -
+                pose_time[cls.free_dof, 0, partition_order[ipart]]
+            )
+            h_vel = (
+                vel_time[cls.free_dof, -1, ipart] -
+                vel_time[cls.free_dof, 0, partition_order[ipart]]
+            )
             H = np.append(H, np.concatenate([h_pose, h_vel]))
         H = H.reshape(-1, 1)
 
@@ -203,7 +214,7 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
-        
+
         cpp_params_sim = dp(cls.cpp_params_sim)
         cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
@@ -218,7 +229,7 @@ class BeamCpp:
                 shell=True,
                 timeout=30,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w")
+                stderr=open(cls.cpp_path + "cpp.err", "w"),
             )
             cvg = not bool(cpprun.returncode)
         except subprocess.TimeoutExpired:
@@ -253,7 +264,7 @@ class BeamCpp:
         # set inc to zero as solution stored in pose, keep velocity but scale first
         V *= 1 / omega
         X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X_out = np.reshape(X_out, (-1), order='F')
+        X_out = np.reshape(X_out, (-1), order="F")
         return X_out, pose
 
     @classmethod
@@ -284,7 +295,7 @@ class BeamCpp:
             "ndof_fix": cls.ndof_fix,
             "ndof_free": cls.ndof_free,
             "node_config": cls.node_config,
-            "ndof_config": cls.ndof_config
+            "ndof_config": cls.ndof_config,
         }
 
     # @classmethod

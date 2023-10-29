@@ -13,7 +13,7 @@ prob.add_icfunction(BeamCpp.run_eig)
 if prob.cont_params["shooting"]["method"] == "single":
     prob.add_zerofunction(BeamCpp.runsim_single)
 elif prob.cont_params["shooting"]["method"] == "multiple":
-    prob.add_zerofunction(BeamCpp.runsim_multiple, BeamCpp.runsim_single)    
+    prob.add_zerofunction(BeamCpp.runsim_multiple, BeamCpp.runsim_single)
     prob.add_partitionfunction(BeamCpp.partition_singleshooting_solution)
 
 # Initialise class based on continuation parameters

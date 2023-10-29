@@ -8,7 +8,6 @@ from matplotlib import ticker
 
 
 class Logger:
-
     def __init__(self, prob):
         self.prob = prob
         self.store_index = 0
@@ -63,15 +62,15 @@ class Logger:
             elif key == "sol_step":
                 self.sol_step.append(value)
             elif key == "sol_floq":
-                self.sol_floq.append(value) 
+                self.sol_floq.append(value)
             elif key == "sol_stability":
-                self.sol_stability.append(value)                        
+                self.sol_stability.append(value)
             elif key == "sol_biffold":
                 self.sol_biffold.append(value)
             elif key == "sol_bifflip":
                 self.sol_bifflip.append(value)
             elif key == "sol_bifNS":
-                self.sol_bifNS.append(value)                                                          
+                self.sol_bifNS.append(value)
 
         # save to disk and plot if required
         self.savetodisk()
@@ -80,8 +79,10 @@ class Logger:
 
     def screenout(self, **screen_data):
         width = 14
-        screen = dict.fromkeys(["Iter Cont", "Iter Corr", "Residual", "Freq",
-                               "Energy", "Step", "Beta"], " ".ljust(width))
+        screen = dict.fromkeys(
+            ["Iter Cont", "Iter Corr", "Residual", "Freq", "Energy", "Step", "Beta"],
+            " ".ljust(width),
+        )
         header = list(screen.keys())
         printborder = False
         iterprinted = None
@@ -155,8 +156,10 @@ class Logger:
             self.ax[0].set_ylabel("Frequency (Hz)")
             self.ax[0].ticklabel_format(useOffset=False, axis="y")
             self.ax[0].set_xlim(1e-4, self.prob.cont_params["continuation"]["Emax"])
-            self.ax[0].set_ylim(self.prob.cont_params["continuation"]["fmin"],
-                                self.prob.cont_params["continuation"]["fmax"])
+            self.ax[0].set_ylim(
+                self.prob.cont_params["continuation"]["fmin"],
+                self.prob.cont_params["continuation"]["fmax"],
+            )
             self.ln.append(self.ax[0].plot(Energy, 1 / T, marker=".", fillstyle="none"))
             # Frequency energy plot zoom
             self.ax[1].grid()
@@ -169,7 +172,8 @@ class Logger:
             self.ax[1].xaxis.set_minor_formatter(ticker.StrMethodFormatter("{x:.1f}"))
             self.ax[1].yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.2f}"))
             self.ln.append(
-                self.ax[1].plot(Energy, 1 / T, marker=".", fillstyle="none", color="green"))
+                self.ax[1].plot(Energy, 1 / T, marker=".", fillstyle="none", color="green")
+            )
             # beta plot
             if self.betaplot:
                 self.ax[2].grid()
@@ -180,8 +184,10 @@ class Logger:
                 self.ax[2].xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))
                 self.ln.append(
                     self.ax[2].plot(
-                        range(1, len(beta) + 1),
-                        beta, marker=".", fillstyle="none", color="red"))
+                        range(1,
+                              len(beta) + 1), beta, marker=".", fillstyle="none", color="red"
+                    )
+                )
             plt.pause(0.01)
         else:
             self.ln[0][0].set_data(Energy, 1 / T)

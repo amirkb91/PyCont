@@ -38,8 +38,7 @@ for file in files:
         beta = data["/beta"][:].T
 
     # plot FEP and beta
-    line.append(
-        a1.plot(Energy, 1 / T, marker=".", fillstyle="none", label=file.split(".h5")[0]))
+    line.append(a1.plot(Energy, 1 / T, marker=".", fillstyle="none", label=file.split(".h5")[0]))
     a1.plot(Energy[0], 1 / T[0], marker="x", fillstyle="full")
     a2.plot(range(len(beta)), beta, marker=".", fillstyle="none")
 a1.legend()

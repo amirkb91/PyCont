@@ -37,14 +37,14 @@ def seqcont(self):
         itercorrect = 0
         while True:
             # residual and block Jacobian (remove time derivative from J)
-            [H, J, M, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
-                omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            [H, J, M, pose, vel, energy, cvg_zerof
+            ] = self.prob.zerofunction(omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
             if not cvg_zerof:
                 cvg_cont = False
                 print("Zero function failed to converge.")
                 break
 
-            J = np.block([[J[:,:-1]], [self.h]])
+            J = np.block([[J[:, :-1]], [self.h]])
             residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
@@ -53,8 +53,14 @@ def seqcont(self):
             elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
                 cvg_cont = False
                 break
-            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                    freq=omega/tau_pred, energy=energy, step=step)            
+            self.log.screenout(
+                iter=itercont,
+                correct=itercorrect,
+                res=residual,
+                freq=omega / tau_pred,
+                energy=energy,
+                step=step,
+            )
 
             # correction
             itercorrect += 1
@@ -65,17 +71,30 @@ def seqcont(self):
 
         if cvg_cont:
             bifurcation_functions(self, M)
-            self.log.store(sol_pose=pose, sol_vel=vel, sol_T=tau_pred / omega,
-                           sol_energy=energy, sol_itercorrect=itercorrect, sol_step=step)
-            self.log.screenout(iter=itercont, correct=itercorrect, res=residual,
-                    freq=omega/tau_pred, energy=energy, step=step, beta=0.0)            
-            
+            self.log.store(
+                sol_pose=pose,
+                sol_vel=vel,
+                sol_T=tau_pred / omega,
+                sol_energy=energy,
+                sol_itercorrect=itercorrect,
+                sol_step=step,
+            )
+            self.log.screenout(
+                iter=itercont,
+                correct=itercorrect,
+                res=residual,
+                freq=omega / tau_pred,
+                energy=energy,
+                step=step,
+                beta=0.0,
+            )
+
             itercont += 1
             tau = tau_pred
             X = dp(X_pred)
             # update pose_base and set inc to zero (slice 0:N on each partition)
             pose_base = dp(pose)
-            X[np.mod(np.arange(X.size), twoN) < N] = 0.0          
+            X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

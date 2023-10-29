@@ -46,11 +46,14 @@ class Cubic_Spring:
         fnl = np.array([cls.Knl * x[0]**3, 0])
         Xdot = np.concatenate((xdot, -Minv @ (KX + fnl)))
         dgdz = np.array(
-            [[0, 0, 1, 0], [0, 0, 0, 1],
-             [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x[0]**2), -1 / M[0, 0] * K[0, 1], 0, 0],
-             [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0]
-             ])
-        dXdX0dot = dgdz @ dXdX0.reshape(4, 4)                       
+            [
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x[0]**2), -1 / M[0, 0] * K[0, 1], 0, 0],
+                [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0],
+            ]
+        )
+        dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
 
         return np.concatenate([Xdot, dXdX0dot.flatten()])
 
@@ -80,8 +83,10 @@ class Cubic_Spring:
         X_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
         initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
-        Xsol_aug = np.array(odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True))
-        Xsol, M = Xsol_aug[:,:twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
+        Xsol_aug = np.array(
+            odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
+        )
+        Xsol, M = Xsol_aug[:, :twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
 
         # Monodromy and augmented Jacobian
         M -= np.eye(twoN)
@@ -138,8 +143,10 @@ class Cubic_Spring:
             X_total[:N] += pose_base[:, ipart].flatten().copy()
             t = np.linspace(0, T * delta_S, nsteps + 1)
             initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
-            Xsol_aug = np.array(odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True))
-            Xsol, M = Xsol_aug[:,:twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)            
+            Xsol_aug = np.array(
+                odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
+            )
+            Xsol, M = Xsol_aug[:, :twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
             pose_time[:, p:p1] = Xsol[:, :N].T
             vel_time[:, p:p1] = Xsol[:, N:].T
 
@@ -154,19 +161,23 @@ class Cubic_Spring:
                 x = Xsol[k, :N]
                 xdot = Xsol[k, N:]
                 Fnl = 0.25 * cls.Knl * x[0]**4
-                E[k, ipart] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl        
-        
+                E[k, ipart] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl
+
         # time solution indicies which enclose each partition & order of the partitions for periodicity
         timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
         timesol_partition_index_end = timesol_partition_index_start - 1
         block_order = (np.arange(npartition) + 1) % npartition
 
         # Periodicity condition for all partitions
-        H1 = pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
+        H1 = (
+            pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] -
             pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        H2 = vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] - \
+        )
+        H2 = (
+            vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] -
             vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order='F')
+        )
+        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
         # solution pose and vel taken from time 0 for each partition
         pose = pose_time[:, timesol_partition_index_start]
@@ -198,7 +209,7 @@ class Cubic_Spring:
         V = vel_time[:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity
         Xsol = np.concatenate((np.zeros((N, npartition)), V))
-        Xsol = np.reshape(Xsol, (-1), order='F')
+        Xsol = np.reshape(Xsol, (-1), order="F")
         return Xsol, pose
 
     @classmethod
@@ -207,7 +218,7 @@ class Cubic_Spring:
             "free_dof": cls.free_dof,
             "ndof_all": cls.ndof_all,
             "ndof_fix": cls.ndof_fix,
-            "ndof_free": cls.ndof_free
+            "ndof_free": cls.ndof_free,
         }
 
     # @classmethod

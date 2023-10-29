@@ -4,7 +4,7 @@ from alive_progress import alive_bar
 import sys, shutil, os
 import numpy as np
 from springcpp import SpringCpp
-''' Run time simulations for all NNM solutions and store '''
+""" Run time simulations for all NNM solutions and store """
 
 # read solution file
 file = sys.argv[1]

@@ -3,7 +3,6 @@ import json
 
 
 class Prob:
-
     def __init__(self):
         self.cont_params = None
         self.doffunction = None

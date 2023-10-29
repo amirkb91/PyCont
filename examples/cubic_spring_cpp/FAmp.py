@@ -6,10 +6,12 @@ import numpy as np
 import mplcursors
 from springcpp import SpringCpp
 
+
 # show point data on figure
 def show_annotation(sel):
     ind = int(sel.index)
     sel.annotation.set_text(f"index:{ind}")
+
 
 dat_output = False
 pose_ind2plot = 0
@@ -59,7 +61,7 @@ for file in files:
         F_omega = 1 / (T * Omega)
         np.savetxt(
             file.strip(".h5") + ".dat",
-            np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1)
+            np.concatenate([F_omega.reshape(-1, 1), amp.reshape(-1, 1)], axis=1),
         )
 
 a.legend()
