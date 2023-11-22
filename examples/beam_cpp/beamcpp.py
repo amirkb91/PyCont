@@ -8,8 +8,8 @@ import os
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    cpp_example = "beam_2D"
-    # cpp_example = "beam_rightangle"
+    # cpp_example = "beam_2D"
+    cpp_example = "beam_rightangle"
 
     if cpp_example == "beam_2D":
         # beam_2D (doubly clamped, arch, cantilever)
@@ -123,12 +123,13 @@ class BeamCpp:
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if not sensoff:
-                M = simdata["/Sensitivity/Monodromy"][:]
-                dHdtau = M[:, -1] * nperiod * 1 / omega  # scale time derivative
-                M = np.delete(M, -1, axis=1)
-                M[:, N:] *= omega  # scale velocity derivatives
-                Mm1 = M - np.eye(len(M))
-                J = np.concatenate((Mm1, dHdtau.reshape(-1, 1)), axis=1)
+                sens_H = simdata["/Sensitivity/Monodromy"][:]  # sens of periodicity function H wrt IC
+                dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
+                sens_H = np.delete(sens_H, -1, axis=1)
+                sens_H[:, N:] *= omega  # scale velocity derivatives
+                J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
+                # if periodic solution is found, sens_H will equal Monodromy - eye.
+                M = sens_H + np.eye(len(sens_H))
             else:
                 J = M = None
             simdata.close()
@@ -227,7 +228,7 @@ class BeamCpp:
                 "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
                 cls.cpp_paramfile_sim,
                 shell=True,
-                timeout=30,
+                # timeout=30,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w"),
             )

@@ -56,7 +56,8 @@ def psacont(self):
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
                 break
-            elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
+            elif (itercorrect >= self.prob.cont_params["continuation"]["itermax"] or
+                  residual > 1e10):
                 cvg_cont = False
                 break
             self.log.screenout(
@@ -162,6 +163,6 @@ def psacont(self):
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
-        if energy and energy > self.prob.cont_params["continuation"]["Emax"]:
-            print("Energy exceeds Emax.")
+        if cvg_cont and energy and energy > self.prob.cont_params["continuation"]["Emax"]:
+            print(f"Energy {energy:.5e} exceeds Emax.")
             break

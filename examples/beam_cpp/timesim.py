@@ -25,9 +25,8 @@ par["shooting"]["single"]["nsteps_per_period"] = nsteps
 data.close()
 
 # run sim
-BeamCpp.initialise(
-    par, T
-)  # specifying T in initialise decouples force period from sim time (we don't care about sens in timesim)
+# specifying T in initialise decouples force period from sim time (we don't care about sens in timesim)
+BeamCpp.initialise(par, T)
 BeamCpp.run_eig()  # To get nodal data in class
 x = vel[BeamCpp.free_dof]
 X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])

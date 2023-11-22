@@ -12,15 +12,18 @@ def show_annotation(sel):
     sel.annotation.set_text(f"index:{ind}")
 
 
-node2plot = 21
-normalise_freq = 41.823
+node2plot = 30
+normalise_freq = 2.62557
 normalise_amp = 1.0
-
 SE = True
+dim = 3
+
 if SE:
-    pose_ind2plot = 4 * node2plot + 3  # Y disp
+    iconfig = 6  # 2D: XY=2,3   ---   3D: XYZ=4,5,6
+    pose_ind2plot = (3 * dim - 2) * node2plot + iconfig
 else:
-    pose_ind2plot = 3 * node2plot + 1  # Y disp
+    iconfig = 6  # 2D: XY=0,1   ---   3D: XYZ=0,1,2
+    pose_ind2plot = 3 * (dim - 1) * node2plot + iconfig
 
 files = sys.argv[1:]
 for i, file in enumerate(files):
