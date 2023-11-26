@@ -159,6 +159,8 @@ def first_point(self):
             self.log.screenout(
                 iter=0, correct=0, res=residual, freq=self.omega / self.tau, energy=energy
             )
+            if forced:
+                bifurcation_functions(self, M)
             self.log.store(
                 sol_pose=self.pose,
                 sol_vel=self.vel,

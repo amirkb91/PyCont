@@ -36,21 +36,25 @@ def psacont(self):
 
         if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
                 omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
-            print("Frequency outside of specified boundary.")
+            print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
             break
 
         # correction step
         itercorrect = 0
         while True:
-            # residual and block Jacobian
-            [H, J, M, pose, vel, energy, cvg_zerof
-            ] = self.prob.zerofunction(omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            if itercorrect % self.prob.cont_params["continuation"]["iterjac"] == 0:
+                sensitivity = True
+            else:
+                sensitivity = False
+
+            [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+                omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
+            )
             if not cvg_zerof:
                 cvg_cont = False
-                print("Zero function failed to converge.")
+                print(f"Zero function failed to converge with step = {step:.3e}.")
                 break
 
-            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [tgt]])
             residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
@@ -70,9 +74,11 @@ def psacont(self):
             )
 
             # apply corrections orthogonal to tangent (orth only on first partition and period)
-            # below has no effect on single shooting
-            J_corr = dp(J)
-            J_corr[-1, twoN:-1] = 0.0
+            if sensitivity:
+                M = Msim
+                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+                J_corr = dp(J)
+                J_corr[-1, twoN:-1] = 0.0  # has no effect on single shooting
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])

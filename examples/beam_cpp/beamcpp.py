@@ -97,7 +97,7 @@ class BeamCpp:
 
     @classmethod
     def runsim_single(
-        cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensoff=False
+        cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensitivity=True
     ):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
@@ -108,7 +108,7 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensoff)
+        cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
         if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(
@@ -122,7 +122,7 @@ class BeamCpp:
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
-            if not sensoff:
+            if sensitivity:
                 sens_H = simdata["/Sensitivity/Monodromy"][:]  # sens of periodicity function H wrt IC
                 dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
                 sens_H = np.delete(sens_H, -1, axis=1)
@@ -205,7 +205,7 @@ class BeamCpp:
         return H, J, pose, vel, energy, cvg
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, sensoff):
+    def run_cpp(cls, T, X, nsteps, sensitivity):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[:cls.ndof_free]
@@ -219,7 +219,7 @@ class BeamCpp:
         cpp_params_sim = dp(cls.cpp_params_sim)
         cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        if sensoff:
+        if not sensitivity:
             cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
         json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
 

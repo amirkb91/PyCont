@@ -49,7 +49,7 @@ with alive_bar(n_solpoints) as bar:
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
         [pose_time[:, :, i], vel_time[:, :, i]] = BeamCpp.runsim_single(
-            1.0, T[i], X, pose[:, i], par, return_time=True, sensoff=True
+            1.0, T[i], X, pose[:, i], par, return_time=True, sensitivity=False
         )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         bar()
