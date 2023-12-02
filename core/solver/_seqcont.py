@@ -6,6 +6,7 @@ from ._bifurcation import bifurcation_functions
 
 
 def seqcont(self):
+    forced = self.prob.cont_params["continuation"]["forced"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
@@ -36,21 +37,26 @@ def seqcont(self):
         # correction step
         itercorrect = 0
         while True:
-            # residual and block Jacobian (remove time derivative from J)
-            [H, J, M, pose, vel, energy, cvg_zerof
-            ] = self.prob.zerofunction(omega, tau_pred, X_pred, pose_base, self.prob.cont_params)
+            if itercorrect % self.prob.cont_params["continuation"]["iterjac"] == 0:
+                sensitivity = True
+            else:
+                sensitivity = False
+
+            [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+                omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
+            )
             if not cvg_zerof:
                 cvg_cont = False
-                print("Zero function failed to converge.")
+                print(f"Zero function failed to converge with step = {step:.3e}.")
                 break
 
-            J = np.block([[J[:, :-1]], [self.h]])
             residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
                 break
-            elif itercorrect >= self.prob.cont_params["continuation"]["itermax"]:
+            elif (itercorrect > self.prob.cont_params["continuation"]["itermax"] or
+                  residual > 1e10):
                 cvg_cont = False
                 break
             self.log.screenout(
@@ -63,6 +69,9 @@ def seqcont(self):
             )
 
             # correction
+            if sensitivity:
+                M = Msim
+                J = np.block([[Jsim[:, :-1]], [self.h]])
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1)])
@@ -70,7 +79,8 @@ def seqcont(self):
             X_pred[:] += dx[:, 0]
 
         if cvg_cont:
-            bifurcation_functions(self, M)
+            if forced:
+                bifurcation_functions(self, M)
             self.log.store(
                 sol_pose=pose,
                 sol_vel=vel,
@@ -103,6 +113,6 @@ def seqcont(self):
         if itercont > self.prob.cont_params["continuation"]["npts"]:
             print("Maximum number of continuation points reached.")
             break
-        if energy and energy > self.prob.cont_params["continuation"]["Emax"]:
-            print("Energy exceeds Emax.")
+        if cvg_cont and energy and energy > self.prob.cont_params["continuation"]["Emax"]:
+            print(f"Energy {energy:.5e} exceeds Emax.")
             break

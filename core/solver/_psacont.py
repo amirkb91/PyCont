@@ -60,7 +60,7 @@ def psacont(self):
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
                 break
-            elif (itercorrect >= self.prob.cont_params["continuation"]["itermax"] or
+            elif (itercorrect > self.prob.cont_params["continuation"]["itermax"] or
                   residual > 1e10):
                 cvg_cont = False
                 break
