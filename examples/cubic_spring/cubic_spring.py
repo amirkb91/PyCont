@@ -70,7 +70,9 @@ class Cubic_Spring:
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, tau, X, pose_base, cont_params, return_time=False):
+    def time_solve(
+        cls, omega, tau, X, pose_base, cont_params, return_time=False, sensitivity=True
+    ):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -111,7 +113,7 @@ class Cubic_Spring:
         energy = np.mean(E)
 
         cvg = True
-        return H, J, pose, vel, energy, cvg
+        return H, J, M, pose, vel, energy, cvg
 
     @classmethod
     def time_solve_multiple(cls, omega, tau, X, pose_base, cont_params):
