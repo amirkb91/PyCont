@@ -4,6 +4,7 @@ __pycache__/
 Results/
 *.egg-info/
 *.out
+*.err
 *.h5
 *.png
 *.pdf
