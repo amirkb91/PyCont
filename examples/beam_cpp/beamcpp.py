@@ -4,6 +4,7 @@ import subprocess
 import numpy as np
 from copy import deepcopy as dp
 import os
+from concurrent.futures import ProcessPoolExecutor
 
 
 class BeamCpp:
@@ -216,12 +217,25 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
+        num_splits = 1
+
+        # Calculate the basic split size and the number of splits that need an extra column
+        basic_split_size, extra_splits = divmod(cls.ndof_free, num_splits)
+        start_indices = np.arange(num_splits) * basic_split_size + np.minimum(np.arange(num_splits), extra_splits)
+        end_indices = np.roll(start_indices, -1)
+        end_indices[-1] = cls.ndof_free  # Correct the last end index        
+        split_indices = np.column_stack((start_indices, end_indices))
+
         cpp_params_sim = dp(cls.cpp_params_sim)
         cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
         if not sensitivity:
             cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
-        json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+        else:    
+            for i in range(1, num_splits + 1):
+                cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = split_indices[i-1,:].tolist()    
+                cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + f"_{i:03d}" 
+                json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + f"_{i:03d}" + ".json", "w"), indent=2)
 
         try:
             cpprun = subprocess.run(
