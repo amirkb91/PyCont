@@ -23,6 +23,7 @@ class BeamCpp:
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
     # -------------------------------------------------------#
 
+    n_core_parallel = 4
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
@@ -218,63 +219,60 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        num_splits = 4
-
-        # Calculate the basic split size and the number of splits that need an extra column
-        basic_split_size, extra_splits = divmod(cls.ndof_free, num_splits)
-        start_indices = np.arange(num_splits) * basic_split_size + np.minimum(np.arange(num_splits), extra_splits)
-        end_indices = np.roll(start_indices, -1)
-        end_indices[-1] = cls.ndof_free  # Correct the last end index        
-        split_indices = np.column_stack((start_indices, end_indices))
-
         cpp_params_sim = dp(cls.cpp_params_sim)
         model_def = dp(cls.model_def)
         cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
         if not sensitivity:
             cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
-        else:    
-            for i in range(1, num_splits + 1):
+        if cls.n_core_parallel == 1:
+            json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+            try:
+                cpprun = subprocess.run(
+                    "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
+                    cls.cpp_paramfile_sim,
+                    shell=True,
+                    # timeout=30,
+                    stdout=open(cls.cpp_path + "cpp.out", "w"),
+                    stderr=open(cls.cpp_path + "cpp.err", "w"),
+                )
+                cvg = not bool(cpprun.returncode)
+            except subprocess.TimeoutExpired:
+                print("C++ code timed out ------- ", end="")
+                cvg = False
+                os.remove(cls.cpp_path + cls.simout_file + ".h5")
+        elif sensitivity and cls.n_core_parallel > 1:
+            # Calculate the basic split size and the number of splits that need an extra column
+            basic_split_size, extra_splits = divmod(cls.ndof_free, cls.n_core_parallel)
+            start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(np.arange(cls.n_core_parallel), extra_splits)
+            end_indices = np.roll(start_indices, -1)
+            end_indices[-1] = cls.ndof_free  # Correct the last end index        
+            split_indices = np.column_stack((start_indices, end_indices))        
+            for i in range(1, cls.n_core_parallel + 1):
+                # this should be done inside the parallel loop
+                suffix = f"_{i:03d}"
                 cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = split_indices[i-1,:].tolist()    
-                cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + f"_{i:03d}" 
-                cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + f"_{i:03d}" 
-                json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + f"_{i:03d}" + ".json", "w"), indent=2)
-                model_def["ModelDef"]["model_name"] = cls.model_name + f"_{i:03d}"
-                json.dump(model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + f"_{i:03d}" + ".json", "w"), indent=2)
-                shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + f"_{i:03d}" + ".h5")
-                
+                cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + suffix 
+                cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + suffix 
+                json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json", "w"), indent=2)
+                model_def["ModelDef"]["model_name"] = cls.model_name + suffix
+                json.dump(model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + suffix + ".json", "w"), indent=2)
+                shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5")
+        
+            with ProcessPoolExecutor() as executor:
+                convergence = list(executor.map(cls.run_cpp_parallel, range(1, cls.n_core_parallel + 1)))
+            cvg = np.all(convergence)
 
-        
-        with ProcessPoolExecutor() as executor:
-            convergence = list(executor.map(cls.run_cpp_parallel, range(1, num_splits + 1)))
-        
-        
-        print(convergence)
-        input("adfdfsfdsfsdsf")
-        # try:
-        #     cpprun = subprocess.run(
-        #         "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-        #         cls.cpp_paramfile_sim,
-        #         shell=True,
-        #         # timeout=30,
-        #         stdout=open(cls.cpp_path + "cpp.out", "w"),
-        #         stderr=open(cls.cpp_path + "cpp.err", "w"),
-        #     )
-        #     cvg = not bool(cpprun.returncode)
-        # except subprocess.TimeoutExpired:
-        #     print("C++ code timed out ------- ", end="")
-        #     cvg = False
-        #     os.remove(cls.cpp_path + cls.simout_file + ".h5")
-
-        return 0
+        return cvg
     
     @classmethod
-    def run_cpp_parallel(cls, ii):
-        cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split('.')[0] + f"_{ii:03d}" + ".json" + " _" + 
-                                cls.cpp_paramfile_sim.split('.')[0] + f"_{ii:03d}" + ".json",
+    def run_cpp_parallel(cls, i):
+        suffix = f"_{i:03d}"
+        cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split('.')[0] + suffix + ".json" + " _" + 
+                                cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json",
                                 shell=True,
-                                stdout=open(cls.cpp_path + "cpp" + f"_{ii:03d}" + ".out", "w"),
-                                stderr=open(cls.cpp_path + "cpp" + f"_{ii:03d}" + ".err", "w"),)
+                                stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
+                                stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),)
         return not bool(cpprun.returncode)
 
     @classmethod
