@@ -219,14 +219,12 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        cpp_params_sim = dp(cls.cpp_params_sim)
-        model_def = dp(cls.model_def)
-        cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
-        cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
         if not sensitivity:
-            cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
         if cls.n_core_parallel == 1:
-            json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+            json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
             try:
                 cpprun = subprocess.run(
                     "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
@@ -247,27 +245,28 @@ class BeamCpp:
             start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(np.arange(cls.n_core_parallel), extra_splits)
             end_indices = np.roll(start_indices, -1)
             end_indices[-1] = cls.ndof_free  # Correct the last end index        
-            split_indices = np.column_stack((start_indices, end_indices))        
-            for i in range(1, cls.n_core_parallel + 1):
-                # this should be done inside the parallel loop
-                suffix = f"_{i:03d}"
-                cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = split_indices[i-1,:].tolist()    
-                cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + suffix 
-                cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + suffix 
-                json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json", "w"), indent=2)
-                model_def["ModelDef"]["model_name"] = cls.model_name + suffix
-                json.dump(model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + suffix + ".json", "w"), indent=2)
-                shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5")
+            split_indices = zip(start_indices, end_indices)        
         
             with ProcessPoolExecutor() as executor:
-                convergence = list(executor.map(cls.run_cpp_parallel, range(1, cls.n_core_parallel + 1)))
+                convergence = list(executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.n_core_parallel + 1))))
             cvg = np.all(convergence)
 
         return cvg
     
     @classmethod
-    def run_cpp_parallel(cls, i):
-        suffix = f"_{i:03d}"
+    def run_cpp_parallel(cls, combined_args):
+        (start_index, end_index), run_id = combined_args
+
+        requested_cols = np.array([start_index, end_index]).tolist() 
+        suffix = f"_{run_id:03d}"
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = requested_cols  
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + suffix 
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + suffix 
+        cls.model_def["ModelDef"]["model_name"] = cls.model_name + suffix
+        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json", "w"), indent=2)
+        json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + suffix + ".json", "w"), indent=2)
+        shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5")
+
         cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split('.')[0] + suffix + ".json" + " _" + 
                                 cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json",
                                 shell=True,
