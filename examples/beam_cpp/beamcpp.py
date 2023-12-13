@@ -112,7 +112,8 @@ class BeamCpp:
 
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
-        if cvg:
+
+        if cvg and cls.n_core_parallel == 1:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(
                 simdata["/dynamic_analysis/FEModel/energy"][:, :]
@@ -136,6 +137,41 @@ class BeamCpp:
             else:
                 J = M = None
             simdata.close()
+        elif cvg and sensitivity and cls.n_core_parallel > 1:
+            suffix = f"_{1:03d}"
+            simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
+            energy = np.max(
+                simdata["/dynamic_analysis/FEModel/energy"][:, :]
+            )  # max energy important for forced response
+            periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
+            periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
+            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
+            pose = pose_time[:, 0]
+            vel = vel_time[:, 0]
+            H = np.concatenate([periodicity_inc, periodicity_vel])
+            sens_H = simdata["/Sensitivity/Monodromy"][:]
+            dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
+            sens_H = np.delete(sens_H, -1, axis=1)
+            _N = int(np.shape(sens_H)[1] / 2)
+            sens_H[:, _N:] *= omega  # scale velocity derivatives
+            sens_H_inc = sens_H[:, :_N]
+            sens_H_vel = sens_H[:, _N:]            
+            simdata.close()
+
+            for i in range (2, cls.n_core_parallel+1):
+                suffix = f"_{i:03d}"
+                simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
+                sens_H_i = simdata["/Sensitivity/Monodromy"][:,:-1]
+                _N = int(np.shape(sens_H_i)[1] / 2)
+                sens_H_i[:, _N:] *= omega
+                sens_H_inc = np.concatenate((sens_H_inc,sens_H_i[:, :_N]),axis=1)
+                sens_H_vel = np.concatenate((sens_H_vel,sens_H_i[:, _N:]),axis=1)
+            sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
+            J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
+            # if periodic solution is found, sens_H will equal Monodromy - eye.
+            M = sens_H + np.eye(len(sens_H))
         else:
             H = J = M = pose = vel = energy = None
 
