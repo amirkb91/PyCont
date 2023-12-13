@@ -4,6 +4,7 @@ import subprocess
 import numpy as np
 from copy import deepcopy as dp
 import os
+import shutil
 from concurrent.futures import ProcessPoolExecutor
 
 
@@ -217,7 +218,7 @@ class BeamCpp:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        num_splits = 1
+        num_splits = 4
 
         # Calculate the basic split size and the number of splits that need an extra column
         basic_split_size, extra_splits = divmod(cls.ndof_free, num_splits)
@@ -227,6 +228,7 @@ class BeamCpp:
         split_indices = np.column_stack((start_indices, end_indices))
 
         cpp_params_sim = dp(cls.cpp_params_sim)
+        model_def = dp(cls.model_def)
         cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
         if not sensitivity:
@@ -235,24 +237,45 @@ class BeamCpp:
             for i in range(1, num_splits + 1):
                 cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = split_indices[i-1,:].tolist()    
                 cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + f"_{i:03d}" 
+                cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + f"_{i:03d}" 
                 json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + f"_{i:03d}" + ".json", "w"), indent=2)
+                model_def["ModelDef"]["model_name"] = cls.model_name + f"_{i:03d}"
+                json.dump(model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + f"_{i:03d}" + ".json", "w"), indent=2)
+                shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + f"_{i:03d}" + ".h5")
+                
 
-        try:
-            cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                cls.cpp_paramfile_sim,
-                shell=True,
-                # timeout=30,
-                stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w"),
-            )
-            cvg = not bool(cpprun.returncode)
-        except subprocess.TimeoutExpired:
-            print("C++ code timed out ------- ", end="")
-            cvg = False
-            os.remove(cls.cpp_path + cls.simout_file + ".h5")
+        
+        with ProcessPoolExecutor() as executor:
+            convergence = list(executor.map(cls.run_cpp_parallel, range(1, num_splits + 1)))
+        
+        
+        print(convergence)
+        input("adfdfsfdsfsdsf")
+        # try:
+        #     cpprun = subprocess.run(
+        #         "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
+        #         cls.cpp_paramfile_sim,
+        #         shell=True,
+        #         # timeout=30,
+        #         stdout=open(cls.cpp_path + "cpp.out", "w"),
+        #         stderr=open(cls.cpp_path + "cpp.err", "w"),
+        #     )
+        #     cvg = not bool(cpprun.returncode)
+        # except subprocess.TimeoutExpired:
+        #     print("C++ code timed out ------- ", end="")
+        #     cvg = False
+        #     os.remove(cls.cpp_path + cls.simout_file + ".h5")
 
-        return cvg
+        return 0
+    
+    @classmethod
+    def run_cpp_parallel(cls, ii):
+        cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split('.')[0] + f"_{ii:03d}" + ".json" + " _" + 
+                                cls.cpp_paramfile_sim.split('.')[0] + f"_{ii:03d}" + ".json",
+                                shell=True,
+                                stdout=open(cls.cpp_path + "cpp" + f"_{ii:03d}" + ".out", "w"),
+                                stderr=open(cls.cpp_path + "cpp" + f"_{ii:03d}" + ".err", "w"),)
+        return not bool(cpprun.returncode)
 
     @classmethod
     def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
