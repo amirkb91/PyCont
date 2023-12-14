@@ -23,7 +23,6 @@ class BeamCpp:
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
     # -------------------------------------------------------#
 
-    n_core_parallel = 4
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
@@ -47,7 +46,7 @@ class BeamCpp:
     ndof_config = None
 
     @classmethod
-    def initialise(cls, cont_params, ForcePeriod=False):
+    def initialise(cls, cont_params, ForcePeriod=False, n_core_parallel=1):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
             "shooting"]["rel_tol"]
@@ -80,6 +79,7 @@ class BeamCpp:
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
+        cls.n_core_parallel = n_core_parallel  # number of CPU cores for splitting sens columns
 
     @classmethod
     def run_eig(cls):
@@ -257,7 +257,7 @@ class BeamCpp:
 
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        if not sensitivity:
+        if not sensitivity and "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]:
             cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
         if cls.n_core_parallel == 1:
             json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
