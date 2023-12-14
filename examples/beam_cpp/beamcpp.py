@@ -157,17 +157,17 @@ class BeamCpp:
             _N = int(np.shape(sens_H)[1] / 2)
             sens_H[:, _N:] *= omega  # scale velocity derivatives
             sens_H_inc = sens_H[:, :_N]
-            sens_H_vel = sens_H[:, _N:]            
+            sens_H_vel = sens_H[:, _N:]
             simdata.close()
 
-            for i in range (2, cls.n_core_parallel+1):
+            for i in range(2, cls.n_core_parallel + 1):
                 suffix = f"_{i:03d}"
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
-                sens_H_i = simdata["/Sensitivity/Monodromy"][:,:-1]
+                sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
                 _N = int(np.shape(sens_H_i)[1] / 2)
                 sens_H_i[:, _N:] *= omega
-                sens_H_inc = np.concatenate((sens_H_inc,sens_H_i[:, :_N]),axis=1)
-                sens_H_vel = np.concatenate((sens_H_vel,sens_H_i[:, _N:]),axis=1)
+                sens_H_inc = np.concatenate((sens_H_inc, sens_H_i[:, :_N]), axis=1)
+                sens_H_vel = np.concatenate((sens_H_vel, sens_H_i[:, _N:]), axis=1)
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
             # if periodic solution is found, sens_H will equal Monodromy - eye.
@@ -257,10 +257,15 @@ class BeamCpp:
 
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        if not sensitivity and "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]:
+        if (not sensitivity and
+                "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]):
             cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
         if cls.n_core_parallel == 1:
-            json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
+            json.dump(
+                cls.cpp_params_sim,
+                open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"),
+                indent=2
+            )
             try:
                 cpprun = subprocess.run(
                     "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
@@ -278,36 +283,59 @@ class BeamCpp:
         elif sensitivity and cls.n_core_parallel > 1:
             # Calculate the basic split size and the number of splits that need an extra column
             basic_split_size, extra_splits = divmod(cls.ndof_free, cls.n_core_parallel)
-            start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(np.arange(cls.n_core_parallel), extra_splits)
+            start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(
+                np.arange(cls.n_core_parallel), extra_splits
+            )
             end_indices = np.roll(start_indices, -1)
-            end_indices[-1] = cls.ndof_free  # Correct the last end index        
-            split_indices = zip(start_indices, end_indices)        
-        
+            end_indices[-1] = cls.ndof_free  # Correct the last end index
+            split_indices = zip(start_indices, end_indices)
+
             with ProcessPoolExecutor() as executor:
-                convergence = list(executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.n_core_parallel + 1))))
+                convergence = list(
+                    executor.map(
+                        cls.run_cpp_parallel,
+                        zip(split_indices, range(1, cls.n_core_parallel + 1))
+                    )
+                )
             cvg = np.all(convergence)
 
         return cvg
-    
+
     @classmethod
     def run_cpp_parallel(cls, combined_args):
         (start_index, end_index), run_id = combined_args
 
-        requested_cols = np.array([start_index, end_index]).tolist() 
+        requested_cols = np.array([start_index, end_index]).tolist()
         suffix = f"_{run_id:03d}"
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"]["requested_cols"] = requested_cols  
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = cls.simout_file + suffix 
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = cls.ic_file + suffix 
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
+            "requested_cols"] = requested_cols
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
+            cls.simout_file + suffix
+        )
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
+            "file_name"] = (cls.ic_file + suffix)
         cls.model_def["ModelDef"]["model_name"] = cls.model_name + suffix
-        json.dump(cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json", "w"), indent=2)
-        json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile.split('.')[0] + suffix + ".json", "w"), indent=2)
-        shutil.copyfile(cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5")
+        json.dump(
+            cls.cpp_params_sim,
+            open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
+            indent=2,
+        )
+        json.dump(
+            cls.model_def,
+            open(cls.cpp_path + "_" + cls.cpp_modelfile.split(".")[0] + suffix + ".json", "w"),
+            indent=2,
+        )
+        shutil.copyfile(
+            cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5"
+        )
 
-        cpprun = subprocess.run("cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split('.')[0] + suffix + ".json" + " _" + 
-                                cls.cpp_paramfile_sim.split('.')[0] + suffix + ".json",
-                                shell=True,
-                                stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
-                                stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),)
+        cpprun = subprocess.run(
+            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split(".")[0] +
+            suffix + ".json" + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
+            shell=True,
+            stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
+            stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
+        )
         return not bool(cpprun.returncode)
 
     @classmethod
