@@ -4,6 +4,8 @@ import subprocess
 import numpy as np
 from copy import deepcopy as dp
 import os
+import shutil
+from concurrent.futures import ProcessPoolExecutor
 
 
 class ROMChallenge:
@@ -35,7 +37,7 @@ class ROMChallenge:
     ndof_config = None
 
     @classmethod
-    def initialise(cls, cont_params, ForcePeriod=False):
+    def initialise(cls, cont_params, ForcePeriod=False, n_core_parallel=1):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
             "shooting"]["rel_tol"]
@@ -68,6 +70,7 @@ class ROMChallenge:
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
+        cls.n_core_parallel = n_core_parallel  # number of CPU cores for splitting sens columns
 
     @classmethod
     def run_eig(cls):
@@ -100,7 +103,8 @@ class ROMChallenge:
 
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
-        if cvg:
+
+        if cvg and cls.n_core_parallel == 1:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(
                 simdata["/dynamic_analysis/FEModel/energy"][:, :]
@@ -124,6 +128,41 @@ class ROMChallenge:
             else:
                 J = M = None
             simdata.close()
+        elif cvg and sensitivity and cls.n_core_parallel > 1:
+            suffix = f"_{1:03d}"
+            simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
+            energy = np.max(
+                simdata["/dynamic_analysis/FEModel/energy"][:, :]
+            )  # max energy important for forced response
+            periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
+            periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
+            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
+            pose = pose_time[:, 0]
+            vel = vel_time[:, 0]
+            H = np.concatenate([periodicity_inc, periodicity_vel])
+            sens_H = simdata["/Sensitivity/Monodromy"][:]
+            dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
+            sens_H = np.delete(sens_H, -1, axis=1)
+            _N = int(np.shape(sens_H)[1] / 2)
+            sens_H[:, _N:] *= omega  # scale velocity derivatives
+            sens_H_inc = sens_H[:, :_N]
+            sens_H_vel = sens_H[:, _N:]
+            simdata.close()
+
+            for i in range(2, cls.n_core_parallel + 1):
+                suffix = f"_{i:03d}"
+                simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
+                sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
+                _N = int(np.shape(sens_H_i)[1] / 2)
+                sens_H_i[:, _N:] *= omega
+                sens_H_inc = np.concatenate((sens_H_inc, sens_H_i[:, :_N]), axis=1)
+                sens_H_vel = np.concatenate((sens_H_vel, sens_H_i[:, _N:]), axis=1)
+            sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
+            J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
+            # if periodic solution is found, sens_H will equal Monodromy - eye.
+            M = sens_H + np.eye(len(sens_H))
         else:
             H = J = M = pose = vel = energy = None
 
@@ -207,29 +246,88 @@ class ROMChallenge:
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
 
-        cpp_params_sim = dp(cls.cpp_params_sim)
-        cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
-        cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        if not sensitivity:
-            cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
-        json.dump(cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2)
-
-        try:
-            cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                cls.cpp_paramfile_sim,
-                shell=True,
-                # timeout=30,
-                stdout=open(cls.cpp_path + "cpp.out", "w"),
-                stderr=open(cls.cpp_path + "cpp.err", "w"),
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
+        if (not sensitivity and
+                "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]):
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+        if cls.n_core_parallel == 1:
+            json.dump(
+                cls.cpp_params_sim,
+                open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"),
+                indent=2
             )
-            cvg = not bool(cpprun.returncode)
-        except subprocess.TimeoutExpired:
-            print("C++ code timed out ------- ", end="")
-            cvg = False
-            os.remove(cls.cpp_path + cls.simout_file + ".h5")
+            try:
+                cpprun = subprocess.run(
+                    "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
+                    cls.cpp_paramfile_sim,
+                    shell=True,
+                    # timeout=30,
+                    stdout=open(cls.cpp_path + "cpp.out", "w"),
+                    stderr=open(cls.cpp_path + "cpp.err", "w"),
+                )
+                cvg = not bool(cpprun.returncode)
+            except subprocess.TimeoutExpired:
+                print("C++ code timed out ------- ", end="")
+                cvg = False
+                os.remove(cls.cpp_path + cls.simout_file + ".h5")
+        elif sensitivity and cls.n_core_parallel > 1:
+            # Calculate the basic split size and the number of splits that need an extra column
+            basic_split_size, extra_splits = divmod(cls.ndof_free, cls.n_core_parallel)
+            start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(
+                np.arange(cls.n_core_parallel), extra_splits
+            )
+            end_indices = np.roll(start_indices, -1)
+            end_indices[-1] = cls.ndof_free  # Correct the last end index
+            split_indices = zip(start_indices, end_indices)
+
+            with ProcessPoolExecutor() as executor:
+                convergence = list(
+                    executor.map(
+                        cls.run_cpp_parallel,
+                        zip(split_indices, range(1, cls.n_core_parallel + 1))
+                    )
+                )
+            cvg = np.all(convergence)
 
         return cvg
+
+    @classmethod
+    def run_cpp_parallel(cls, combined_args):
+        (start_index, end_index), run_id = combined_args
+
+        requested_cols = np.array([start_index, end_index]).tolist()
+        suffix = f"_{run_id:03d}"
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
+            "requested_cols"] = requested_cols
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
+            cls.simout_file + suffix
+        )
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
+            "file_name"] = (cls.ic_file + suffix)
+        cls.model_def["ModelDef"]["model_name"] = cls.model_name + suffix
+        json.dump(
+            cls.cpp_params_sim,
+            open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
+            indent=2,
+        )
+        json.dump(
+            cls.model_def,
+            open(cls.cpp_path + "_" + cls.cpp_modelfile.split(".")[0] + suffix + ".json", "w"),
+            indent=2,
+        )
+        shutil.copyfile(
+            cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5"
+        )
+
+        cpprun = subprocess.run(
+            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split(".")[0] +
+            suffix + ".json" + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
+            shell=True,
+            stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
+            stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
+        )
+        return not bool(cpprun.returncode)
 
     @classmethod
     def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
