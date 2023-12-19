@@ -46,7 +46,7 @@ class BeamCpp:
     ndof_config = None
 
     @classmethod
-    def initialise(cls, cont_params, ForcePeriod=False, n_core_parallel=1):
+    def initialise(cls, cont_params, ForcePeriod=False, nprocs=1):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
             "shooting"]["rel_tol"]
@@ -79,7 +79,7 @@ class BeamCpp:
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
-        cls.n_core_parallel = n_core_parallel  # number of CPU cores for splitting sens columns
+        cls.nprocs = nprocs  # number of CPU cores for splitting sens columns
 
     @classmethod
     def run_eig(cls):
@@ -113,7 +113,7 @@ class BeamCpp:
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
 
-        if cvg and cls.n_core_parallel == 1:
+        if cvg and cls.nprocs == 1:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(
                 simdata["/dynamic_analysis/FEModel/energy"][:, :]
@@ -137,7 +137,7 @@ class BeamCpp:
             else:
                 J = M = None
             simdata.close()
-        elif cvg and sensitivity and cls.n_core_parallel > 1:
+        elif cvg and sensitivity and cls.nprocs > 1:
             suffix = f"_{1:03d}"
             simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
             energy = np.max(
@@ -160,7 +160,7 @@ class BeamCpp:
             sens_H_vel = sens_H[:, _N:]
             simdata.close()
 
-            for i in range(2, cls.n_core_parallel + 1):
+            for i in range(2, cls.nprocs + 1):
                 suffix = f"_{i:03d}"
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
                 sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
@@ -260,7 +260,7 @@ class BeamCpp:
         if (not sensitivity and
                 "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]):
             cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
-        if cls.n_core_parallel == 1:
+        if cls.nprocs == 1:
             json.dump(
                 cls.cpp_params_sim,
                 open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"),
@@ -280,21 +280,20 @@ class BeamCpp:
                 print("C++ code timed out ------- ", end="")
                 cvg = False
                 os.remove(cls.cpp_path + cls.simout_file + ".h5")
-        elif sensitivity and cls.n_core_parallel > 1:
+        elif sensitivity and cls.nprocs > 1:
             # Calculate the basic split size and the number of splits that need an extra column
-            basic_split_size, extra_splits = divmod(cls.ndof_free, cls.n_core_parallel)
-            start_indices = np.arange(cls.n_core_parallel) * basic_split_size + np.minimum(
-                np.arange(cls.n_core_parallel), extra_splits
+            basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)
+            start_indices = np.arange(cls.nprocs) * basic_split_size + np.minimum(
+                np.arange(cls.nprocs), extra_splits
             )
             end_indices = np.roll(start_indices, -1)
             end_indices[-1] = cls.ndof_free  # Correct the last end index
             split_indices = zip(start_indices, end_indices)
 
-            with ProcessPoolExecutor() as executor:
+            with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 convergence = list(
                     executor.map(
-                        cls.run_cpp_parallel,
-                        zip(split_indices, range(1, cls.n_core_parallel + 1))
+                        cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1))
                     )
                 )
             cvg = np.all(convergence)
@@ -314,15 +313,9 @@ class BeamCpp:
         )
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
             "file_name"] = (cls.ic_file + suffix)
-        cls.model_def["ModelDef"]["model_name"] = cls.model_name + suffix
         json.dump(
             cls.cpp_params_sim,
             open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
-            indent=2,
-        )
-        json.dump(
-            cls.model_def,
-            open(cls.cpp_path + "_" + cls.cpp_modelfile.split(".")[0] + suffix + ".json", "w"),
             indent=2,
         )
         shutil.copyfile(
@@ -330,8 +323,8 @@ class BeamCpp:
         )
 
         cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile.split(".")[0] +
-            suffix + ".json" + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
+            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
+            cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
             shell=True,
             stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
             stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
