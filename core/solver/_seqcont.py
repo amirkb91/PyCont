@@ -45,18 +45,20 @@ def seqcont(self):
             [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
+            residual = spl.norm(H)
+            if sensitivity:
+                M = Msim
+                J = np.block([[Jsim[:, :-1]], [self.h]])
+
             if not cvg_zerof:
                 cvg_cont = False
                 print(f"Zero function failed to converge with step = {step:.3e}.")
                 break
-
-            residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
                 break
-            elif (itercorrect > self.prob.cont_params["continuation"]["itermax"] or
-                  residual > 1e10):
+            elif itercorrect > self.prob.cont_params["continuation"]["itermax"] or residual > 1e10:
                 cvg_cont = False
                 break
             self.log.screenout(
@@ -69,9 +71,6 @@ def seqcont(self):
             )
 
             # correction
-            if sensitivity:
-                M = Msim
-                J = np.block([[Jsim[:, :-1]], [self.h]])
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1)])

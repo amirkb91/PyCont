@@ -50,18 +50,23 @@ def psacont(self):
             [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
+            residual = spl.norm(H)
+            if sensitivity:
+                M = Msim
+                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+                Jcr = dp(J)
+                # orth only on first partition and period: has no effect on single shooting
+                Jcr[-1, twoN:-1] = 0.0
+
             if not cvg_zerof:
                 cvg_cont = False
                 print(f"Zero function failed to converge with step = {step:.3e}.")
                 break
-
-            residual = spl.norm(H)
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
                 break
-            elif (itercorrect > self.prob.cont_params["continuation"]["itermax"] or
-                  residual > 1e10):
+            elif itercorrect > self.prob.cont_params["continuation"]["itermax"] or residual > 1e10:
                 cvg_cont = False
                 break
             self.log.screenout(
@@ -73,21 +78,14 @@ def psacont(self):
                 step=stepsign * step,
             )
 
-            # apply corrections orthogonal to tangent (orth only on first partition and period)
-            if sensitivity:
-                M = Msim
-                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-                J_corr = dp(J)
-                J_corr[-1, twoN:-1] = 0.0  # has no effect on single shooting
+            # apply corrections orthogonal to tangent
             itercorrect += 1
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
-                dxt = spl.lstsq(
-                    J_corr, -Z, cond=None, check_finite=False, lapack_driver="gelsd"
-                )[0]
+                dxt = spl.lstsq(Jcr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             elif forced:
-                dxt = spl.solve(J_corr, -Z, check_finite=False)
+                dxt = spl.solve(Jcr, -Z, check_finite=False)
             tau_pred += dxt[-1, 0]
             dx = dxt[:-1, 0]
             X_pred += dx
