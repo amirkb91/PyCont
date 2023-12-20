@@ -106,62 +106,51 @@ class ROMChallenge:
 
         if cvg and cls.nprocs == 1:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            energy = np.max(
-                simdata["/dynamic_analysis/FEModel/energy"][:, :]
-            )  # max energy important for forced response
+            energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
+            # solution pose and vel taken from time 0 (these will already have incorporated inc and vel)
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
-                sens_H = simdata["/Sensitivity/Monodromy"][:]  # sens of periodicity function H wrt IC
-                dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
-                sens_H = np.delete(sens_H, -1, axis=1)
-                sens_H[:, N:] *= omega  # scale velocity derivatives
+                # scale velocity and time derivatives with omega
+                sens_H = simdata["/Sensitivity/Monodromy"][:, :-1]  # sens of periodicity function H wrt IC
+                sens_H[:, N:] *= omega
+                dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                 J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
                 # if periodic solution is found, sens_H will equal Monodromy - eye.
                 M = sens_H + np.eye(len(sens_H))
             else:
                 J = M = None
             simdata.close()
-        elif cvg and sensitivity and cls.nprocs > 1:
-            suffix = f"_{1:03d}"
-            simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
-            energy = np.max(
-                simdata["/dynamic_analysis/FEModel/energy"][:, :]
-            )  # max energy important for forced response
-            periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
-            periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
-            pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            # solution pose and vel taken from time 0 (initial values are those with inc and vel added)
-            pose = pose_time[:, 0]
-            vel = vel_time[:, 0]
-            H = np.concatenate([periodicity_inc, periodicity_vel])
-            sens_H = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = sens_H[:, -1] * nperiod * 1 / omega  # scale time derivative
-            sens_H = np.delete(sens_H, -1, axis=1)
-            _N = int(np.shape(sens_H)[1] / 2)
-            sens_H[:, _N:] *= omega  # scale velocity derivatives
-            sens_H_inc = sens_H[:, :_N]
-            sens_H_vel = sens_H[:, _N:]
-            simdata.close()
 
-            for i in range(2, cls.nprocs + 1):
+        elif cvg and sensitivity and cls.nprocs > 1:
+            for i in range(1, cls.nprocs + 1):
                 suffix = f"_{i:03d}"
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
                 sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
-                _N = int(np.shape(sens_H_i)[1] / 2)
+                _N = np.shape(sens_H_i)[1] // 2
                 sens_H_i[:, _N:] *= omega
+                if i == 1:
+                    energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
+                    periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
+                    periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][
+                        cls.free_dof]
+                    pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+                    vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                    pose = pose_time[:, 0]
+                    vel = vel_time[:, 0]
+                    H = np.concatenate([periodicity_inc, periodicity_vel])
+                    dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
+                    sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
                 sens_H_inc = np.concatenate((sens_H_inc, sens_H_i[:, :_N]), axis=1)
                 sens_H_vel = np.concatenate((sens_H_vel, sens_H_i[:, _N:]), axis=1)
+                simdata.close()
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
-            # if periodic solution is found, sens_H will equal Monodromy - eye.
             M = sens_H + np.eye(len(sens_H))
         else:
             H = J = M = pose = vel = energy = None
@@ -257,20 +246,14 @@ class ROMChallenge:
                 open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"),
                 indent=2
             )
-            try:
-                cpprun = subprocess.run(
-                    "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                    cls.cpp_paramfile_sim,
-                    shell=True,
-                    # timeout=30,
-                    stdout=open(cls.cpp_path + "cpp.out", "w"),
-                    stderr=open(cls.cpp_path + "cpp.err", "w"),
-                )
-                cvg = not bool(cpprun.returncode)
-            except subprocess.TimeoutExpired:
-                print("C++ code timed out ------- ", end="")
-                cvg = False
-                os.remove(cls.cpp_path + cls.simout_file + ".h5")
+            cpprun = subprocess.run(
+                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
+                cls.cpp_paramfile_sim,
+                shell=True,
+                stdout=open(cls.cpp_path + "cpp.out", "w"),
+                stderr=open(cls.cpp_path + "cpp.err", "w"),
+            )
+            cvg = not bool(cpprun.returncode)
         elif sensitivity and cls.nprocs > 1:
             # Calculate the basic split size and the number of splits that need an extra column
             basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)

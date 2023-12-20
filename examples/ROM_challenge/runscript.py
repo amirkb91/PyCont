@@ -17,7 +17,7 @@ elif prob.cont_params["shooting"]["method"] == "multiple":
     prob.add_partitionfunction(ROMChallenge.partition_singleshooting_solution)
 
 # Initialise class based on continuation parameters
-ROMChallenge.initialise(prob.cont_params, False, 4)
+ROMChallenge.initialise(prob.cont_params, False, 7)
 
 # Continuation starting point
 start = StartingPoint(prob)

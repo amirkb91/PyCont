@@ -9,10 +9,10 @@
     "itermin": 1,
     "iteropt": 3,
     "itermax": 5,
-    "iterjac": 8,
+    "iterjac": 1,
     "s0": 0.001,
     "nadapt": 1,
-    "smin": 1e-05,
+    "smin": 1e-06,
     "smax": 0.1,
     "betacontrol": false,
     "betamax": 20,
@@ -57,7 +57,7 @@
     }
   },
   "Logger": {
-    "plot": true,
+    "plot": false,
     "file_name": "NNM1"
   }
 }
