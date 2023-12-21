@@ -246,14 +246,13 @@ class BeamCpp:
 
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
-        if (not sensitivity and
-                "direct_sensitivity" in cls.cpp_params_sim["TimeIntegrationSolverParameters"]):
-            cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+
         if cls.nprocs == 1:
+            cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently remove sens
+            if not sensitivity:
+                cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
             json.dump(
-                cls.cpp_params_sim,
-                open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"),
-                indent=2
+                cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2
             )
             cpprun = subprocess.run(
                 "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +

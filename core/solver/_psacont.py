@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy as dp
 import scipy.linalg as spl
+from collections import namedtuple
 from ._cont_step import cont_step
 from ._bifurcation import bifurcation_functions
 
@@ -14,6 +15,7 @@ def psacont(self):
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
+    cvg_sol = namedtuple("converged_solution", "X, T, H, J")
 
     # first point solution
     X = dp(self.X0)
@@ -57,6 +59,17 @@ def psacont(self):
                 Jcr = dp(J)
                 # orth only on first partition and period: has no effect on single shooting
                 Jcr[-1, twoN:-1] = 0.0
+                sol_save = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
+            else:
+                deltaX = (np.append(X_pred, tau_pred / omega) -
+                          np.append(sol_save.X, sol_save.T)).reshape(-1, 1)
+                deltaf = H - sol_save.H
+                Jsim = (
+                    sol_save.J + 1 / spl.norm(deltaX) * (deltaf - sol_save.J @ deltaX) @ deltaX.T
+                )
+                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+                Jcr = dp(J)
+                sol_save = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
 
             if not cvg_zerof:
                 cvg_cont = False
