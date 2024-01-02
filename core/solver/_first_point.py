@@ -27,7 +27,7 @@ def first_point(self):
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
-                        
+
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             residual = spl.norm(H)
 

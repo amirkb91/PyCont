@@ -3,7 +3,6 @@ import json
 import subprocess
 import numpy as np
 from copy import deepcopy as dp
-import os
 import shutil
 from concurrent.futures import ProcessPoolExecutor
 
@@ -113,7 +112,7 @@ class BeamCpp:
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
 
-        if not cvg: 
+        if not cvg:
             H = J = M = pose = vel = energy = None
             return H, J, M, pose, vel, energy, cvg
 
