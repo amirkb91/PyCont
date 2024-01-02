@@ -25,11 +25,12 @@ def first_point(self):
             [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
             )
-            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
-
+                        
+            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             residual = spl.norm(H)
+
             self.log.screenout(
                 iter=0,
                 correct=iter_firstpoint,

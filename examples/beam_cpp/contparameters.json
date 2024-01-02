@@ -7,16 +7,16 @@
     "npts": 500,
     "tol": 0.001,
     "itermin": 1,
-    "iteropt": 3,
-    "itermax": 5,
-    "iterjac": 5,
+    "iteropt": 4,
+    "itermax": 7,
+    "iterjac": 1,
     "s0": 0.001,
-    "nadapt": 1,
-    "smin": 1e-05,
-    "smax": 0.003,
+    "nadapt": 2,
+    "smin": 1e-06,
+    "smax": 0.0025,
     "betacontrol": false,
     "betamax": 20,
-    "fmin": 30,
+    "fmin": 50,
     "fmax": 80,
     "Emax": 10000,
     "phase_index_unforced": "allvel"
@@ -24,10 +24,10 @@
   "shooting": {
     "method": "single",
     "scaling": false,
-    "rel_tol": 1e-06,
+    "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 300
+      "nsteps_per_period": 200
     },
     "multiple": {
       "npartition": 1,
@@ -58,6 +58,6 @@
   },
   "Logger": {
     "plot": true,
-    "file_name": "NNM1"
+    "file_name": "NNM1_Cclamped2D"
   }
 }

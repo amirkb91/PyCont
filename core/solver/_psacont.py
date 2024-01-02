@@ -52,29 +52,26 @@ def psacont(self):
             [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
-            residual = spl.norm(H)
-            if sensitivity:
-                M = Msim
-                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-                Jcr = dp(J)
-                # orth only on first partition and period: has no effect on single shooting
-                Jcr[-1, twoN:-1] = 0.0
-                sol_save = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
-            else:
-                deltaX = (np.append(X_pred, tau_pred / omega) -
-                          np.append(sol_save.X, sol_save.T)).reshape(-1, 1)
-                deltaf = H - sol_save.H
-                Jsim = (
-                    sol_save.J + 1 / spl.norm(deltaX) * (deltaf - sol_save.J @ deltaX) @ deltaX.T
-                )
-                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-                Jcr = dp(J)
-                sol_save = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
-
             if not cvg_zerof:
                 cvg_cont = False
                 print(f"Zero function failed to converge with step = {step:.3e}.")
                 break
+
+            residual = spl.norm(H)
+
+            if sensitivity:
+                M = Msim
+                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+                soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
+            else:
+                # Broyden's Jacobian update
+                deltaX = (np.append(X_pred, tau_pred / omega) -
+                          np.append(soldata.X, soldata.T)).reshape(-1, 1)
+                deltaf = H - soldata.H
+                Jsim = soldata.J + 1 / spl.norm(deltaX) * (deltaf - soldata.J @ deltaX) @ deltaX.T
+                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+                soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
+
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
                 cvg_cont = True
@@ -82,6 +79,7 @@ def psacont(self):
             elif itercorrect > self.prob.cont_params["continuation"]["itermax"] or residual > 1e10:
                 cvg_cont = False
                 break
+
             self.log.screenout(
                 iter=itercont,
                 correct=itercorrect,
@@ -93,6 +91,8 @@ def psacont(self):
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
+            Jcr = dp(J)
+            Jcr[-1, twoN:-1] = 0.0  # orth only on first partition and period: has no effect on single shooting
             hx = np.matmul(self.h, X_pred)
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
