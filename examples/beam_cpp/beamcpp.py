@@ -10,8 +10,8 @@ from concurrent.futures import ProcessPoolExecutor
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    # cpp_example = "beam_2D"
-    cpp_example = "beam_rightangle"
+    cpp_example = "beam_2D"
+    # cpp_example = "beam_rightangle"
 
     if cpp_example == "beam_2D":
         # beam_2D (doubly clamped, arch, cantilever)
@@ -113,7 +113,11 @@ class BeamCpp:
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
 
-        if cvg and cls.nprocs == 1:
+        if not cvg: 
+            H = J = M = pose = vel = energy = None
+            return H, J, M, pose, vel, energy, cvg
+
+        if cls.nprocs == 1 or not sensitivity:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
@@ -135,8 +139,7 @@ class BeamCpp:
             else:
                 J = M = None
             simdata.close()
-
-        elif cvg and sensitivity and cls.nprocs > 1:
+        elif cls.nprocs > 1 and sensitivity:
             for i in range(1, cls.nprocs + 1):
                 suffix = f"_{i:03d}"
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
@@ -161,8 +164,6 @@ class BeamCpp:
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
             M = sens_H + np.eye(len(sens_H))
-        else:
-            H = J = M = pose = vel = energy = None
 
         if not return_time:
             return H, J, M, pose, vel, energy, cvg
@@ -247,8 +248,8 @@ class BeamCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
 
-        if cls.nprocs == 1:
-            cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently remove sens
+        if cls.nprocs == 1 or not sensitivity:
+            cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently pop dict
             if not sensitivity:
                 cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
             json.dump(
@@ -262,7 +263,7 @@ class BeamCpp:
                 stderr=open(cls.cpp_path + "cpp.err", "w"),
             )
             cvg = not bool(cpprun.returncode)
-        elif sensitivity and cls.nprocs > 1:
+        elif cls.nprocs > 1 and sensitivity:
             # Calculate the basic split size and the number of splits that need an extra column
             basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)
             start_indices = np.arange(cls.nprocs) * basic_split_size + np.minimum(
