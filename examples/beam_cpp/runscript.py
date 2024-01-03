@@ -17,7 +17,7 @@ elif prob.cont_params["shooting"]["method"] == "multiple":
     prob.add_partitionfunction(BeamCpp.partition_singleshooting_solution)
 
 # Initialise class based on continuation parameters
-BeamCpp.initialise(prob.cont_params, False, 4)
+BeamCpp.initialise(prob.cont_params, False, 1)
 
 # Continuation starting point
 start = StartingPoint(prob)

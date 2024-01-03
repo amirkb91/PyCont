@@ -44,7 +44,7 @@ def first_point(self):
 
             # correct X0 and tau
             iter_firstpoint += 1
-            hx = np.matmul(self.h, self.X0)
+            hx = self.h @ self.X0
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             self.tau += dxt[-1, 0]

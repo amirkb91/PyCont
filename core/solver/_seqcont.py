@@ -75,7 +75,7 @@ def seqcont(self):
 
             # correction
             itercorrect += 1
-            hx = np.matmul(self.h, X_pred)
+            hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1)])
             dx = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             X_pred[:] += dx[:, 0]

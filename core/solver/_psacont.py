@@ -93,7 +93,7 @@ def psacont(self):
             itercorrect += 1
             Jcr = dp(J)
             Jcr[-1, twoN:-1] = 0.0  # orth only on first partition and period: has no effect on single shooting
-            hx = np.matmul(self.h, X_pred)
+            hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
                 dxt = spl.lstsq(Jcr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
