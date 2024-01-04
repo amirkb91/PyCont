@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._cont_step import cont_step
 from ._bifurcation import bifurcation_functions
@@ -12,8 +11,8 @@ def seqcont(self):
     twoN = 2 * N
 
     # first point solution
-    X = dp(self.X0)
-    pose_base = dp(self.pose)
+    X = self.X0.copy()
+    pose_base = self.pose.copy()
     omega = self.omega
     tau = self.tau
 
@@ -27,7 +26,7 @@ def seqcont(self):
     while True:
         # increment period
         tau_pred = tau + step * stepsign
-        X_pred = dp(X)
+        X_pred = X.copy()
 
         if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
                 omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
@@ -103,9 +102,9 @@ def seqcont(self):
 
             itercont += 1
             tau = tau_pred
-            X = dp(X_pred)
+            X = X_pred.copy()
             # update pose_base and set inc to zero (slice 0:N on each partition)
-            pose_base = dp(pose)
+            pose_base = pose.copy()
             X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point

@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy as dp
 import scipy.linalg as spl
 from collections import namedtuple
 from ._cont_step import cont_step
@@ -18,9 +17,9 @@ def psacont(self):
     cvg_sol = namedtuple("converged_solution", "X, T, H, J")
 
     # first point solution
-    X = dp(self.X0)
-    pose_base = dp(self.pose)
-    tgt = dp(self.tgt0)
+    X = self.X0.copy()
+    pose_base = self.pose.copy()
+    tgt = self.tgt0.copy()
     omega = self.omega
     tau = self.tau
 
@@ -91,7 +90,7 @@ def psacont(self):
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
-            Jcr = dp(J)
+            Jcr = J.copy()
             Jcr[-1, twoN:-1] = 0.0  # orth only on first partition and period: has no effect on single shooting
             hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -167,10 +166,10 @@ def psacont(self):
                     # stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
                     stepsign = np.sign(stepsign * np.cos(np.radians(beta)))
                 tau = tau_pred
-                X = dp(X_pred)
-                tgt = dp(tgt_next)
+                X = X_pred.copy()
+                tgt = tgt_next.copy()
                 # update pose_base and set inc to zero (slice 0:N on each partition)
-                pose_base = dp(pose)
+                pose_base = pose.copy()
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
         # adaptive step size for next point

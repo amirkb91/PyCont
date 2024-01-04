@@ -97,7 +97,7 @@ class ROMChallenge:
         N = cls.ndof_free
 
         T = tau / omega
-        X = dp(Xtilde)
+        X = Xtilde.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
@@ -183,7 +183,7 @@ class ROMChallenge:
             j = (ipart + 1) % npartition * twoN
             j1 = ((ipart + 1) % npartition + 1) * twoN
 
-            X = dp(Xtilde[i:i1])
+            X = Xtilde[i:i1].copy()
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
             cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps)
@@ -313,7 +313,7 @@ class ROMChallenge:
         slicing_index = nsteps * np.arange(npartition)
 
         T = tau / omega
-        X = dp(Xtilde)
+        X = Xtilde.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)

@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy as dp
 import scipy.linalg as spl
 from ._phase_condition import phase_condition
 from ._bifurcation import bifurcation_functions
@@ -15,7 +14,7 @@ def first_point(self):
 
     if eig_start and not forced:
         iter_firstpoint = 0
-        linearsol = dp(self.X0)  # velocities are zero so no scaling needed
+        linearsol = self.X0.copy()  # velocities are zero so no scaling needed
 
         while True:
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
@@ -110,7 +109,7 @@ def first_point(self):
 
             # correct only X0
             iter_firstpoint += 1
-            J_corr = dp(J[:, :-1])
+            J_corr = J[:, :-1].copy()
             Z = H
             dx = spl.solve(J_corr, -Z)
             self.X0 += dx[:, 0]
