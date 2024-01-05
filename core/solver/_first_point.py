@@ -71,6 +71,10 @@ def first_point(self):
         Z[-1] = 1
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
+        # if self.prob.cont_params["shooting"]["scaling"]:
+        #     # reset tau to 1.0
+        #     self.omega = self.omega / self.tau
+        #     self.tau = 1.0
 
         self.log.store(
             sol_pose=self.pose,

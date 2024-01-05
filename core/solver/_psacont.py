@@ -171,6 +171,10 @@ def psacont(self):
                 # update pose_base and set inc to zero (slice 0:N on each partition)
                 pose_base = pose.copy()
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
+                # if self.prob.cont_params["shooting"]["scaling"]:
+                #     # reset tau to 1.0
+                #     omega = omega / tau
+                #     tau = 1.0
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
