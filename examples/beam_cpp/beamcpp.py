@@ -98,9 +98,7 @@ class BeamCpp:
         return eig, frq, pose0
 
     @classmethod
-    def runsim_single(
-        cls, omega, tau, Xtilde, pose_base, cont_params, return_time=False, sensitivity=True
-    ):
+    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         N = cls.ndof_free
@@ -108,37 +106,26 @@ class BeamCpp:
         T = tau / omega
         X = Xtilde.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
+        H = J = pose_time = vel_time = energy = None
 
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
 
-        if not cvg:
-            H = J = M = pose = vel = energy = None
-            return H, J, M, pose, vel, energy, cvg
-
-        if cls.nprocs == 1 or not sensitivity:
+        if cvg and (cls.nprocs == 1 or not sensitivity):
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            # solution pose and vel taken from time 0 (these will already have incorporated inc and vel)
-            pose = pose_time[:, 0]
-            vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
-                # scale velocity and time derivatives with omega
-                sens_H = simdata["/Sensitivity/Monodromy"][:, :-1]  # sens of periodicity function H wrt IC
-                sens_H[:, N:] *= omega
-                dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
-                J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
-                # if periodic solution is found, sens_H will equal Monodromy - eye.
-                M = sens_H + np.eye(len(sens_H))
-            else:
-                J = M = None
+                # scale velocity and time derivatives with omega and nperiod
+                J = simdata["/Sensitivity/Monodromy"][:, :]
+                J[:, N:] *= omega
+                J[:, -1] *= nperiod / omega
             simdata.close()
-        elif cls.nprocs > 1 and sensitivity:
+        elif cvg and (cls.nprocs > 1 and sensitivity):
             for i in range(1, cls.nprocs + 1):
                 suffix = f"_{i:03d}"
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
@@ -152,8 +139,6 @@ class BeamCpp:
                         cls.free_dof]
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-                    pose = pose_time[:, 0]
-                    vel = vel_time[:, 0]
                     H = np.concatenate([periodicity_inc, periodicity_vel])
                     dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                     sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
@@ -162,12 +147,8 @@ class BeamCpp:
                 simdata.close()
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
-            M = sens_H + np.eye(len(sens_H))
 
-        if not return_time:
-            return H, J, M, pose, vel, energy, cvg
-        elif return_time:
-            return pose_time, vel_time
+        return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
     def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):

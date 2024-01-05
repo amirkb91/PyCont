@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.linalg as spl
 from ._phase_condition import phase_condition
-from ._bifurcation import bifurcation_functions
 
 
 def first_point(self):
@@ -20,15 +19,15 @@ def first_point(self):
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            # residual and Jacobian with orthogonality to linear solution
-            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
-            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
             residual = spl.norm(H)
+            # orthogonality to linear solution to avoid trivial 0 solution
+            J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [linearsol, np.zeros(1)]])
 
             self.log.screenout(
                 iter=0,
@@ -50,8 +49,10 @@ def first_point(self):
             dx = dxt[:-1, 0]
             self.X0 += dx
 
-        # set inc to zero as solution stored in pose, keep velocity
+        # set inc to zero as pose_time[:, 0] will have included inc
+        self.pose = pose_time[:, 0]
         self.X0[:N] = 0.0
+
         # Compute Tangent
         if shooting_method == "single":
             J[-1, :] = np.zeros(np.shape(J)[1])
@@ -71,6 +72,7 @@ def first_point(self):
         Z[-1] = 1
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
+
         # if self.prob.cont_params["shooting"]["scaling"]:
         #     # reset tau to 1.0
         #     self.omega = self.omega / self.tau
@@ -78,7 +80,7 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose,
-            sol_vel=self.vel,
+            sol_vel=vel_time[:, 0],
             sol_T=self.tau / self.omega,
             sol_tgt=self.tgt0,
             sol_energy=energy,
@@ -92,14 +94,14 @@ def first_point(self):
             if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            # residual and Jacobian
-            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
             residual = spl.norm(H)
+
             self.log.screenout(
                 iter=0,
                 correct=iter_firstpoint,
@@ -113,12 +115,12 @@ def first_point(self):
 
             # correct only X0
             iter_firstpoint += 1
-            J_corr = J[:, :-1].copy()
             Z = H
-            dx = spl.solve(J_corr, -Z)
+            dx = spl.solve(J[:, :-1], -Z)
             self.X0 += dx[:, 0]
 
-        # set inc to zero as solution stored in pose, keep velocity
+        # set inc to zero as pose_time[:, 0] will have included inc
+        self.pose = pose_time[:, 0]
         self.X0[:N] = 0.0
 
         # Compute Tangent
@@ -129,10 +131,9 @@ def first_point(self):
         self.tgt0 = spl.solve(J, Z)[:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        bifurcation_functions(self, M)
         self.log.store(
             sol_pose=self.pose,
-            sol_vel=self.vel,
+            sol_vel=vel_time[:, 0],
             sol_T=self.tau / self.omega,
             sol_tgt=self.tgt0,
             sol_energy=energy,
@@ -141,14 +142,13 @@ def first_point(self):
         )
 
     elif restart:
-        recompute_tangent = self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]
         if shooting_method == "single":
-            # residual and Jacobian and Compute Tangent
-            [H, J, M, self.pose, self.vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
             )
             residual = spl.norm(H)
-            if recompute_tangent:
+
+            if self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]:
                 J = np.block(
                     [[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]]
                 )
@@ -160,14 +160,14 @@ def first_point(self):
                 )[0][:, 0]
                 self.tgt0 /= spl.norm(self.tgt0)
 
+            self.pose = pose_time[:, 0]
+
             self.log.screenout(
                 iter=0, correct=0, res=residual, freq=self.omega / self.tau, energy=energy
             )
-            if forced:
-                bifurcation_functions(self, M)
             self.log.store(
                 sol_pose=self.pose,
-                sol_vel=self.vel,
+                sol_vel=vel_time[:, 0],
                 sol_T=self.tau / self.omega,
                 sol_tgt=self.tgt0,
                 sol_energy=energy,

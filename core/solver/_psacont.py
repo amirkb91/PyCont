@@ -2,7 +2,6 @@ import numpy as np
 import scipy.linalg as spl
 from collections import namedtuple
 from ._cont_step import cont_step
-from ._bifurcation import bifurcation_functions
 
 # import warnings
 # warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
@@ -48,7 +47,7 @@ def psacont(self):
             else:
                 sensitivity = False
 
-            [H, Jsim, Msim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, Jsim, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
             if not cvg_zerof:
@@ -59,7 +58,6 @@ def psacont(self):
             residual = spl.norm(H)
 
             if sensitivity:
-                M = Msim
                 J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
                 soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
             else:
@@ -91,7 +89,8 @@ def psacont(self):
             # apply corrections orthogonal to tangent
             itercorrect += 1
             Jcr = J.copy()
-            Jcr[-1, twoN:-1] = 0.0  # orth only on first partition and period: has no effect on single shooting
+            # orthogonality only on first partition and period: has no effect on single shooting
+            Jcr[-1, twoN:-1] = 0.0
             hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
@@ -139,18 +138,6 @@ def psacont(self):
                 cvg_cont = False
             else:
                 # passed check, store and update for next step
-                if forced:
-                    bifurcation_functions(self, M)
-                self.log.store(
-                    sol_pose=pose,
-                    sol_vel=vel,
-                    sol_T=tau_pred / omega,
-                    sol_tgt=tgt_next,
-                    sol_energy=energy,
-                    sol_beta=beta,
-                    sol_itercorrect=itercorrect,
-                    sol_step=stepsign * step,
-                )
                 self.log.screenout(
                     iter=itercont,
                     correct=itercorrect,
@@ -159,6 +146,16 @@ def psacont(self):
                     energy=energy,
                     step=stepsign * step,
                     beta=beta,
+                )
+                self.log.store(
+                    sol_pose=pose_time[:, 0],
+                    sol_vel=vel_time[:, 0],
+                    sol_T=tau_pred / omega,
+                    sol_tgt=tgt_next,
+                    sol_energy=energy,
+                    sol_beta=beta,
+                    sol_itercorrect=itercorrect,
+                    sol_step=stepsign * step,
                 )
 
                 itercont += 1
@@ -169,8 +166,10 @@ def psacont(self):
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
                 # update pose_base and set inc to zero (slice 0:N on each partition)
-                pose_base = pose.copy()
+                # pose_time[:, 0] will have included inc from current sol
+                pose_base = pose_time[:, 0].copy()
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
+
                 # if self.prob.cont_params["shooting"]["scaling"]:
                 #     # reset tau to 1.0
                 #     omega = omega / tau
