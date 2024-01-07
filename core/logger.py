@@ -20,11 +20,6 @@ class Logger:
         self.sol_beta = []
         self.sol_itercorrect = []
         self.sol_step = []
-        self.sol_floq = []
-        self.sol_stability = []
-        self.sol_biffold = []
-        self.sol_bifflip = []
-        self.sol_bifNS = []
         self.plot = False
         self.betaplot = False
 
@@ -61,16 +56,6 @@ class Logger:
                 self.sol_itercorrect.append(value)
             elif key == "sol_step":
                 self.sol_step.append(value)
-            elif key == "sol_floq":
-                self.sol_floq.append(value)
-            elif key == "sol_stability":
-                self.sol_stability.append(value)
-            elif key == "sol_biffold":
-                self.sol_biffold.append(value)
-            elif key == "sol_bifflip":
-                self.sol_bifflip.append(value)
-            elif key == "sol_bifNS":
-                self.sol_bifNS.append(value)
 
         # save to disk and plot if required
         self.savetodisk()
@@ -127,11 +112,6 @@ class Logger:
         savefile["/beta"] = np.asarray(self.sol_beta).T
         savefile["/itercorrect"] = np.asarray(self.sol_itercorrect).T
         savefile["/step"] = np.asarray(self.sol_step).T
-        savefile["/Bifurcation/Floquet"] = np.asarray(self.sol_floq).T
-        savefile["/Bifurcation/Stability"] = np.asarray(self.sol_stability).T
-        savefile["/Bifurcation/Fold"] = np.asarray(self.sol_biffold).T
-        savefile["/Bifurcation/Flip"] = np.asarray(self.sol_bifflip).T
-        savefile["/Bifurcation/Neimark_Sacker"] = np.asarray(self.sol_bifNS).T
         savefile["/Parameters"] = json.dumps(self.prob.cont_params)
         savefile.close()
 

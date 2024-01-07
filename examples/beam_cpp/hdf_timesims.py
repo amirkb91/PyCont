@@ -1,12 +1,14 @@
 import h5py
 import json
 from alive_progress import alive_bar
-import sys, shutil, os
+import sys, shutil
 import numpy as np
 from examples.beam_cpp.beamcpp import BeamCpp
+from postprocess.bifurcation import bifurcation_functions
 """ Run time simulations for all NNM solutions and store """
 
 new_nsteps = input("Specify new nsteps per period if desired: ")
+run_bif = input("Compute bifurcation functions? ")
 
 # read solution file
 file = sys.argv[1]
@@ -43,14 +45,33 @@ nsteps = par["shooting"]["single"]["nsteps_per_period"]
 pose_time = np.zeros([np.shape(pose)[0], nsteps + 1, n_solpoints])
 vel_time = np.zeros([np.shape(vel)[0], nsteps + 1, n_solpoints])
 time = np.zeros([n_solpoints, nsteps + 1])
+if run_bif:
+    print("\033[0;31m*** ENSURE apply_SE_correction = FALSE *** \033[0m\n")
+    Floquet = np.zeros([2 * BeamCpp.ndof_free, n_solpoints], dtype=np.complex128)
+    Stability = np.zeros(n_solpoints)
+    Fold = np.zeros(n_solpoints)
+    Flip = np.zeros(n_solpoints)
+    Neimark_Sacker = np.zeros(n_solpoints)
 
 with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-        [pose_time[:, :, i], vel_time[:, :, i]] = BeamCpp.runsim_single(
-            1.0, T[i], X, pose[:, i], par, return_time=True, sensitivity=False
-        )
+        if run_bif:
+            [_, J, pose_time[:, :, i], vel_time[:, :, i],_, _] = BeamCpp.runsim_single(
+                1.0, T[i], X, pose[:, i], par
+            )
+            M = J[:, :-1] + np.eye(2 * BeamCpp.ndof_free)
+            bifurcation_out = bifurcation_functions(M)
+            Floquet[:, i] = bifurcation_out[0]
+            Stability[i] = bifurcation_out[1]
+            Fold[i] = bifurcation_out[2]
+            Flip[i] = bifurcation_out[3]
+            Neimark_Sacker[i] = bifurcation_out[4]
+        else:    
+            [_, _, pose_time[:, :, i], vel_time[:, :, i],_, _] = BeamCpp.runsim_single(
+                1.0, T[i], X, pose[:, i], par, sensitivity=False
+            )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         bar()
 
@@ -65,4 +86,20 @@ if "/Config_Time/Time" in time_data.keys():
 time_data["/Config_Time/POSE"] = pose_time
 time_data["/Config_Time/VELOCITY"] = vel_time
 time_data["/Config_Time/Time"] = time
+if run_bif:
+    if "/Bifurcation/Floquet" in time_data.keys():
+        del time_data["/Bifurcation/Floquet"]
+    if "/Bifurcation/Stability" in time_data.keys():
+        del time_data["/Bifurcation/Stability"]
+    if "/Bifurcation/Fold" in time_data.keys():
+            del time_data["/Bifurcation/Fold"]
+    if "/Bifurcation/Flip" in time_data.keys():
+            del time_data["/Bifurcation/Flip"]
+    if "/Bifurcation/Neimark_Sacker" in time_data.keys():
+            del time_data["/Bifurcation/Neimark_Sacker"]
+    time_data["/Bifurcation/Floquet"] = Floquet        
+    time_data["/Bifurcation/Stability"] = Stability        
+    time_data["/Bifurcation/Fold"] = Fold  
+    time_data["/Bifurcation/Flip"] = Flip        
+    time_data["/Bifurcation/Neimark_Sacker"] = Neimark_Sacker        
 time_data.close()

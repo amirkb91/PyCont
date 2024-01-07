@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg as spl
 
 
-def bifurcation_functions(self, M):
+def bifurcation_functions(M):
     # floquet multipliers
     floq = np.sort(spl.eigvals(M))
     stability = ~np.any(np.abs(floq) > 1) * 1.0
@@ -27,15 +27,7 @@ def bifurcation_functions(self, M):
     # M_bi_M = bialternate_same(M)
     # phi_NS = spl.det(M_bi_M - np.eye(len(M_bi_M)))
 
-    # store
-    self.log.store(
-        sol_floq=floq,
-        sol_stability=stability,
-        sol_biffold=phi_fold,
-        sol_bifflip=phi_flip,
-        sol_bifNS=phi_NS,
-    )
-
+    return floq, stability, phi_fold, phi_flip, phi_NS
 
 def bialternate_same(A):
     n = A.shape[0]
