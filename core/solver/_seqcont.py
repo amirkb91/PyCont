@@ -77,7 +77,7 @@ def seqcont(self):
             if not forced:
                 dx = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             elif forced:
-                dx = spl.solve(J, -Z, check_finite=False)                
+                dx = spl.solve(J, -Z, check_finite=False)
             X_pred[:] += dx[:, 0]
 
         if cvg_cont:
@@ -89,7 +89,7 @@ def seqcont(self):
                 energy=energy,
                 step=step,
                 beta=0.0,
-            )            
+            )
             self.log.store(
                 sol_pose=pose_time[:, 0],
                 sol_vel=vel_time[:, 0],
@@ -110,7 +110,7 @@ def seqcont(self):
             # if self.prob.cont_params["shooting"]["scaling"]:
             #     # reset tau to 1.0
             #     omega = omega / tau
-            #     tau = 1.0            
+            #     tau = 1.0
 
         # adaptive step size for next point
         if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:

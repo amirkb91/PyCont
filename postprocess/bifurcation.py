@@ -29,6 +29,7 @@ def bifurcation_functions(M):
 
     return floq, stability, phi_fold, phi_flip, phi_NS
 
+
 def bialternate_same(A):
     n = A.shape[0]
     m = int(0.5 * n * (n - 1))

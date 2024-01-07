@@ -58,9 +58,8 @@ with alive_bar(n_solpoints) as bar:
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
         if run_bif:
-            [_, J, pose_time[:, :, i], vel_time[:, :, i],_, _] = BeamCpp.runsim_single(
-                1.0, T[i], X, pose[:, i], par
-            )
+            [_, J, pose_time[:, :, i], vel_time[:, :, i], _,
+             _] = BeamCpp.runsim_single(1.0, T[i], X, pose[:, i], par)
             M = J[:, :-1] + np.eye(2 * BeamCpp.ndof_free)
             bifurcation_out = bifurcation_functions(M)
             Floquet[:, i] = bifurcation_out[0]
@@ -68,8 +67,8 @@ with alive_bar(n_solpoints) as bar:
             Fold[i] = bifurcation_out[2]
             Flip[i] = bifurcation_out[3]
             Neimark_Sacker[i] = bifurcation_out[4]
-        else:    
-            [_, _, pose_time[:, :, i], vel_time[:, :, i],_, _] = BeamCpp.runsim_single(
+        else:
+            [_, _, pose_time[:, :, i], vel_time[:, :, i], _, _] = BeamCpp.runsim_single(
                 1.0, T[i], X, pose[:, i], par, sensitivity=False
             )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
@@ -92,14 +91,14 @@ if run_bif:
     if "/Bifurcation/Stability" in time_data.keys():
         del time_data["/Bifurcation/Stability"]
     if "/Bifurcation/Fold" in time_data.keys():
-            del time_data["/Bifurcation/Fold"]
+        del time_data["/Bifurcation/Fold"]
     if "/Bifurcation/Flip" in time_data.keys():
-            del time_data["/Bifurcation/Flip"]
+        del time_data["/Bifurcation/Flip"]
     if "/Bifurcation/Neimark_Sacker" in time_data.keys():
-            del time_data["/Bifurcation/Neimark_Sacker"]
-    time_data["/Bifurcation/Floquet"] = Floquet        
-    time_data["/Bifurcation/Stability"] = Stability        
-    time_data["/Bifurcation/Fold"] = Fold  
-    time_data["/Bifurcation/Flip"] = Flip        
-    time_data["/Bifurcation/Neimark_Sacker"] = Neimark_Sacker        
+        del time_data["/Bifurcation/Neimark_Sacker"]
+    time_data["/Bifurcation/Floquet"] = Floquet
+    time_data["/Bifurcation/Stability"] = Stability
+    time_data["/Bifurcation/Fold"] = Fold
+    time_data["/Bifurcation/Flip"] = Flip
+    time_data["/Bifurcation/Neimark_Sacker"] = Neimark_Sacker
 time_data.close()
