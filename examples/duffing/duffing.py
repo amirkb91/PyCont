@@ -110,6 +110,9 @@ class Duffing:
         E = E0 + E1
         energy = np.max(E)
 
+        # Lagrangian
+        L = 0.5 * Xsol[:, 1]**2 - 0.5 * cls.alpha * Xsol[:, 0]**2 - 0.25 * cls.beta * Xsol[:, 0]**4
+
         cvg = True
         return H, J, pose_time, vel_time, energy, cvg
 

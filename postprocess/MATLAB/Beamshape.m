@@ -22,8 +22,8 @@ a1.YLimitMethod = 'padded';
 a1.PlotBoxAspectRatio=[1,1,1];
 a1.XLim = [-0.5 1.5];
 a1.YLim = [-1 1];
-xlabel(a1, 'x/L');
-ylabel(a1, 'y/L');
+xlabel(a1, '$X/L$');
+ylabel(a1, '$Y/L$');
 
 %% Data Load
 % file = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_2D/Results/cantilever/NNM1/VK_reducedintegration/Time_VK.h5';
@@ -38,6 +38,9 @@ if model == "VK"
 elseif model == "SE"
     xdof = (0:30)*4+3;
     ydof = (0:30)*4+4;
+    %xdof = (0:42)*7+5;
+    %ydof = (0:42)*7+6;
+    %zdof = (0:42)*7+7;
     color = "#D95319";
     n_snaps_grey = 200;
 end
@@ -55,3 +58,4 @@ for i=1:n_snaps
     plot(a1,pose(xdof,index(i)+1),pose(ydof,index(i)+1),'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',color);
 end
 
+axis equal
