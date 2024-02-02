@@ -105,8 +105,8 @@ def psacont(self):
             # find new tangent with converged solution
             if frml == "secant":
                 # X_pred[:N]==INC and technically is already the diff between POSE for previous two sols
-                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
-                # tgt_next = np.concatenate((X_pred - X, [tau_pred - tau]))
+                # tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
+                tgt_next = np.concatenate((X_pred - X, [tau_pred - tau]))
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1

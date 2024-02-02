@@ -11,15 +11,20 @@ class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
     cpp_example = "beam_2D"
     # cpp_example = "beam_rightangle"
+    # cpp_example = "beam_boxwing"
 
     if cpp_example == "beam_2D":
-        # beam_2D (doubly clamped, arch, cantilever)
+        # mybeam_2D (doubly clamped, arch, cantilever)
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_2D/"
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_2D"
     elif cpp_example == "beam_rightangle":
-        # beam_rightagnle
+        # mybeam_rightangle
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/"
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
+    elif cpp_example == "beam_boxwing":
+        # mybeam_boxwing (Benchmark Aircraft)
+        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_boxwing/"
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_boxwing"        
     # -------------------------------------------------------#
 
     cpp_modelfile = "model_def.json"
