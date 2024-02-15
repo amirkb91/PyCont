@@ -57,17 +57,15 @@ def psacont(self):
 
             residual = spl.norm(H)
 
-            if sensitivity:
-                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-                soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
-            else:
+            if not sensitivity:
                 # Broyden's Jacobian update
                 deltaX = (np.append(X_pred, tau_pred / omega) -
                           np.append(soldata.X, soldata.T)).reshape(-1, 1)
                 deltaf = H - soldata.H
                 Jsim = soldata.J + 1 / spl.norm(deltaX) * (deltaf - soldata.J @ deltaX) @ deltaX.T
-                J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-                soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
+
+            J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
+            soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
 
             if (residual < self.prob.cont_params["continuation"]["tol"] and
                     itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
@@ -110,9 +108,9 @@ def psacont(self):
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
-                    J[-1, :] = np.zeros(np.shape(J)[1])
+                    J[-1, :] *= 0.0
                     J[-1, -1] = 1
-                Z = np.zeros((np.shape(J)[0], 1))
+                Z = np.zeros((twoN + self.nphase + 1, 1))
                 Z[-1] = 1
                 if not forced:
                     tgt_next = spl.lstsq(
@@ -185,3 +183,12 @@ def psacont(self):
         if cvg_cont and energy and energy > self.prob.cont_params["continuation"]["Emax"]:
             print(f"Energy {energy:.5e} exceeds Emax.")
             break
+
+
+def qrlinearsolver(A, b):
+    Q, R, P = spl.qr(A, pivoting=True, mode="economic")
+    Qt_b = np.dot(Q.T, b)
+    x_temp = spl.solve_triangular(R, Qt_b[:R.shape[0]])
+    x = np.zeros_like(x_temp)
+    x[P] = x_temp
+    return x

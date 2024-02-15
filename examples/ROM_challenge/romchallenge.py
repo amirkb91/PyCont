@@ -120,7 +120,8 @@ class ROMChallenge:
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega
-                sens_H = simdata["/Sensitivity/Monodromy"][:, :-1]  # sens of periodicity function H wrt IC
+                sens_H = simdata["/Sensitivity/Monodromy"
+                                ][:, :-1]  # sens of periodicity function H wrt IC
                 sens_H[:, N:] *= omega
                 dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                 J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)

@@ -101,7 +101,7 @@ class Duffing:
         vel_time = Xsol[:, 1].reshape(1, -1)
 
         # Energy
-        E0 = 0.5 * (Xsol[:, 1]**2 + cls.alpha * Xsol[:, 0]**2) + 0.25 * cls.beta * Xsol[:, 0]**4
+        E0 = (0.5 * (Xsol[:, 1]**2 + cls.alpha * Xsol[:, 0]**2) + 0.25 * cls.beta * Xsol[:, 0]**4)
         force_vel = cls.F * np.cos(2 * np.pi / T * t + cls.phi) * Xsol[:, 1]
         damping_vel = cls.delta * Xsol[:, 1]**2
         E1 = np.array(
@@ -111,12 +111,15 @@ class Duffing:
         energy = np.max(E)
 
         # Acceleration
-        Xddot = cls.F * np.cos(
-            2 * np.pi / T * t + cls.phi
-        ) - cls.delta * Xsol[:, 1] - cls.alpha * Xsol[:, 0] - cls.beta * Xsol[:, 0]**3
+        Xddot = (
+            cls.F * np.cos(2 * np.pi / T * t + cls.phi) - cls.delta * Xsol[:, 1] -
+            cls.alpha * Xsol[:, 0] - cls.beta * Xsol[:, 0]**3
+        )
 
         # Lagrangian
-        L = 0.5 * Xsol[:, 1]**2 - 0.5 * cls.alpha * Xsol[:, 0]**2 - 0.25 * cls.beta * Xsol[:, 0]**4
+        L = (
+            0.5 * Xsol[:, 1]**2 - 0.5 * cls.alpha * Xsol[:, 0]**2 - 0.25 * cls.beta * Xsol[:, 0]**4
+        )
 
         cvg = True
         return H, J, pose_time, vel_time, energy, cvg

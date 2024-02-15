@@ -24,7 +24,7 @@ class BeamCpp:
     elif cpp_example == "beam_boxwing":
         # mybeam_boxwing (Benchmark Aircraft)
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_boxwing/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_boxwing"        
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_boxwing"
     # -------------------------------------------------------#
 
     cpp_modelfile = "model_def.json"

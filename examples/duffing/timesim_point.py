@@ -5,9 +5,7 @@ import numpy as np
 from scipy.integrate import odeint
 from duffing import Duffing
 import matplotlib.pyplot as plt
-
 """ Run time simulations for single point solution branch and plot """
-
 
 # inputs
 solno = int(input("Solution Index: "))
@@ -23,7 +21,6 @@ T = data["/T"][solno]
 par = data["/Parameters"]
 par = json.loads(par[()])
 data.close()
-
 
 # do time simulation
 nperiod = par["shooting"]["single"]["nperiod"]

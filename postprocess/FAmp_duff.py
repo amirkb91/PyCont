@@ -11,6 +11,7 @@ def show_annotation(sel):
     ind = int(sel.index)
     sel.annotation.set_text(f"index:{ind}")
 
+
 normalise_freq = 0.159
 normalise_amp = 1.0
 

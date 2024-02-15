@@ -69,12 +69,11 @@ with alive_bar(n_solpoints) as bar:
             Neimark_Sacker[i] = bifurcation_out[4]
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         # Acceleration
-        acc_time[:, :, i] = Duffing.F * np.cos(
-            2 * np.pi / T[i] * time[i, :] + Duffing.phi
-        ) - Duffing.delta * vel_time[:, :, i
-                                    ] - Duffing.alpha * pose_time[:, :, i
-                                                                 ] - Duffing.beta * pose_time[:, :,
-                                                                                              i]**3
+        acc_time[:, :, i] = (
+            Duffing.F * np.cos(2 * np.pi / T[i] * time[i, :] + Duffing.phi) -
+            Duffing.delta * vel_time[:, :, i] - Duffing.alpha * pose_time[:, :, i] -
+            Duffing.beta * pose_time[:, :, i]**3
+        )
         bar()
 
 # write to file
