@@ -9,9 +9,10 @@ from concurrent.futures import ProcessPoolExecutor
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    cpp_example = "beam_2D"
+    # cpp_example = "beam_2D"
     # cpp_example = "beam_rightangle"
     # cpp_example = "beam_boxwing"
+    cpp_example = "beam_vertcant"
 
     if cpp_example == "beam_2D":
         # mybeam_2D (doubly clamped, arch, cantilever)
@@ -25,6 +26,11 @@ class BeamCpp:
         # mybeam_boxwing (Benchmark Aircraft)
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_boxwing/"
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_boxwing"
+    elif cpp_example == "beam_vertcant":
+        # mybeam_vertcant
+        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_vertcant/"
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_vertcant"
+        cpp_def_period = 2.0
     # -------------------------------------------------------#
 
     cpp_modelfile = "model_def.json"
@@ -48,6 +54,7 @@ class BeamCpp:
     ndof_all = None
     node_config = None
     ndof_config = None
+    if "cpp_def_period" not in vars(): cpp_def_period = 1.0
 
     @classmethod
     def initialise(cls, cont_params, ForcePeriod=False, nprocs=1):
@@ -70,7 +77,7 @@ class BeamCpp:
             cls.model_def["ModelDef"]["tau0"] = cont_params["forcing"]["tau0"]
             cls.model_def["ModelDef"]["tau1"] = cont_params["forcing"]["tau1"]
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
-            cls.model_def["ModelDef"]["def_period"] = 1.0
+            cls.model_def["ModelDef"]["def_period"] = cls.cpp_def_period
             cls.model_def["ModelDef"]["with_ratio"] = True
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"][
                 "rho_GA"]
@@ -78,7 +85,7 @@ class BeamCpp:
         if ForcePeriod:
             # if force period is specified, we want to de-couple force period from sim time
             # useful when running time simulation as post processing
-            cls.model_def["ModelDef"]["def_period"] = ForcePeriod
+            cls.model_def["ModelDef"]["def_period"] = ForcePeriod / cls.cpp_def_period
             cls.model_def["ModelDef"]["with_ratio"] = False
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)

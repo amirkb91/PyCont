@@ -54,7 +54,7 @@ class StartingPoint:
         try:
             self.tgt0 = restartsol["/Tangent"][:, index]
         except:
-            self.tft0 = None
+            self.tgt0 = None
 
         dofdata = self.prob.doffunction()
         N = dofdata["ndof_free"]
