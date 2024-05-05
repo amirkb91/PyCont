@@ -8,8 +8,9 @@ from ._cont_step import cont_step
 
 
 def psacont(self):
-    frml = self.prob.cont_params["continuation"]["tangent"].lower()
-    forced = self.prob.cont_params["continuation"]["forced"]
+    continuation_params = self.prob.cont_params["continuation"]
+    frml = continuation_params["tangent"].lower()
+    forced = continuation_params["forced"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
@@ -23,8 +24,8 @@ def psacont(self):
     tau = self.tau
 
     # continuation parameters
-    step = self.prob.cont_params["continuation"]["s0"]
-    direction = self.prob.cont_params["continuation"]["dir"]
+    step = continuation_params["s0"]
+    direction = continuation_params["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # continuation loop
@@ -34,15 +35,15 @@ def psacont(self):
         tau_pred = tau + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
 
-        if (omega / tau_pred > self.prob.cont_params["continuation"]["fmax"] or
-                omega / tau_pred < self.prob.cont_params["continuation"]["fmin"]):
+        if (omega / tau_pred > continuation_params["fmax"] or
+                omega / tau_pred < continuation_params["fmin"]):
             print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
             break
 
         # correction step
         itercorrect = 0
         while True:
-            if itercorrect % self.prob.cont_params["continuation"]["iterjac"] == 0:
+            if itercorrect % continuation_params["iterjac"] == 0:
                 sensitivity = True
             else:
                 sensitivity = False
@@ -67,11 +68,11 @@ def psacont(self):
             J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
             soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
 
-            if (residual < self.prob.cont_params["continuation"]["tol"] and
-                    itercorrect >= self.prob.cont_params["continuation"]["itermin"]):
+            if (residual < continuation_params["tol"] and
+                    itercorrect >= continuation_params["itermin"]):
                 cvg_cont = True
                 break
-            elif itercorrect > self.prob.cont_params["continuation"]["itermax"] or residual > 1e10:
+            elif itercorrect > continuation_params["itermax"] or residual > 1e10:
                 cvg_cont = False
                 break
 
@@ -130,8 +131,7 @@ def psacont(self):
                     (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))
                 )
             )
-            if (self.prob.cont_params["continuation"]["betacontrol"] and
-                    beta > self.prob.cont_params["continuation"]["betamax"]):
+            if continuation_params["betacontrol"] and beta > continuation_params["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
@@ -174,13 +174,13 @@ def psacont(self):
                 #     tau = 1.0
 
         # adaptive step size for next point
-        if itercont > self.prob.cont_params["continuation"]["nadapt"] or not cvg_cont:
+        if itercont > continuation_params["nadapt"] or not cvg_cont:
             step = cont_step(self, step, itercorrect, cvg_cont)
 
-        if itercont > self.prob.cont_params["continuation"]["npts"]:
+        if itercont > continuation_params["npts"]:
             print("Maximum number of continuation points reached.")
             break
-        if cvg_cont and energy and energy > self.prob.cont_params["continuation"]["Emax"]:
+        if cvg_cont and energy and energy > continuation_params["Emax"]:
             print(f"Energy {energy:.5e} exceeds Emax.")
             break
 
