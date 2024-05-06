@@ -54,7 +54,8 @@ class BeamCpp:
     ndof_all = None
     node_config = None
     ndof_config = None
-    if "cpp_def_period" not in vars(): cpp_def_period = 1.0
+    if "cpp_def_period" not in vars():
+        cpp_def_period = 1.0
 
     @classmethod
     def initialise(cls, cont_params, ForcePeriod=False, nprocs=1):

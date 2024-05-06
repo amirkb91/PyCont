@@ -36,13 +36,14 @@
     }
   },
   "first_point": {
+    "from_eig": true,
     "itermax": 30,
     "eig_start": {
       "NNM": 1,
       "scale": 0.1,
       "force_freq_scale": 0.7
     },
-    "_restart": {
+    "restart": {
       "file_name": "",
       "index": 50,
       "recompute_tangent": false,

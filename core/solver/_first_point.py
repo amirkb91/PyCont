@@ -4,10 +4,11 @@ from ._phase_condition import phase_condition
 
 
 def first_point(self):
-    eig_start = "eig_start" in self.prob.cont_params["first_point"].keys()
-    restart = "restart" in self.prob.cont_params["first_point"].keys()
-    forced = self.prob.cont_params["continuation"]["forced"]
-    shooting_method = self.prob.cont_params["shooting"]["method"]
+    cont_params = self.prob.cont_params
+    eig_start = cont_params["first_point"]["from_eig"]
+    restart = not eig_start
+    forced = cont_params["continuation"]["forced"]
+    shooting_method = cont_params["shooting"]["method"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
 
@@ -16,11 +17,11 @@ def first_point(self):
         linearsol = self.X0.copy()  # velocities are zero so no scaling needed
 
         while True:
-            if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
+            if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
             [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
+                self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -37,7 +38,7 @@ def first_point(self):
                 energy=energy,
             )
 
-            if residual < self.prob.cont_params["continuation"]["tol"] and iter_firstpoint > 0:
+            if residual < cont_params["continuation"]["tol"] and iter_firstpoint > 0:
                 break
 
             # correct X0 and tau
@@ -59,10 +60,10 @@ def first_point(self):
         elif shooting_method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
-                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params
+                self.omega, self.tau, self.X0, self.pose, cont_params
             )
             [_, J, self.pose, self.vel, energy, _] = self.prob.zerofunction(
-                self.omega, self.tau, self.X0, self.pose, self.prob.cont_params
+                self.omega, self.tau, self.X0, self.pose, cont_params
             )
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
@@ -73,7 +74,7 @@ def first_point(self):
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        # if self.prob.cont_params["shooting"]["scaling"]:
+        # if cont_params["shooting"]["scaling"]:
         #     # reset tau to 1.0
         #     self.omega = self.omega / self.tau
         #     self.tau = 1.0
@@ -91,11 +92,11 @@ def first_point(self):
     elif eig_start and forced:
         iter_firstpoint = 0
         while True:
-            if iter_firstpoint > self.prob.cont_params["first_point"]["itermax"]:
+            if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
             [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
+                self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -110,7 +111,7 @@ def first_point(self):
                 energy=energy,
             )
 
-            if residual < self.prob.cont_params["continuation"]["tol"]:
+            if residual < cont_params["continuation"]["tol"]:
                 break
 
             # correct only X0
@@ -144,11 +145,11 @@ def first_point(self):
     elif restart:
         if shooting_method == "single":
             [H, J, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, self.prob.cont_params
+                self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             residual = spl.norm(H)
 
-            if self.prob.cont_params["first_point"]["restart"]["recompute_tangent"]:
+            if cont_params["first_point"]["restart"]["recompute_tangent"]:
                 J = np.block(
                     [[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]]
                 )

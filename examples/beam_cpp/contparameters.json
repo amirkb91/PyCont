@@ -43,12 +43,13 @@
     "starting_freq_scale": 0.7
   },
   "first_point": {
+    "from_eig": true,
     "itermax": 30,
     "eig_start": {
       "NNM": 1,
       "scale": 0.0001
     },
-    "_restart": {
+    "restart": {
       "file_name": "NNM1",
       "index": 10,
       "recompute_tangent": false,
