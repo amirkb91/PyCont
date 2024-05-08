@@ -27,7 +27,7 @@ if method == "single":
     nsteps = par["shooting"]["single"]["nsteps_per_period"]
     t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
     X = np.concatenate([pose, vel])
-    timesol = np.array(odeint(Cubic_Spring.system_ode, X, t, rtol=1e-8, tfirst=True))
+    timesol = np.array(odeint(Cubic_Spring.model_ode, X, t, rtol=1e-8, tfirst=True))
     pose_time = timesol[:, :2]
     vel_time = timesol[:, 2:]
 elif method == "multiple":
@@ -46,7 +46,7 @@ elif method == "multiple":
         t_part = np.linspace(0, T * delta_S, nsteps + 1)
         t[:, :, ipart] = t_part.reshape(-1, 1) + partition_starttime
         X = np.concatenate([pose[:, ipart], vel[:, ipart]])
-        timesol = np.array(odeint(Cubic_Spring.system_ode, X, t_part, rtol=1e-8, tfirst=True))
+        timesol = np.array(odeint(Cubic_Spring.model_ode, X, t_part, rtol=1e-8, tfirst=True))
         pose_time[:, :, ipart] = timesol[:, :2]
         vel_time[:, :, ipart] = timesol[:, 2:]
 

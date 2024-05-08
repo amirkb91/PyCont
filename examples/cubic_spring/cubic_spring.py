@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.integrate import odeint
 import scipy.linalg as spl
-import scipy.interpolate as spi
 
 
 class Cubic_Spring:
@@ -18,7 +17,7 @@ class Cubic_Spring:
     ndof_free = 2
 
     @classmethod
-    def system_ode(cls, t, X):
+    def model_ode(cls, t, X):
         # State equation of the mass spring system. Xdot(t) = g(X(t))
         x = X[:cls.ndof_free]
         xdot = X[cls.ndof_free:]
@@ -28,7 +27,7 @@ class Cubic_Spring:
         return Xdot
 
     @classmethod
-    def augsystem_ode(cls, t, X_aug):
+    def model_sens_ode(cls, t, ic):
         # Augemented ODE of system + Monodromy, to be solved together
         # System: Xdot(t) = g(X(t))
         # Monodromy: dXdX0dot = dg(X)dX . dXdX0
@@ -39,13 +38,13 @@ class Cubic_Spring:
         N = cls.ndof_free
         twoN = 2 * N
 
-        X, dXdX0 = X_aug[:twoN], X_aug[twoN:]
+        X, dXdX0 = ic[:twoN], ic[twoN:]
         x = X[:N]
         xdot = X[N:]
         KX = K @ x
         fnl = np.array([cls.Knl * x[0]**3, 0])
         Xdot = np.concatenate((xdot, -Minv @ (KX + fnl)))
-        dgdz = np.array(
+        dgdX = np.array(
             [
                 [0, 0, 1, 0],
                 [0, 0, 0, 1],
@@ -53,7 +52,7 @@ class Cubic_Spring:
                 [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0],
             ]
         )
-        dXdX0dot = dgdz @ dXdX0.reshape(4, 4)
+        dXdX0dot = dgdX @ dXdX0.reshape(4, 4)
 
         return np.concatenate([Xdot, dXdX0dot.flatten()])
 
@@ -64,15 +63,13 @@ class Cubic_Spring:
         frq = np.sqrt(frq) / (2 * np.pi)
         frq = frq.reshape(-1, 1)
 
-        # initial position taken as zero for both dofs.
+        # initial position taken as zero for both dofs
         pose0 = np.zeros(cls.ndof_free)
 
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(
-        cls, omega, tau, X, pose_base, cont_params, return_time=False, sensitivity=True
-    ):
+    def time_solve(cls, omega, tau, X, pose_base, cont_params, sensitivity=True):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -81,39 +78,37 @@ class Cubic_Spring:
         T = tau / omega
 
         # Add increment onto pose and do time sim
-        X_total = X.copy()
-        X_total[:N] += pose_base.flatten().copy()
+        X0 = X.copy()
+        X0[:N] += pose_base
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-        initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
-        Xsol_aug = np.array(
-            odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
-        )
-        Xsol, M = Xsol_aug[:, :twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
-
-        # Monodromy and augmented Jacobian
-        M -= np.eye(twoN)
-        dHdt = cls.system_ode(None, Xsol[-1, :]) * nperiod
-        J = np.concatenate((M, dHdt.reshape(-1, 1)), axis=1)
-
-        # solution pose and vel taken from time 0
-        pose = Xsol[0, :N].T
-        vel = Xsol[0, N:].T
+        # Initial conditions for the augmented system, eye for monodromy
+        all_ic = np.concatenate((X0, np.eye(4).flatten()))
+        sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
+        Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
 
         # periodicity condition
         H = Xsol[-1, :] - Xsol[0, :]
         H = H.reshape(-1, 1)
 
-        # Energy, conservative system so take mean of all time
-        E = np.zeros(nsteps * nperiod + 1)
-        for i in range(nsteps * nperiod + 1):
-            x = Xsol[i, :N]
-            xdot = Xsol[i, N:]
-            Fnl = 0.25 * cls.Knl * x[0]**4
-            E[i] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl
-        energy = np.mean(E)
+        # Jacobian
+        dHdX0 = M - np.eye(twoN)
+        gX_T = cls.model_ode(None, Xsol[-1, :]) * nperiod
+        dHdT = gX_T
+        J = np.concatenate((dHdX0, dHdT.reshape(-1, 1)), axis=1)
 
-        cvg = True
-        return H, J, M, pose, vel, energy, cvg
+        # solution pose and vel over time
+        pose_time = Xsol[:, :N].T
+        vel_time = Xsol[:, N:].T
+
+        # Energy
+        energy = np.max(
+            0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
+                            np.dot(cls.M, Xsol[:, N:].T).T) +
+            0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
+                            np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
+        )
+
+        return H, J, pose_time, vel_time, energy, True
 
     @classmethod
     def time_solve_multiple(cls, omega, tau, X, pose_base, cont_params):
@@ -146,14 +141,14 @@ class Cubic_Spring:
             t = np.linspace(0, T * delta_S, nsteps + 1)
             initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
             Xsol_aug = np.array(
-                odeint(cls.augsystem_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
+                odeint(cls.model_sens_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
             )
             Xsol, M = Xsol_aug[:, :twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
             pose_time[:, p:p1] = Xsol[:, :N].T
             vel_time[:, p:p1] = Xsol[:, N:].T
 
             # Monodromy and augmented Jacobian
-            dHdt = cls.system_ode(None, Xsol[-1, :]) * delta_S
+            dHdt = cls.model_ode(None, Xsol[-1, :]) * delta_S
             J[i:i1, i:i1] = M
             J[i:i1, j:j1] -= np.eye(twoN)
             J[i:i1, -1] = dHdt
@@ -204,7 +199,7 @@ class Cubic_Spring:
         X_total = X.copy()
         X_total[:N] += pose_base.flatten().copy()
         t = np.linspace(0, T, nsteps * npartition + 1)
-        Xsol = np.array(odeint(cls.system_ode, X_total, t, rtol=rel_tol, tfirst=True))
+        Xsol = np.array(odeint(cls.model_ode, X_total, t, rtol=rel_tol, tfirst=True))
         pose_time = Xsol[:, :N].T
         vel_time = Xsol[:, N:].T
         pose = pose_time[:, slicing_index]
