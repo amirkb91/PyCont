@@ -69,20 +69,19 @@ class Cubic_Spring:
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, tau, X, pose_base, cont_params, sensitivity=True):
+    def time_solve(cls, omega, T, X, pose_base, cont_params, sensitivity=True):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
-        T = tau / omega
 
-        # Add increment onto pose and do time sim
-        X0 = X.copy()
-        X0[:N] += pose_base
-        t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-        # Initial conditions for the augmented system, eye for monodromy
+        # Compute initial conditions add increment to pose
+        X0 = X + np.concatenate((pose_base, np.zeros(N)))
         all_ic = np.concatenate((X0, np.eye(4).flatten()))
+
+        # Solve
+        t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
         sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
         Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
 
@@ -111,101 +110,89 @@ class Cubic_Spring:
         return H, J, pose_time, vel_time, energy, True
 
     @classmethod
-    def time_solve_multiple(cls, omega, tau, X, pose_base, cont_params):
+    def time_solve_multiple(cls, omega, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
-        T = tau / omega
 
-        # initialise
+        # Precomputations & initialisations
+        t = np.linspace(0, T * delta_S, nsteps + 1)
+        eye_flat = np.eye(4).flatten()
+        partition_steps = np.arange(npartition) * (nsteps + 1)
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         E = np.zeros([nsteps + 1, npartition])
 
+        # Main loop for each partition
         for ipart in range(npartition):
-            # index values required for looping the partitions
-            i = ipart * twoN
-            i1 = (ipart + 1) * twoN
-            j = (ipart + 1) % npartition * twoN
-            j1 = ((ipart + 1) % npartition + 1) * twoN
-            p = ipart * (nsteps + 1)
-            p1 = (ipart + 1) * (nsteps + 1)
+            i0, i1 = ipart * twoN, (ipart + 1) * twoN
+            j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
+            p0, p1 = partition_steps[ipart], partition_steps[ipart] + nsteps + 1
 
-            # get total displacements from x and pose_base and do time integration
-            X_total = X[i:i1].copy()
-            X_total[:N] += pose_base[:, ipart].flatten().copy()
-            t = np.linspace(0, T * delta_S, nsteps + 1)
-            initial_cond_aug = np.concatenate((X_total, np.eye(4).flatten()))
-            Xsol_aug = np.array(
-                odeint(cls.model_sens_ode, initial_cond_aug, t, rtol=rel_tol, tfirst=True)
-            )
-            Xsol, M = Xsol_aug[:, :twoN], Xsol_aug[-1, twoN:].reshape(twoN, twoN)
-            pose_time[:, p:p1] = Xsol[:, :N].T
-            vel_time[:, p:p1] = Xsol[:, N:].T
+            # Compute initial conditions add increment to pose
+            X0 = X[i0:i1] + np.concatenate((pose_base[:, ipart], np.zeros(N)))
+            all_ic = np.concatenate((X0, eye_flat))
+            
+            # Solve
+            sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
+            Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
+            pose_time[:, p0:p1] = Xsol[:, :N].T
+            vel_time[:, p0:p1] = Xsol[:, N:].T
 
             # Monodromy and augmented Jacobian
-            dHdt = cls.model_ode(None, Xsol[-1, :]) * delta_S
-            J[i:i1, i:i1] = M
-            J[i:i1, j:j1] -= np.eye(twoN)
-            J[i:i1, -1] = dHdt
+            dHdT = cls.model_ode(None, Xsol[-1, :]) * delta_S
+            J[i0:i1, i0:i1] = M
+            J[i0:i1, j0:j1] -= np.eye(twoN)
+            J[i0:i1, -1] = dHdT
 
             # Energy
-            for k in range(nsteps + 1):
-                x = Xsol[k, :N]
-                xdot = Xsol[k, N:]
-                Fnl = 0.25 * cls.Knl * x[0]**4
-                E[k, ipart] = 0.5 * (xdot.T @ cls.M @ xdot + x.T @ cls.K @ x) + Fnl
+            E[:, ipart] = (
+            0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
+                            np.dot(cls.M, Xsol[:, N:].T).T) +
+            0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
+                            np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
+            )
 
         # time solution indicies which enclose each partition & order of the partitions for periodicity
-        timesol_partition_index_start = nsteps * np.arange(npartition) + np.arange(npartition)
-        timesol_partition_index_end = timesol_partition_index_start - 1
-        block_order = (np.arange(npartition) + 1) % npartition
+        indices_start = partition_steps
+        indices_end = indices_start - 1
+        block_order = (np.arange(npartition) + 1) % npartition        
 
         # Periodicity condition for all partitions
-        H1 = (
-            pose_time[cls.free_dof][:, timesol_partition_index_end[block_order]] -
-            pose_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        )
-        H2 = (
-            vel_time[cls.free_dof][:, timesol_partition_index_end[block_order]] -
-            vel_time[cls.free_dof][:, timesol_partition_index_start[block_order]]
-        )
+        H1 = (pose_time[cls.free_dof][:, indices_end[block_order]] - pose_time[cls.free_dof][:, indices_start[block_order]])
+        H2 = (vel_time[cls.free_dof][:, indices_end[block_order]] - vel_time[cls.free_dof][:, indices_start[block_order]])      
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
         # solution pose and vel taken from time 0 for each partition
-        pose = pose_time[:, timesol_partition_index_start]
-        vel = vel_time[:, timesol_partition_index_start]
+        pose = pose_time[:, indices_start]
+        vel = vel_time[:, indices_start]
 
-        # Energy, conservative system so take mean of all time
-        energy = np.mean(E)
+        energy = np.mean(E)  
 
-        cvg = True
-        return H, J, pose, vel, energy, cvg
+        return H, J, pose, vel, energy, True
 
     @classmethod
-    def partition_singleshooting_solution(cls, omega, tau, X, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, omega, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
-        T = tau / omega
 
         # do time integration along whole orbit before slicing
-        X_total = X.copy()
-        X_total[:N] += pose_base.flatten().copy()
+        X0 = X + np.concatenate((pose_base, np.zeros(N)))
         t = np.linspace(0, T, nsteps * npartition + 1)
-        Xsol = np.array(odeint(cls.model_ode, X_total, t, rtol=rel_tol, tfirst=True))
+        Xsol = np.array(odeint(cls.model_ode, X0, t, rtol=rel_tol, tfirst=True))
         pose_time = Xsol[:, :N].T
         vel_time = Xsol[:, N:].T
         pose = pose_time[:, slicing_index]
-        V = vel_time[:, slicing_index]
+        vel = vel_time[:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity
-        Xsol = np.concatenate((np.zeros((N, npartition)), V))
+        Xsol = np.concatenate((np.zeros((N, npartition)), vel))
         Xsol = np.reshape(Xsol, (-1), order="F")
         return Xsol, pose
 

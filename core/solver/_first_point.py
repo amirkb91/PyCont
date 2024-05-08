@@ -53,6 +53,7 @@ def first_point(self):
         # set inc to zero as pose_time[:, 0] will have included inc
         self.pose = pose_time[:, 0]
         self.X0[:N] = 0.0
+        self.vel = vel_time[:, 0]
 
         # Compute Tangent
         if shooting_method == "single":
@@ -81,7 +82,7 @@ def first_point(self):
 
         self.log.store(
             sol_pose=self.pose,
-            sol_vel=vel_time[:, 0],
+            sol_vel=self.vel,
             sol_T=self.tau / self.omega,
             sol_tgt=self.tgt0,
             sol_energy=energy,
