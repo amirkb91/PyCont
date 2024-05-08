@@ -118,20 +118,26 @@ class Cubic_Spring:
         twoN = 2 * N
         delta_S = 1 / npartition
 
-        # Precomputations & initialisations
+        # Precomputations
+        partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
+        indices_start = partition_extremeties[:npartition]
+        indices_end = indices_start - 1
+        block_order = (np.arange(npartition) + 1) % npartition                
+
+        # Initialisations
         t = np.linspace(0, T * delta_S, nsteps + 1)
-        eye_flat = np.eye(4).flatten()
-        partition_steps = np.arange(npartition) * (nsteps + 1)
+        eye_flat = np.eye(4).flatten()        
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         E = np.zeros([nsteps + 1, npartition])
+        energy = 0
 
         # Main loop for each partition
         for ipart in range(npartition):
             i0, i1 = ipart * twoN, (ipart + 1) * twoN
             j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
-            p0, p1 = partition_steps[ipart], partition_steps[ipart] + nsteps + 1
+            p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
 
             # Compute initial conditions add increment to pose
             X0 = X[i0:i1] + np.concatenate((pose_base[:, ipart], np.zeros(N)))
@@ -156,11 +162,7 @@ class Cubic_Spring:
             0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
                             np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
             )
-
-        # time solution indicies which enclose each partition & order of the partitions for periodicity
-        indices_start = partition_steps
-        indices_end = indices_start - 1
-        block_order = (np.arange(npartition) + 1) % npartition        
+            energy = np.max([energy, np.max(E)])
 
         # Periodicity condition for all partitions
         H1 = (pose_time[cls.free_dof][:, indices_end[block_order]] - pose_time[cls.free_dof][:, indices_start[block_order]])
@@ -170,8 +172,6 @@ class Cubic_Spring:
         # solution pose and vel taken from time 0 for each partition
         pose = pose_time[:, indices_start]
         vel = vel_time[:, indices_start]
-
-        energy = np.mean(E)  
 
         return H, J, pose, vel, energy, True
 
