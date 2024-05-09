@@ -88,8 +88,7 @@ class Duffing:
         rel_tol = cont_params["shooting"]["rel_tol"]
 
         # Add position to increment and do time sim to get solution and sensitivities
-        X0 = X.copy()
-        X0[0] += pose_base
+        X0 = X + np.array([pose_base, 0])
         t = np.linspace(0, T, nsteps + 1)
         # Initial conditions for the augmented system, eye for monodromy and zero for time and force sens
         all_ic = np.concatenate((X0, np.eye(2).flatten(), np.zeros(2), np.zeros(2)))
@@ -108,9 +107,9 @@ class Duffing:
         dHdF = dXdF
         J = np.concatenate((dHdX0, dHdT.reshape(-1, 1)), axis=1)
 
-        # solution pose and vel over time
-        pose_time = Xsol[:, 0].reshape(1, -1)
-        vel_time = Xsol[:, 1].reshape(1, -1)
+        # solution pose and vel at time 0
+        pose = Xsol[0, 0]
+        vel = Xsol[0, 1]
 
         # Energy
         E0 = (0.5 * (Xsol[:, 1]**2 + cls.alpha * Xsol[:, 0]**2) + 0.25 * cls.beta * Xsol[:, 0]**4)
@@ -133,7 +132,7 @@ class Duffing:
         #     0.5 * Xsol[:, 1]**2 - 0.5 * cls.alpha * Xsol[:, 0]**2 - 0.25 * cls.beta * Xsol[:, 0]**4
         # )
 
-        return H, J, pose_time, vel_time, energy, True
+        return H, J, pose, vel, energy, True
 
     @classmethod
     def get_fe_data(cls):

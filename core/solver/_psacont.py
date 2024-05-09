@@ -48,7 +48,7 @@ def psacont(self):
             else:
                 sensitivity = False
 
-            [H, Jsim, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, Jsim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
             if not cvg_zerof:
@@ -111,7 +111,7 @@ def psacont(self):
                     # remove tgt from Jacobian and fix period component to 1
                     J[-1, :] *= 0.0
                     J[-1, -1] = 1
-                Z = np.zeros((twoN + self.nphase + 1, 1))
+                Z = np.zeros((np.shape(J)[0], 1))
                 Z[-1] = 1
                 if not forced:
                     tgt_next = spl.lstsq(
@@ -146,8 +146,8 @@ def psacont(self):
                     beta=beta,
                 )
                 self.log.store(
-                    sol_pose=pose_time[:, 0],
-                    sol_vel=vel_time[:, 0],
+                    sol_pose=pose,
+                    sol_vel=vel,
                     sol_T=tau_pred / omega,
                     sol_tgt=tgt_next,
                     sol_energy=energy,
@@ -164,8 +164,8 @@ def psacont(self):
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
                 # update pose_base and set inc to zero (slice 0:N on each partition)
-                # pose_time[:, 0] will have included inc from current sol
-                pose_base = pose_time[:, 0].copy()
+                # pose will have included inc from current sol
+                pose_base = pose.copy()
                 X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
                 # if self.prob.cont_params["shooting"]["scaling"]:

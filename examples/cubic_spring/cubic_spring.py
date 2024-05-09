@@ -78,7 +78,7 @@ class Cubic_Spring:
 
         # Compute initial conditions add increment to pose
         X0 = X + np.concatenate((pose_base, np.zeros(N)))
-        all_ic = np.concatenate((X0, np.eye(4).flatten()))
+        all_ic = np.concatenate((X0, np.eye(twoN).flatten()))
 
         # Solve
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
@@ -95,9 +95,9 @@ class Cubic_Spring:
         dHdT = gX_T
         J = np.concatenate((dHdX0, dHdT.reshape(-1, 1)), axis=1)
 
-        # solution pose and vel over time
-        pose_time = Xsol[:, :N].T
-        vel_time = Xsol[:, N:].T
+        # solution pose and vel at time 0
+        pose = Xsol[0, :N]
+        vel = Xsol[0, N:]
 
         # Energy
         energy = np.max(
@@ -107,10 +107,10 @@ class Cubic_Spring:
                             np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
         )
 
-        return H, J, pose_time, vel_time, energy, True
+        return H, J, pose, vel, energy, True
 
     @classmethod
-    def time_solve_multiple(cls, omega, T, X, pose_base, cont_params):
+    def time_solve_multiple(cls, omega, T, X, pose_base, cont_params, sensitivity=True):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -169,7 +169,7 @@ class Cubic_Spring:
         H2 = (vel_time[cls.free_dof][:, indices_end[block_order]] - vel_time[cls.free_dof][:, indices_start[block_order]])      
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-        # solution pose and vel taken from time 0 for each partition
+        # solution pose and vel at time 0 for each partition
         pose = pose_time[:, indices_start]
         vel = vel_time[:, indices_start]
 

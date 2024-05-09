@@ -9,10 +9,10 @@ from concurrent.futures import ProcessPoolExecutor
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    # cpp_example = "beam_2D"
+    cpp_example = "beam_2D"
     # cpp_example = "beam_rightangle"
     # cpp_example = "beam_boxwing"
-    cpp_example = "beam_vertcant"
+    # cpp_example = "beam_vertcant"
 
     if cpp_example == "beam_2D":
         # mybeam_2D (doubly clamped, arch, cantilever)
@@ -111,7 +111,7 @@ class BeamCpp:
         return eig, frq, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
+    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         N = cls.ndof_free
@@ -161,7 +161,12 @@ class BeamCpp:
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
 
-        return H, J, pose_time, vel_time, energy, cvg
+        pose = pose_time[:, 0]
+        vel = vel_time[:, 0]
+        if not fulltime:
+            return H, J, pose, vel, energy, cvg
+        else:
+            return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
     def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):

@@ -59,7 +59,7 @@ with alive_bar(n_solpoints) as bar:
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
         if run_bif:
             [_, J, pose_time[:, :, i], vel_time[:, :, i], _,
-             _] = BeamCpp.runsim_single(1.0, T[i], X, pose[:, i], par)
+             _] = BeamCpp.runsim_single(1.0, T[i], X, pose[:, i], par, fulltime=True)
             M = J[:, :-1] + np.eye(2 * BeamCpp.ndof_free)
             bifurcation_out = bifurcation_functions(M)
             Floquet[:, i] = bifurcation_out[0]
@@ -69,7 +69,7 @@ with alive_bar(n_solpoints) as bar:
             Neimark_Sacker[i] = bifurcation_out[4]
         else:
             [_, _, pose_time[:, :, i], vel_time[:, :, i], _, _] = BeamCpp.runsim_single(
-                1.0, T[i], X, pose[:, i], par, sensitivity=False
+                1.0, T[i], X, pose[:, i], par, sensitivity=False, fulltime=True
             )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         bar()
