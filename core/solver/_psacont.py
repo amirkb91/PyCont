@@ -28,6 +28,12 @@ def psacont(self):
     direction = continuation_params["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
+    # boolean masks (have no effect on single shooting)
+    inc_mask = np.mod(np.arange(X.size), twoN) < N
+    vel_mask = ~inc_mask
+    tgt_mask = np.ones(np.shape(tgt), dtype=bool)
+    tgt_mask[twoN:-1] = False
+
     # continuation loop
     itercont = 1
     while True:
@@ -102,11 +108,11 @@ def psacont(self):
 
         if cvg_cont:
             # find new tangent with converged solution
-            if frml == "secant":   # Secant below not applicable for multiple shooting
+            if frml == "secant":
                 # Find difference between solutions at current and previous step
                 # For non-Lie group formulations, this is already equal to X_pred, since pose-pose_base = X_pred[:N]
                 # For Lie group formulations, relative inc between pose and pose_base should be found with log map
-                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
+                tgt_next = np.concatenate((X_pred[inc_mask], (X_pred - X)[vel_mask], [tau_pred - tau]))
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
@@ -123,13 +129,11 @@ def psacont(self):
             tgt_next /= spl.norm(tgt_next)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            # performed using tangent of first partition + T only (mask has no effect on single shooting)
-            mask = np.ones(np.shape(tgt), dtype=bool)
-            mask[twoN:-1] = False
+            # performed using tangent of first partition + T only
             beta = np.degrees(
                 np.arccos(
-                    (tgt_next[mask].T @ tgt[mask]) /
-                    (spl.norm(tgt[mask]) * spl.norm(tgt_next[mask]))
+                    (tgt_next[tgt_mask].T @ tgt[tgt_mask]) /
+                    (spl.norm(tgt[tgt_mask]) * spl.norm(tgt_next[tgt_mask]))
                 )
             )
             if continuation_params["betacontrol"] and beta > continuation_params["betamax"]:
@@ -159,7 +163,7 @@ def psacont(self):
 
                 itercont += 1
                 if frml in ("peeters", "secant"):  # and beta >= 90:
-                    # stepsign = np.sign(stepsign * tgt_next[mask].T @ tgt[mask])
+                    # stepsign = np.sign(stepsign * tgt_next[tgt_mask].T @ tgt[tgt_mask])
                     stepsign = np.sign(stepsign * np.cos(np.radians(beta)))
                 tau = tau_pred
                 X = X_pred.copy()

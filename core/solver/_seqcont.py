@@ -11,8 +11,8 @@ def seqcont(self):
     twoN = 2 * N
 
     # first point solution
-    X = self.X0.copy()
-    pose_base = self.pose.copy()
+    X = self.X0
+    pose_base = self.pose
     omega = self.omega
     tau = self.tau
 
@@ -41,7 +41,7 @@ def seqcont(self):
             else:
                 sensitivity = False
 
-            [H, Jsim, pose_time, vel_time, energy, cvg_zerof] = self.prob.zerofunction(
+            [H, Jsim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
                 omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
             )
             if not cvg_zerof:
@@ -92,8 +92,8 @@ def seqcont(self):
                 beta=0.0,
             )
             self.log.store(
-                sol_pose=pose_time[:, 0],
-                sol_vel=vel_time[:, 0],
+                sol_pose=pose,
+                sol_vel=vel,
                 sol_T=tau_pred / omega,
                 sol_energy=energy,
                 sol_itercorrect=itercorrect,
@@ -104,8 +104,8 @@ def seqcont(self):
             tau = tau_pred
             X = X_pred.copy()
             # update pose_base and set inc to zero (slice 0:N on each partition)
-            # pose_time[:, 0] will have included inc from current sol
-            pose_base = pose_time[:, 0].copy()
+            # pose will have included inc from current sol
+            pose_base = pose.copy()
             X[np.mod(np.arange(X.size), twoN) < N] = 0.0
 
             # if self.prob.cont_params["shooting"]["scaling"]:
