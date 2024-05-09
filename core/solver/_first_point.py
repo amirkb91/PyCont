@@ -20,7 +20,7 @@ def first_point(self):
             if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
@@ -52,7 +52,6 @@ def first_point(self):
 
         # set inc to zero as pose will have included inc
         self.X0[:N] = 0.0
-        self.pose = pose
 
         # Compute Tangent
         if shooting_method == "single":
@@ -62,12 +61,14 @@ def first_point(self):
             self.X0, self.pose = self.prob.partitionfunction(
                 self.omega, self.tau, self.X0, self.pose, cont_params
             )
-            [_, J, self.pose, vel, energy, _] = self.prob.zerofunction(
+            # size of X0 has changed so reconfigure phase condition matrix
+            phase_condition(self)            
+            # override Jacobian with new Jacobian for all partitions
+            [_, J, _, vel, _, _] = self.prob.zerofunction(
                 self.omega, self.tau, self.X0, self.pose, cont_params
             )
-            # size of X0 has changed so reconfigure phase condition matrix
-            phase_condition(self)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
+
         J[-1, -1] = 1
         Z = np.zeros((np.shape(J)[0], 1))
         Z[-1] = 1
@@ -80,7 +81,7 @@ def first_point(self):
         #     self.tau = 1.0
 
         self.log.store(
-            sol_pose=pose,
+            sol_pose=self.pose,
             sol_vel=vel,
             sol_T=self.tau / self.omega,
             sol_tgt=self.tgt0,
@@ -95,7 +96,7 @@ def first_point(self):
             if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
-            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
@@ -121,7 +122,6 @@ def first_point(self):
             self.X0 += dx[:, 0]
 
         # set inc to zero as pose will have included inc
-        self.pose = pose
         self.X0[:N] = 0.0
 
         # Compute Tangent
@@ -133,7 +133,7 @@ def first_point(self):
         self.tgt0 /= spl.norm(self.tgt0)
 
         self.log.store(
-            sol_pose=pose,
+            sol_pose=self.pose,
             sol_vel=vel,
             sol_T=self.tau / self.omega,
             sol_tgt=self.tgt0,
@@ -144,7 +144,7 @@ def first_point(self):
 
     elif restart:
         if shooting_method == "single":
-            [H, J, pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
+            [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
                 self.omega, self.tau, self.X0, self.pose0, cont_params
             )
             residual = spl.norm(H)
@@ -161,13 +161,11 @@ def first_point(self):
                 )[0][:, 0]
                 self.tgt0 /= spl.norm(self.tgt0)
 
-            self.pose = pose
-
             self.log.screenout(
                 iter=0, correct=0, res=residual, freq=self.omega / self.tau, energy=energy
             )
             self.log.store(
-                sol_pose=pose,
+                sol_pose=self.pose,
                 sol_vel=vel,
                 sol_T=self.tau / self.omega,
                 sol_tgt=self.tgt0,
