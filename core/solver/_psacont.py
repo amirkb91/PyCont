@@ -112,7 +112,9 @@ def psacont(self):
                 # Find difference between solutions at current and previous step
                 # For non-Lie group formulations, this is already equal to X_pred, since pose-pose_base = X_pred[:N]
                 # For Lie group formulations, relative inc between pose and pose_base should be found with log map
-                tgt_next = np.concatenate((X_pred[inc_mask], (X_pred - X)[vel_mask], [tau_pred - tau]))
+                tgt_next = np.concatenate(
+                    (X_pred[inc_mask], (X_pred - X)[vel_mask], [tau_pred - tau])
+                )
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1

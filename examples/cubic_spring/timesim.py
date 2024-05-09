@@ -70,10 +70,26 @@ if method == "single":
 elif method == "multiple":
     for ipart in range(npartition):
         partition_starttime = ipart * T * delta_S
-        a1.axvline(partition_starttime, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
-        a1.axvline(partition_starttime + T * delta_S, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
-        a3.axvline(partition_starttime, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
-        a3.axvline(partition_starttime + T * delta_S, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
+        a1.axvline(
+            partition_starttime, color="gray", linestyle="--", alpha=0.1, label="_nolegend_"
+        )
+        a1.axvline(
+            partition_starttime + T * delta_S,
+            color="gray",
+            linestyle="--",
+            alpha=0.1,
+            label="_nolegend_",
+        )
+        a3.axvline(
+            partition_starttime, color="gray", linestyle="--", alpha=0.1, label="_nolegend_"
+        )
+        a3.axvline(
+            partition_starttime + T * delta_S,
+            color="gray",
+            linestyle="--",
+            alpha=0.1,
+            label="_nolegend_",
+        )
         color = plt.cm.turbo(ipart / npartition)
         a1.plot(t[:, :, ipart], pose_time[:, 0, ipart], "-", color=color)
         a1.plot(t[:, :, ipart], pose_time[:, 1, ipart], "--", color=color)

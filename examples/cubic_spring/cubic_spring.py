@@ -122,11 +122,11 @@ class Cubic_Spring:
         partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
         indices_start = partition_extremeties[:npartition]
         indices_end = indices_start - 1
-        block_order = (np.arange(npartition) + 1) % npartition                
+        block_order = (np.arange(npartition) + 1) % npartition
 
         # Initialisations
         t = np.linspace(0, T * delta_S, nsteps + 1)
-        eye_flat = np.eye(4).flatten()        
+        eye_flat = np.eye(4).flatten()
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
@@ -142,7 +142,7 @@ class Cubic_Spring:
             # Compute initial conditions add increment to pose
             X0 = X[i0:i1] + np.concatenate((pose_base[:, ipart], np.zeros(N)))
             all_ic = np.concatenate((X0, eye_flat))
-            
+
             # Solve
             sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
             Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
@@ -157,16 +157,22 @@ class Cubic_Spring:
 
             # Energy
             E[:, ipart] = (
-            0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
-                            np.dot(cls.M, Xsol[:, N:].T).T) +
-            0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
-                            np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
+                0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
+                                np.dot(cls.M, Xsol[:, N:].T).T) +
+                0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
+                                np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
             )
             energy = np.max([energy, np.max(E)])
 
         # Periodicity condition for all partitions
-        H1 = (pose_time[cls.free_dof][:, indices_end[block_order]] - pose_time[cls.free_dof][:, indices_start[block_order]])
-        H2 = (vel_time[cls.free_dof][:, indices_end[block_order]] - vel_time[cls.free_dof][:, indices_start[block_order]])      
+        H1 = (
+            pose_time[cls.free_dof][:, indices_end[block_order]] -
+            pose_time[cls.free_dof][:, indices_start[block_order]]
+        )
+        H2 = (
+            vel_time[cls.free_dof][:, indices_end[block_order]] -
+            vel_time[cls.free_dof][:, indices_start[block_order]]
+        )
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
         # solution pose and vel at time 0 for each partition

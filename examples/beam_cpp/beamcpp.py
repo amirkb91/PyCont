@@ -111,7 +111,9 @@ class BeamCpp:
         return eig, frq, pose0
 
     @classmethod
-    def runsim_single(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False):
+    def runsim_single(
+        cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
+    ):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         N = cls.ndof_free

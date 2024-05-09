@@ -62,11 +62,10 @@ def first_point(self):
                 self.omega, self.tau, self.X0, self.pose, cont_params
             )
             # size of X0 has changed so reconfigure phase condition matrix
-            phase_condition(self)            
+            phase_condition(self)
             # override Jacobian with new Jacobian for all partitions
-            [_, J, _, vel, _, _] = self.prob.zerofunction(
-                self.omega, self.tau, self.X0, self.pose, cont_params
-            )
+            [_, J, _, vel, _,
+             _] = self.prob.zerofunction(self.omega, self.tau, self.X0, self.pose, cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
 
         J[-1, -1] = 1
