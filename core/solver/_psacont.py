@@ -17,9 +17,9 @@ def psacont(self):
     cvg_sol = namedtuple("converged_solution", "X, T, H, J")
 
     # first point solution
-    X = self.X0.copy()
-    pose_base = self.pose.copy()
-    tgt = self.tgt0.copy()
+    X = self.X0
+    pose_base = self.pose
+    tgt = self.tgt0
     omega = self.omega
     tau = self.tau
 
@@ -102,10 +102,11 @@ def psacont(self):
 
         if cvg_cont:
             # find new tangent with converged solution
-            if frml == "secant":
-                # X_pred[:N]==INC and technically is already the diff between POSE for previous two sols
-                # tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
-                tgt_next = np.concatenate((X_pred - X, [tau_pred - tau]))
+            if frml == "secant":   # Secant below not applicable for multiple shooting
+                # Find difference between solutions at current and previous step
+                # For non-Lie group formulations, this is already equal to X_pred, since pose-pose_base = X_pred[:N]
+                # For Lie group formulations, relative inc between pose and pose_base should be found with log map
+                tgt_next = np.concatenate((X_pred[:N], X_pred[N:] - X[N:], [tau_pred - tau]))
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
@@ -185,10 +186,10 @@ def psacont(self):
             break
 
 
-def qrlinearsolver(A, b):
-    Q, R, P = spl.qr(A, pivoting=True, mode="economic")
-    Qt_b = np.dot(Q.T, b)
-    x_temp = spl.solve_triangular(R, Qt_b[:R.shape[0]])
-    x = np.zeros_like(x_temp)
-    x[P] = x_temp
-    return x
+# def qrlinearsolver(A, b):
+#     Q, R, P = spl.qr(A, pivoting=True, mode="economic")
+#     Qt_b = np.dot(Q.T, b)
+#     x_temp = spl.solve_triangular(R, Qt_b[:R.shape[0]])
+#     x = np.zeros_like(x_temp)
+#     x[P] = x_temp
+#     return x

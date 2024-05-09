@@ -50,23 +50,38 @@ elif method == "multiple":
         pose_time[:, :, ipart] = timesol[:, :2]
         vel_time[:, :, ipart] = timesol[:, 2:]
 
-    t = t.flatten(order="F")
-    pose_time = np.reshape(np.transpose(pose_time, (2, 0, 1)), (-1, 2))
-    vel_time = np.reshape(np.transpose(vel_time, (2, 0, 1)), (-1, 2))
+    # t = t.flatten(order="F")
+    # pose_time = np.reshape(np.transpose(pose_time, (2, 0, 1)), (-1, 2))
+    # vel_time = np.reshape(np.transpose(vel_time, (2, 0, 1)), (-1, 2))
 
 # plot
 f, (a1, a2, a3) = plt.subplots(1, 3, figsize=(10, 4))
 f.suptitle(f"Frequency = {1 / T:.3f} Hz")
 a1.set(xlabel="Time (s)", ylabel="Position (m)")
-a1.plot(t, pose_time[:, 0], "-", label="DoF 1")
-a1.plot(t, pose_time[:, 1], "--", label="DoF 2")
-a1.legend()
 a2.set(xlabel="Position DoF 1 (m)", ylabel="Position DoF 2 (m)")
-a2.plot(pose_time[:, 0], pose_time[:, 1], "-")
 a3.set(xlabel="Time (s)", ylabel="Velocity (m/s)")
-a3.plot(t, vel_time[:, 0], "-", label="DoF 1")
-a3.plot(t, vel_time[:, 1], "--", label="DoF 2")
-a3.legend()
+
+if method == "single":
+    a1.plot(t, pose_time[:, 0], "-", label="DoF 1")
+    a1.plot(t, pose_time[:, 1], "--", label="DoF 2")
+    a2.plot(pose_time[:, 0], pose_time[:, 1], "-")
+    a3.plot(t, vel_time[:, 0], "-", label="DoF 1")
+    a3.plot(t, vel_time[:, 1], "--", label="DoF 2")
+elif method == "multiple":
+    for ipart in range(npartition):
+        partition_starttime = ipart * T * delta_S
+        a1.axvline(partition_starttime, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
+        a1.axvline(partition_starttime + T * delta_S, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
+        a3.axvline(partition_starttime, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
+        a3.axvline(partition_starttime + T * delta_S, color='gray', linestyle='--', alpha=0.1, label='_nolegend_')
+        color = plt.cm.turbo(ipart / npartition)
+        a1.plot(t[:, :, ipart], pose_time[:, 0, ipart], "-", color=color)
+        a1.plot(t[:, :, ipart], pose_time[:, 1, ipart], "--", color=color)
+        a2.plot(pose_time[:, 0, ipart], pose_time[:, 1, ipart], "-", color=color)
+        a3.plot(t[:, :, ipart], vel_time[:, 0, ipart], "-", color=color)
+        a3.plot(t[:, :, ipart], vel_time[:, 1, ipart], "--", color=color)
+
+a1.legend(["DoF 1", "DoF 2"], loc="upper left")
 
 plt.tight_layout()
 plt.show()
