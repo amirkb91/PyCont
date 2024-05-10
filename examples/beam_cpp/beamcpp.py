@@ -327,20 +327,18 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        # do time integration along whole orbit before slicing.
-        # run nsteps per partition to ensure slicing is done at correct indices
-        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        # do time integration along whole orbit before slicing
+        cls.run_cpp(T, X, nsteps * npartition, rel_tol)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-
         pose = pose_time[:, slicing_index]
-        V = vel_time[cls.free_dof][:, slicing_index]
+        vel = vel_time[cls.free_dof][:, slicing_index]                
         # set inc to zero as solution stored in pose, keep velocity but scale first
-        V *= 1 / omega
-        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X_out = np.reshape(X_out, (-1), order="F")
-        return X_out, pose
+        vel *= 1 / omega
+        Xsol = np.concatenate((np.zeros((N, npartition)), vel))
+        Xsol = np.reshape(Xsol, (-1), order="F")
+        return Xsol, pose
 
     @classmethod
     def config_update(cls, pose):
