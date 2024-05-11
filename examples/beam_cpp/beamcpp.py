@@ -134,7 +134,7 @@ class BeamCpp:
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
             pose = pose_time[:, 0]
-            vel = vel_time[:, 0]               
+            vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
@@ -157,7 +157,7 @@ class BeamCpp:
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
                     pose = pose_time[:, 0]
-                    vel = vel_time[:, 0]  
+                    vel = vel_time[:, 0]
                     H = np.concatenate([periodicity_inc, periodicity_vel])
                     dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                     sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
@@ -179,14 +179,14 @@ class BeamCpp:
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
-        T = tau / omega        
+        T = tau / omega
 
         # Precomputations
         partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
         indices_start = partition_extremeties[:npartition]
         indices_end = indices_start - 1
         block_order = (np.arange(npartition) + 1) % npartition
-        
+
         # Initialisations
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
@@ -209,7 +209,7 @@ class BeamCpp:
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
                 E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
                 pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]            
+                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
 
                 M = simdata["/Sensitivity/Monodromy"][:]
                 dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
@@ -218,7 +218,7 @@ class BeamCpp:
                 M[:, N:] *= omega  # scale velocity derivatives
                 J[i0:i1, i0:i1] = M
                 J[i0:i1, j0:j1] -= np.eye(twoN)
-                J[i0:i1, -1] = dHdtau            
+                J[i0:i1, -1] = dHdtau
                 energy = np.max([energy, E])
                 simdata.close()
         cvg = all(cvg)
@@ -340,7 +340,7 @@ class BeamCpp:
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
         pose = pose_time[:, slicing_index]
-        vel = vel_time[cls.free_dof][:, slicing_index]                
+        vel = vel_time[cls.free_dof][:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity but scale first
         vel *= 1 / omega
         Xsol = np.concatenate((np.zeros((N, npartition)), vel))

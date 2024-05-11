@@ -91,7 +91,7 @@ def psacont(self):
 
             # apply corrections orthogonal to tangent
             itercorrect += 1
-            Jcr = J.copy()            
+            Jcr = J.copy()
             # Jcr[-1, twoN:-1] = 0.0  # ortho only 1st partition and T (no effect single shooting)
             hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
@@ -129,14 +129,16 @@ def psacont(self):
             # tgt_next /= spl.norm(tgt_next[-1])
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.degrees(np.arccos(np.dot(tgt_next, tgt) / (spl.norm(tgt) * spl.norm(tgt_next))))
+            beta = np.degrees(
+                np.arccos(np.dot(tgt_next, tgt) / (spl.norm(tgt) * spl.norm(tgt_next)))
+            )
             # beta below found using tangent of first partition + T only
             # beta_first_partition = np.degrees(
             #     np.arccos(
             #         (tgt_next[np.r_[0:twoN, -1]].T @ tgt[np.r_[0:twoN, -1]]) /
             #         (spl.norm(tgt[np.r_[0:twoN, -1]]) * spl.norm(tgt_next[np.r_[0:twoN, -1]]))
             #     )
-            # )            
+            # )
             if continuation_params["betacontrol"] and beta > continuation_params["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
@@ -165,7 +167,9 @@ def psacont(self):
                 itercont += 1
                 if frml in ("peeters", "secant"):  # and beta >= 90:
                     # stepsign = np.sign(stepsign * np.dot(tgt_next, tgt))
-                    stepsign = np.sign(stepsign * np.cos(np.radians(beta)))  # cos same as dot product
+                    stepsign = np.sign(
+                        stepsign * np.cos(np.radians(beta))
+                    )  # cos same as dot product
                 tau = tau_pred
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
