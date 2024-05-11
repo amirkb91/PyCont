@@ -171,7 +171,7 @@ class BeamCpp:
             return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
-    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
@@ -179,57 +179,62 @@ class BeamCpp:
         delta_S = 1 / npartition
         T = tau / omega
 
-        # initialise
+        # Precomputations
+        partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
+        indices_start = partition_extremeties[:npartition]
+        indices_end = indices_start - 1
+        block_order = (np.arange(npartition) + 1) % npartition
+        
+        # Initialisations
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((cls.ndof_config, (nsteps + 1), npartition))
-        vel_time = np.zeros((cls.ndof_all, (nsteps + 1), npartition))
-        energy = np.zeros(npartition)
+        pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
+        vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        energy = 0
         cvg = [None] * npartition
 
         for ipart in range(npartition):
             # index values required for looping the partitions
-            i = ipart * twoN
-            i1 = (ipart + 1) * twoN
-            j = (ipart + 1) % npartition * twoN
-            j1 = ((ipart + 1) % npartition + 1) * twoN
+            i0, i1 = ipart * twoN, (ipart + 1) * twoN
+            j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
+            p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
 
-            X = Xtilde[i:i1].copy()
+            X = Xtilde[i0:i1].copy()
             X[N:] *= omega  # scale velocities from Xtilde to X
             cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps)
-            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            M = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
-            M = np.delete(M, -1, axis=1)
-            M[:, N:] *= omega  # scale velocity derivatives
-            J[i:i1, i:i1] = M
-            J[i:i1, j:j1] -= np.eye(twoN)
-            J[i:i1, -1] = dHdtau
-            pose_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
-            simdata.close()
-        energy = np.mean(energy)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, sensitivity)
+            if cvg[ipart]:
+                simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+                E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
+                pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]            
+
+                M = simdata["/Sensitivity/Monodromy"][:]
+                dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
+                M = np.delete(M, -1, axis=1)
+                M += np.eye(twoN)
+                M[:, N:] *= omega  # scale velocity derivatives
+                J[i0:i1, i0:i1] = M
+                J[i0:i1, j0:j1] -= np.eye(twoN)
+                J[i0:i1, -1] = dHdtau            
+                energy = np.max([energy, E])
+                simdata.close()
+                
         cvg = all(cvg)
 
-        # solution pose and vel taken from time 0
-        pose = pose_time[:, 0, :]
-        vel = vel_time[:, 0, :]
+        # Periodicity condition for all partitions
+        H1 = (
+            pose_time[cls.free_dof][:, indices_end[block_order]] -
+            pose_time[cls.free_dof][:, indices_start[block_order]]
+        )
+        H2 = (
+            vel_time[cls.free_dof][:, indices_end[block_order]] -
+            vel_time[cls.free_dof][:, indices_start[block_order]]
+        )
+        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-        # periodicity (to be put in seperate method)
-        partition_order = (np.arange(npartition) + 1) % npartition
-        H = np.array([])
-        for ipart in range(npartition):
-            h_pose = (
-                pose_time[cls.free_dof, -1, ipart] -
-                pose_time[cls.free_dof, 0, partition_order[ipart]]
-            )
-            h_vel = (
-                vel_time[cls.free_dof, -1, ipart] -
-                vel_time[cls.free_dof, 0, partition_order[ipart]]
-            )
-            H = np.append(H, np.concatenate([h_pose, h_vel]))
-        H = H.reshape(-1, 1)
+        # solution pose and vel at time 0 for each partition
+        pose = pose_time[:, indices_start]
+        vel = vel_time[:, indices_start]
 
         return H, J, pose, vel, energy, cvg
 
@@ -318,7 +323,6 @@ class BeamCpp:
     def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
@@ -328,7 +332,7 @@ class BeamCpp:
 
         cls.config_update(pose_base)
         # do time integration along whole orbit before slicing
-        cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        cls.run_cpp(T, X, nsteps * npartition, True)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
