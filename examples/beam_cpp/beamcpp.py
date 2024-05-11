@@ -121,7 +121,7 @@ class BeamCpp:
         T = tau / omega
         X = Xtilde.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
-        H = J = pose_time = vel_time = energy = None
+        H = J = pose = vel = energy = None
 
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
@@ -133,6 +133,8 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            pose = pose_time[:, 0]
+            vel = vel_time[:, 0]               
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
@@ -154,6 +156,8 @@ class BeamCpp:
                         cls.free_dof]
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                    pose = pose_time[:, 0]
+                    vel = vel_time[:, 0]  
                     H = np.concatenate([periodicity_inc, periodicity_vel])
                     dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                     sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
@@ -163,8 +167,6 @@ class BeamCpp:
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
 
-        pose = pose_time[:, 0]
-        vel = vel_time[:, 0]
         if not fulltime:
             return H, J, pose, vel, energy, cvg
         else:
@@ -177,7 +179,7 @@ class BeamCpp:
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
-        T = tau / omega
+        T = tau / omega        
 
         # Precomputations
         partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
@@ -190,6 +192,7 @@ class BeamCpp:
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         energy = 0
+        H = pose = vel = None
         cvg = [None] * npartition
 
         for ipart in range(npartition):
@@ -218,23 +221,23 @@ class BeamCpp:
                 J[i0:i1, -1] = dHdtau            
                 energy = np.max([energy, E])
                 simdata.close()
-                
         cvg = all(cvg)
 
-        # Periodicity condition for all partitions
-        H1 = (
-            pose_time[cls.free_dof][:, indices_end[block_order]] -
-            pose_time[cls.free_dof][:, indices_start[block_order]]
-        )
-        H2 = (
-            vel_time[cls.free_dof][:, indices_end[block_order]] -
-            vel_time[cls.free_dof][:, indices_start[block_order]]
-        )
-        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
+        if cvg:
+            # Periodicity condition for all partitions
+            H1 = (
+                pose_time[cls.free_dof][:, indices_end[block_order]] -
+                pose_time[cls.free_dof][:, indices_start[block_order]]
+            )
+            H2 = (
+                vel_time[cls.free_dof][:, indices_end[block_order]] -
+                vel_time[cls.free_dof][:, indices_start[block_order]]
+            )
+            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-        # solution pose and vel at time 0 for each partition
-        pose = pose_time[:, indices_start]
-        vel = vel_time[:, indices_start]
+            # solution pose and vel at time 0 for each partition
+            pose = pose_time[:, indices_start]
+            vel = vel_time[:, indices_start]
 
         return H, J, pose, vel, energy, cvg
 
