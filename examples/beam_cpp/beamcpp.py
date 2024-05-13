@@ -5,6 +5,7 @@ import numpy as np
 from copy import deepcopy as dp
 import shutil
 from concurrent.futures import ProcessPoolExecutor
+from .Frame import Frame
 
 
 class BeamCpp:
@@ -54,6 +55,8 @@ class BeamCpp:
     ndof_all = None
     node_config = None
     ndof_config = None
+    pose_len = None
+    n_dim = None
     if "cpp_def_period" not in vars():
         cpp_def_period = 1.0
 
@@ -133,6 +136,7 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            myperiodicity_inc = cls.periodicity_SE(pose_time, vel_time)
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -365,6 +369,8 @@ class BeamCpp:
         cls.ndof_fix = len(cls.fix_dof)
         cls.ndof_config = np.size(cls.node_config)
         cls.ndof_all = cls.ndof_free + cls.ndof_fix
+        cls.pose_len = np.shape(cls.node_config)[0]
+        cls.n_dim = 2 if cls.pose_len == 4 else 3
         data.close()
 
     @classmethod
@@ -377,6 +383,19 @@ class BeamCpp:
             "node_config": cls.node_config,
             "ndof_config": cls.ndof_config,
         }
+
+    @classmethod
+    def periodicity_SE(cls, pose, vel):
+        periodicity_inc = np.array([])
+        for i in range(cls.ndof_config // cls.pose_len):
+            f = Frame.relative_frame(
+                cls.n_dim,
+                pose[i * cls.pose_len:(i + 1) * cls.pose_len, 0],
+                pose[i * cls.pose_len:(i + 1) * cls.pose_len, -1],
+            )
+            p = Frame.get_parameters_from_frame(cls.n_dim, f)
+            periodicity_inc = np.concatenate((periodicity_inc, p))
+        return periodicity_inc[cls.free_dof].reshape(-1, 1)
 
     # @classmethod
     # def periodicity(cls, pose, vel, target):
