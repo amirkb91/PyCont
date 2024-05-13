@@ -14,11 +14,6 @@ def tilde(x):
 
 class UnitQuaternion:
     @staticmethod
-    def multiply(q1, q2):
-        # Function to multiply two unit quaternions
-        pass
-
-    @staticmethod
     def relative_rotation(n_dim, q_a, q_b):
         if n_dim == 2:
             q = np.array([q_a[0] * q_b[0] + q_a[1] * q_b[1], q_a[0] * q_b[1] - q_a[1] * q_b[0]])
@@ -65,5 +60,3 @@ class UnitQuaternion:
             out = np.array([x, y, z])
 
         return out
-
-    # Add more functions related to unit quaternions here

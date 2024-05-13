@@ -55,7 +55,10 @@ class BeamCpp:
     ndof_all = None
     node_config = None
     ndof_config = None
-    pose_len = None
+    config_per_node = None
+    nnodes_all = None
+    dof_per_node = None
+    nnodes_free = None
     n_dim = None
     if "cpp_def_period" not in vars():
         cpp_def_period = 1.0
@@ -136,7 +139,8 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            myperiodicity_inc = cls.periodicity_SE(pose_time, vel_time)
+            myperiodicity_inc = cls.periodicity_INC_SE(pose_time[:, 0], pose_time[:, -1])
+            myperiodicity_vel = cls.periodicity_VEL_SE(myperiodicity_inc, vel_time[:, 0], vel_time[:, -1])
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -369,8 +373,11 @@ class BeamCpp:
         cls.ndof_fix = len(cls.fix_dof)
         cls.ndof_config = np.size(cls.node_config)
         cls.ndof_all = cls.ndof_free + cls.ndof_fix
-        cls.pose_len = np.shape(cls.node_config)[0]
-        cls.n_dim = 2 if cls.pose_len == 4 else 3
+        cls.config_per_node = np.shape(cls.node_config)[0]
+        cls.nnodes_all = np.shape(cls.node_config)[1]
+        cls.dof_per_node = cls.ndof_all // cls.nnodes_all
+        cls.nnodes_free = cls.ndof_free // cls.dof_per_node
+        cls.n_dim = 2 if cls.config_per_node == 4 else 3
         data.close()
 
     @classmethod
@@ -385,25 +392,33 @@ class BeamCpp:
         }
 
     @classmethod
-    def periodicity_SE(cls, pose, vel):
+    def periodicity_INC_SE(cls, pose_a, pose_b):
+        # inc = pose_a^-1 o pose_b
         periodicity_inc = np.array([])
-        for i in range(cls.ndof_config // cls.pose_len):
+        for i in range(cls.nnodes_all):
             f = Frame.relative_frame(
                 cls.n_dim,
-                pose[i * cls.pose_len:(i + 1) * cls.pose_len, 0],
-                pose[i * cls.pose_len:(i + 1) * cls.pose_len, -1],
+                pose_a[i * cls.config_per_node:(i + 1) * cls.config_per_node],
+                pose_b[i * cls.config_per_node:(i + 1) * cls.config_per_node],
             )
             p = Frame.get_parameters_from_frame(cls.n_dim, f)
             periodicity_inc = np.concatenate((periodicity_inc, p))
         return periodicity_inc[cls.free_dof].reshape(-1, 1)
 
-    # @classmethod
-    # def periodicity(cls, pose, vel, target):
-    #     if len(pose) == cls.ndof_all:
-    #         # VK formulation
-    #         posevel = np.concatenate([pose[cls.free_dof], vel[cls.free_dof]])
-    #         H = posevel - target
-    #     else:
-    #         # SE formulation
-    #         H = None
-    #     return H
+    @classmethod
+    def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
+        vel_a = vel_a[cls.free_dof]
+        vel_b = vel_b[cls.free_dof]
+        inc = inc.flatten()
+        periodicity_vel = np.array([])
+        for i in range(cls.nnodes_free):
+            v = (
+                -Frame.get_inverse_tangent_operator(
+                    cls.n_dim, -inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
+                ) @ vel_a[i * cls.dof_per_node:(i + 1) * cls.dof_per_node] +
+                Frame.get_inverse_tangent_operator(
+                    cls.n_dim, inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
+                ) @ vel_b[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
+            )
+            periodicity_vel = np.concatenate((periodicity_vel, v))
+        return periodicity_vel.reshape(-1, 1)
