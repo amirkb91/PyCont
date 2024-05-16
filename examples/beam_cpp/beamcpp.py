@@ -139,14 +139,17 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            myperiodicity_inc = cls.periodicity_INC_SE(pose_time[:, 0], pose_time[:, -1])
-            myperiodicity_vel = cls.periodicity_VEL_SE(myperiodicity_inc, vel_time[:, 0], vel_time[:, -1])
+            # myperiodicity_inc = cls.periodicity_INC_SE(pose_time[:, 0], pose_time[:, -1])
+            # myperiodicity_vel = cls.periodicity_VEL_SE(myperiodicity_inc, vel_time[:, 0], vel_time[:, -1])
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
                 J = simdata["/Sensitivity/Monodromy"][:, :]
+                monodromy = J.copy()
+                monodromy[:, :-1] += np.eye(2 * N)
+                sens = cls.sensitivity_periodicity_SE_correction(monodromy, periodicity_inc, vel_time)
                 J[:, N:] *= omega
                 J[:, -1] *= nperiod / omega
             simdata.close()
@@ -422,3 +425,68 @@ class BeamCpp:
             )
             periodicity_vel = np.concatenate((periodicity_vel, v))
         return periodicity_vel.reshape(-1, 1)
+
+    @staticmethod
+    def periodicity_INC_linear(pose_a, pose_b):
+        return (pose_b - pose_a).reshape(-1, 1)
+    
+    @classmethod
+    def periodicity_VEL_linear(cls, vel_a, vel_b):
+        return (vel_b[cls.free_dof] - vel_a[cls.free_dof]).reshape(-1, 1)
+    
+    @classmethod
+    def sensitivity_periodicity_SE_correction(cls, monodromy, periodicity_inc, vel_time):
+        
+        N = cls.ndof_free
+        nodes = cls.nnodes_free
+        dpn = cls.dof_per_node
+        n_dim = cls.n_dim
+        twoN = 2 * N
+        vel_time = vel_time[cls.free_dof]
+
+        sens_SE = np.zeros((twoN, twoN + 1))
+
+        # POSE sensitivities
+        for i in range(nodes):
+            psi = periodicity_inc[dpn * i : dpn * i + dpn]
+            T_pos = Frame.get_inverse_tangent_operator(n_dim, psi)
+            T_neg = Frame.get_inverse_tangent_operator(n_dim, -psi)
+            for j in range(nodes * 2):
+                sens_SE[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn] = (
+                    T_pos @ monodromy[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn]
+                )
+            # add T_neg on the diagonal elements only
+            sens_SE[dpn * i : dpn * i + dpn, dpn * i : dpn * i + dpn] += -T_neg
+
+            # POSE sensitivities wrt period
+            sens_SE[dpn * i : dpn * i + dpn, -1] = T_pos @ monodromy[dpn * i : dpn * i + dpn, -1]
+
+
+        # VEL sensitivities:
+        for i in range(nodes):
+            psi = periodicity_inc[dpn * i : dpn * i + dpn]
+            v0 = vel_time[dpn * i : dpn * i + dpn, 0]
+            vT = vel_time[dpn * i : dpn * i + dpn, -1]
+            T_pos = Frame.get_inverse_tangent_operator(n_dim, psi)
+            T_neg = Frame.get_inverse_tangent_operator(n_dim, -psi)
+            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
+            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
+            for j in range(nodes * 2):
+                pose_sens = sens_SE[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn]
+                sens_SE[N + dpn * i : N + dpn * i + dpn, dpn * j : dpn * j + dpn] = (
+                    (T_pos @ monodromy[N + dpn * i : N + dpn * i + dpn, dpn * j : dpn * j + dpn])
+                    + DT_neg @ pose_sens
+                    + DT_pos @ pose_sens
+                )
+            # add T_neg on the diagonal elements only
+            sens_SE[N + dpn * i : N + dpn * i + dpn, N + dpn * i : N + dpn * i + dpn] += -T_neg
+
+            # VEL sensitivities wrt period
+            pose_sens = sens_SE[dpn * i : dpn * i + dpn, -1]
+            sens_SE[N + dpn * i : N + dpn * i + dpn, -1] = (
+                T_pos @ monodromy[N + dpn * i : N + dpn * i + dpn, -1]
+                + DT_neg @ pose_sens
+                + DT_pos @ pose_sens
+            )
+
+        return sens_SE

@@ -35,9 +35,8 @@ class Frame:
     @staticmethod
     def get_inverse_tangent_operator(n_dim, parameters):
         # Calculate the inverse tangent operator from the vector parameters
-        parameters = parameters.flatten()
         if n_dim == 2:
-            p0 = np.sqrt(1.0 - 0.25 * parameters[2]**2)
+            p0 = np.sqrt(1.0 - 0.25 * parameters[2] ** 2)
             Tm1 = p0 * np.eye(3)
             Tm1[0, 1] = -0.5 * parameters[2]
             Tm1[1, 0] = 0.5 * parameters[2]
@@ -50,3 +49,32 @@ class Frame:
             Tm1[:3, :3] = Tm1[3:, 3:] = p0 * np.eye(3) + tilde(0.5 * parameters[3:])
             Tm1[:3, 3:] = -rho / (4.0 * p0) * np.eye(3) + tilde(0.5 * parameters[:3])
         return Tm1
+    
+    @staticmethod
+    def get_derivative_inverse_tangent_operator(n_dim, parameters, direction):
+        # Calculate the derivative inverse tangent operator from the vector parameters along a direction
+        if n_dim == 2:
+            DTinv = np.zeros((3, 3))
+            p0 = np.sqrt(1.0 - 0.25 * parameters[2] ** 2)
+            c = -0.25 / p0 * parameters[2]
+            DTinv[0, 1] = 0.5 * direction[2]
+            DTinv[1, 0] = -0.5 * direction[2]
+            DTinv[2, 2] = -0.25 / p0 * direction[2] * parameters[2]
+            DTinv[0, 2] = c * direction[0] - 0.5 * direction[1]
+            DTinv[1, 2] = c * direction[1] + 0.5 * direction[0]
+
+        elif n_dim == 3:
+            p0 = np.sqrt(1.0 - 0.25 * np.dot(parameters[3:], parameters[3:]))
+            rho = np.dot(parameters[:3], parameters[3:])
+            pu, pw = parameters[:3].reshape((3, 1)), parameters[3:].reshape((3, 1))
+            du, dw = direction[:3].reshape((3, 1)), direction[3:].reshape((3, 1))
+
+            DTinv0u = tilde(-0.5 * du) - ((0.25 / p0) * (du @ pw.T))
+            DTinv0u += ((-0.25 * rho * 0.25 / (p0**3)) * (dw @ pw.T)) - (
+                (0.25 / p0) * (dw @ pu.T)
+            )
+            DTinv0r = tilde(-0.5 * dw) - ((0.25 / p0) * (dw @ pw.T))
+
+            DTinv = np.block([[DTinv0r, DTinv0u], [np.zeros((3, 3)), DTinv0r]])
+
+        return DTinv    
