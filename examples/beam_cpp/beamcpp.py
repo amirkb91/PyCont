@@ -443,48 +443,55 @@ class BeamCpp:
         n_dim = cls.n_dim
         twoN = 2 * N
         vel_time = vel_time[cls.free_dof]
-
         sens_SE = np.zeros((twoN, twoN + 1))
 
+        # Precompute indices
+        indices_N = np.array([(dpn * i, dpn * i + dpn) for i in range(nodes)])
+        indices_2N = np.array([(dpn * i, dpn * i + dpn) for i in range(nodes * 2)])
+        indices_comb = np.array([(dpn * i, dpn * i + dpn, N + dpn * i, N + dpn * i + dpn) for i in range(nodes)])
+        
+        # Precompute inverse tangent operators
+        T_pos_neg = np.array([
+            (Frame.get_inverse_tangent_operator(n_dim, periodicity_inc[dpn * i : dpn * i + dpn]),
+            Frame.get_inverse_tangent_operator(n_dim, -periodicity_inc[dpn * i : dpn * i + dpn]))
+            for i in range(nodes)
+        ])
+        
         # POSE sensitivities
-        for i in range(nodes):
-            psi = periodicity_inc[dpn * i : dpn * i + dpn]
-            T_pos = Frame.get_inverse_tangent_operator(n_dim, psi)
-            T_neg = Frame.get_inverse_tangent_operator(n_dim, -psi)
-            for j in range(nodes * 2):
-                sens_SE[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn] = (
-                    T_pos @ monodromy[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn]
+        for i, (start, end) in enumerate(indices_N):
+            T_pos, T_neg = T_pos_neg[i]
+            for (j_start, j_end) in indices_2N:
+                sens_SE[start:end, j_start:j_end] = (
+                    T_pos @ monodromy[start:end, j_start:j_end]
                 )
             # add T_neg on the diagonal elements only
-            sens_SE[dpn * i : dpn * i + dpn, dpn * i : dpn * i + dpn] += -T_neg
+            sens_SE[start:end, start:end] += -T_neg
 
             # POSE sensitivities wrt period
-            sens_SE[dpn * i : dpn * i + dpn, -1] = T_pos @ monodromy[dpn * i : dpn * i + dpn, -1]
-
+            sens_SE[start:end, -1] = T_pos @ monodromy[start:end, -1]
 
         # VEL sensitivities:
-        for i in range(nodes):
-            psi = periodicity_inc[dpn * i : dpn * i + dpn]
-            v0 = vel_time[dpn * i : dpn * i + dpn, 0]
-            vT = vel_time[dpn * i : dpn * i + dpn, -1]
-            T_pos = Frame.get_inverse_tangent_operator(n_dim, psi)
-            T_neg = Frame.get_inverse_tangent_operator(n_dim, -psi)
+        for i, (start, end, n_start, n_end) in enumerate(indices_comb):
+            psi = periodicity_inc[start:end]
+            v0 = vel_time[start:end, 0]
+            vT = vel_time[start:end, -1]
+            T_pos, T_neg = T_pos_neg[i]
             DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
             DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
-            for j in range(nodes * 2):
-                pose_sens = sens_SE[dpn * i : dpn * i + dpn, dpn * j : dpn * j + dpn]
-                sens_SE[N + dpn * i : N + dpn * i + dpn, dpn * j : dpn * j + dpn] = (
-                    (T_pos @ monodromy[N + dpn * i : N + dpn * i + dpn, dpn * j : dpn * j + dpn])
+            for (j_start, j_end) in indices_2N:
+                pose_sens = sens_SE[start:end, j_start:j_end]
+                sens_SE[n_start:n_end, j_start:j_end] = (
+                    (T_pos @ monodromy[n_start:n_end, j_start:j_end])
                     + DT_neg @ pose_sens
                     + DT_pos @ pose_sens
                 )
             # add T_neg on the diagonal elements only
-            sens_SE[N + dpn * i : N + dpn * i + dpn, N + dpn * i : N + dpn * i + dpn] += -T_neg
+            sens_SE[n_start:n_end, n_start:n_end] += -T_neg
 
             # VEL sensitivities wrt period
-            pose_sens = sens_SE[dpn * i : dpn * i + dpn, -1]
-            sens_SE[N + dpn * i : N + dpn * i + dpn, -1] = (
-                T_pos @ monodromy[N + dpn * i : N + dpn * i + dpn, -1]
+            pose_sens = sens_SE[start:end, -1]
+            sens_SE[n_start:n_end, -1] = (
+                T_pos @ monodromy[n_start:n_end, -1]
                 + DT_neg @ pose_sens
                 + DT_pos @ pose_sens
             )
