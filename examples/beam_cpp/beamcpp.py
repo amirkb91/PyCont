@@ -185,10 +185,12 @@ class BeamCpp:
 
     @classmethod
     def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
+        # multiple shooting sensitivity SE correction done in Python
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
+            "apply_SE_correction"] = False
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
-        SEbeam = cls.config_per_node != cls.dof_per_node
         twoN = 2 * N
         delta_S = 1 / npartition
         T = tau / omega
@@ -226,13 +228,13 @@ class BeamCpp:
                 M = simdata["/Sensitivity/Monodromy"][:]
                 M[:twoN, :twoN] += np.eye(twoN)  # cpp monodromy is M - I
                 simdata.close()
-                if not SEbeam:
+                if cls.SEbeam:
+                    pass
+                else:
                     M[:, N:-1] *= omega  # scale velocity derivatives
                     J[i0:i1, i0:i1] = M[:, :-1]
                     J[i0:i1, j0:j1] -= np.eye(twoN)
                     J[i0:i1, -1] = M[:, -1] * delta_S * 1 / omega  # scale time derivative
-                else:
-                    pass
 
         cvg = all(cvg)
 
@@ -242,18 +244,21 @@ class BeamCpp:
             vel = vel_time[:, indices_start]
 
             # Periodicity condition for all partitions
-            if not SEbeam:
+            if cls.SEbeam:
+                H1 = cls.periodicity_INC_SE(
+                    pose_time[:, indices_start[block_order]],
+                    pose_time[:, indices_end[block_order]],
+                )
+            else:
                 H1 = cls.periodicity_INC_linear(
-                    pose_time[cls.free_dof][:, indices_start[block_order]],
-                    pose_time[cls.free_dof][:, indices_end[block_order]],
+                    pose_time[:, indices_start[block_order]],
+                    pose_time[:, indices_end[block_order]],
                 )
                 H2 = cls.periodicity_VEL_linear(
-                    vel_time[cls.free_dof][:, indices_start[block_order]],
-                    vel_time[cls.free_dof][:, indices_end[block_order]],
+                    vel_time[:, indices_start[block_order]],
+                    vel_time[:, indices_end[block_order]],
                 )
                 H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
-            else:
-                pass
 
         return H, J, pose, vel, energy, cvg
 
@@ -386,6 +391,7 @@ class BeamCpp:
         cls.dof_per_node = cls.ndof_all // cls.nnodes_all
         cls.nnodes_free = cls.ndof_free // cls.dof_per_node
         cls.n_dim = 2 if cls.config_per_node == 4 else 3
+        cls.SEbeam = cls.config_per_node != cls.dof_per_node
 
     @classmethod
     def get_dofdata(cls):
@@ -398,27 +404,29 @@ class BeamCpp:
             "ndof_config": cls.ndof_config,
         }
 
-    @staticmethod
-    def periodicity_INC_linear(pose_a, pose_b):
-        return pose_b - pose_a
+    @classmethod
+    def periodicity_INC_linear(cls, pose_a, pose_b):
+        return (pose_b - pose_a)[cls.free_dof, :]
 
     @classmethod
     def periodicity_VEL_linear(cls, vel_a, vel_b):
-        return vel_b - vel_a
+        return (vel_b - vel_a)[cls.free_dof, :]
 
     @classmethod
     def periodicity_INC_SE(cls, pose_a, pose_b):
         # inc = pose_a^-1 o pose_b
-        periodicity_inc = np.array([])
-        for i in range(cls.nnodes_all):
-            f = Frame.relative_frame(
-                cls.n_dim,
-                pose_a[i * cls.config_per_node:(i + 1) * cls.config_per_node],
-                pose_b[i * cls.config_per_node:(i + 1) * cls.config_per_node],
-            )
-            p = Frame.get_parameters_from_frame(cls.n_dim, f)
-            periodicity_inc = np.concatenate((periodicity_inc, p))
-        return periodicity_inc[cls.free_dof].reshape(-1, 1)
+        # loop over all partitions
+        periodicity_inc = np.zeros((cls.ndof_all, pose_a.shape[1]))
+        for i in range(pose_a.shape[1]):
+            for j in range(cls.nnodes_all):
+                f = Frame.relative_frame(
+                    cls.n_dim,
+                    pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    pose_b[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                )
+                p = Frame.get_parameters_from_frame(cls.n_dim, f)
+                periodicity_inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = p
+        return periodicity_inc[cls.free_dof, :]
 
     @classmethod
     def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
@@ -447,10 +455,10 @@ class BeamCpp:
         sens_SE = np.zeros((2 * N, 2 * N + 1))
 
         # Precompute indices
-        indices_N = np.array([(dpn * i, dpn * (i + 1)) for i in range(nodes)])
-        indices_2N = np.array([(dpn * i, dpn * (i + 1)) for i in range(nodes * 2)])
+        indices_N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes)])
+        indices_2N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes * 2)])
         indices_comb = np.array(
-            [(dpn * i, dpn * (i + 1), N + dpn * i, N + dpn * (i + 1)) for i in range(nodes)]
+            [(i * dpn, (i + 1) * dpn, N + i * dpn, N + (i + 1) * dpn) for i in range(nodes)]
         )
 
         # Precompute inverse tangent operators
@@ -458,10 +466,10 @@ class BeamCpp:
             [
                 (
                     Frame.get_inverse_tangent_operator(
-                        n_dim, periodicity_inc[dpn * i:dpn * (i + 1), 0]
+                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn, 0]
                     ),
                     Frame.get_inverse_tangent_operator(
-                        n_dim, -periodicity_inc[dpn * i:dpn * (i + 1), 0]
+                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn, 0]
                     ),
                 ) for i in range(nodes)
             ]
