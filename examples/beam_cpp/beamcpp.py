@@ -249,6 +249,11 @@ class BeamCpp:
                     pose_time[:, indices_start[block_order]],
                     pose_time[:, indices_end[block_order]],
                 )
+                H2 = cls.periodicity_VEL_SE(
+                    H1,
+                    vel_time[:, indices_start[block_order]],
+                    vel_time[:, indices_end[block_order]],
+                )
             else:
                 H1 = cls.periodicity_INC_linear(
                     pose_time[:, indices_start[block_order]],
@@ -258,7 +263,7 @@ class BeamCpp:
                     vel_time[:, indices_start[block_order]],
                     vel_time[:, indices_end[block_order]],
                 )
-                H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
+            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
         return H, J, pose, vel, energy, cvg
 
@@ -430,20 +435,21 @@ class BeamCpp:
 
     @classmethod
     def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
-        vel_a = vel_a[cls.free_dof]
-        vel_b = vel_b[cls.free_dof]
-        periodicity_vel = np.array([])
-        for i in range(cls.nnodes_free):
-            v = (
-                -Frame.get_inverse_tangent_operator(
-                    cls.n_dim, -inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node, 0]
-                ) @ vel_a[i * cls.dof_per_node:(i + 1) * cls.dof_per_node] +
-                Frame.get_inverse_tangent_operator(
-                    cls.n_dim, inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node, 0]
-                ) @ vel_b[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
-            )
-            periodicity_vel = np.concatenate((periodicity_vel, v))
-        return periodicity_vel.reshape(-1, 1)
+        vel_a = vel_a[cls.free_dof, :]
+        vel_b = vel_b[cls.free_dof, :]
+        periodicity_vel = np.zeros((cls.ndof_free, vel_a.shape[1]))
+        for i in range(vel_a.shape[1]):
+            for j in range(cls.nnodes_free):
+                v = (
+                    -Frame.get_inverse_tangent_operator(
+                        cls.n_dim, -inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    ) @ vel_a[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] +
+                    Frame.get_inverse_tangent_operator(
+                        cls.n_dim, inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    ) @ vel_b[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                )
+                periodicity_vel[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = v
+        return periodicity_vel
 
     @classmethod
     def sensitivity_periodicity_SE_correction(cls, monodromy, periodicity_inc, vel_time):
