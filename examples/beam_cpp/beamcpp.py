@@ -147,9 +147,9 @@ class BeamCpp:
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
                 J = simdata["/Sensitivity/Monodromy"][:, :]
-                monodromy = J.copy()
-                monodromy[:, :-1] += np.eye(2 * N)
-                sens = cls.sensitivity_periodicity_SE_correction(monodromy, periodicity_inc, vel_time)
+                # monodromy = J.copy()
+                # monodromy[:, :-1] += np.eye(2 * N)
+                # sens = cls.sensitivity_periodicity_SE_correction(monodromy, periodicity_inc, vel_time)
                 J[:, N:] *= omega
                 J[:, -1] *= nperiod / omega
             simdata.close()
@@ -188,6 +188,7 @@ class BeamCpp:
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
+        SEbeam = cls.config_per_node != cls.dof_per_node
         twoN = 2 * N
         delta_S = 1 / npartition
         T = tau / omega
@@ -219,36 +220,40 @@ class BeamCpp:
             if cvg[ipart]:
                 simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
                 E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
+                energy = np.max([energy, E])
                 pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                 vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-
                 M = simdata["/Sensitivity/Monodromy"][:]
-                dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
-                M = np.delete(M, -1, axis=1)
-                M += np.eye(twoN)
-                M[:, N:] *= omega  # scale velocity derivatives
-                J[i0:i1, i0:i1] = M
-                J[i0:i1, j0:j1] -= np.eye(twoN)
-                J[i0:i1, -1] = dHdtau
-                energy = np.max([energy, E])
+                M[:twoN, :twoN] += np.eye(twoN)  # cpp monodromy is M - I
                 simdata.close()
+                if not SEbeam:
+                    M[:, N:-1] *= omega  # scale velocity derivatives
+                    J[i0:i1, i0:i1] = M[:, :-1]
+                    J[i0:i1, j0:j1] -= np.eye(twoN)
+                    J[i0:i1, -1] = M[:, -1] * delta_S * 1 / omega  # scale time derivative
+                else:
+                    pass
+
         cvg = all(cvg)
 
         if cvg:
-            # Periodicity condition for all partitions
-            H1 = (
-                pose_time[cls.free_dof][:, indices_end[block_order]] -
-                pose_time[cls.free_dof][:, indices_start[block_order]]
-            )
-            H2 = (
-                vel_time[cls.free_dof][:, indices_end[block_order]] -
-                vel_time[cls.free_dof][:, indices_start[block_order]]
-            )
-            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
-
             # solution pose and vel at time 0 for each partition
             pose = pose_time[:, indices_start]
             vel = vel_time[:, indices_start]
+
+            # Periodicity condition for all partitions
+            if not SEbeam:
+                H1 = cls.periodicity_INC_linear(
+                    pose_time[cls.free_dof][:, indices_start[block_order]],
+                    pose_time[cls.free_dof][:, indices_end[block_order]],
+                )
+                H2 = cls.periodicity_VEL_linear(
+                    vel_time[cls.free_dof][:, indices_start[block_order]],
+                    vel_time[cls.free_dof][:, indices_end[block_order]],
+                )
+                H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
+            else:
+                pass
 
         return H, J, pose, vel, energy, cvg
 
@@ -367,21 +372,20 @@ class BeamCpp:
 
     @classmethod
     def read_dofdata(cls):
-        data = h5py.File(cls.cpp_path + cls.model_name + ".h5", "r")
-        cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
-        cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
-        NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
-        cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
-        cls.ndof_free = len(cls.free_dof)
-        cls.ndof_fix = len(cls.fix_dof)
-        cls.ndof_config = np.size(cls.node_config)
+        with h5py.File(cls.cpp_path + cls.model_name + ".h5", "r") as data:
+            cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
+            cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
+            NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
+            cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
+        cls.ndof_free = cls.free_dof.size
+        cls.ndof_fix = cls.fix_dof.size
+        cls.ndof_config = cls.node_config.size
         cls.ndof_all = cls.ndof_free + cls.ndof_fix
-        cls.config_per_node = np.shape(cls.node_config)[0]
-        cls.nnodes_all = np.shape(cls.node_config)[1]
+        cls.config_per_node = cls.node_config.shape[0]
+        cls.nnodes_all = cls.node_config.shape[1]
         cls.dof_per_node = cls.ndof_all // cls.nnodes_all
         cls.nnodes_free = cls.ndof_free // cls.dof_per_node
         cls.n_dim = 2 if cls.config_per_node == 4 else 3
-        data.close()
 
     @classmethod
     def get_dofdata(cls):
@@ -393,6 +397,14 @@ class BeamCpp:
             "node_config": cls.node_config,
             "ndof_config": cls.ndof_config,
         }
+
+    @staticmethod
+    def periodicity_INC_linear(pose_a, pose_b):
+        return pose_b - pose_a
+
+    @classmethod
+    def periodicity_VEL_linear(cls, vel_a, vel_b):
+        return vel_b - vel_a
 
     @classmethod
     def periodicity_INC_SE(cls, pose_a, pose_b):
@@ -412,58 +424,54 @@ class BeamCpp:
     def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
         vel_a = vel_a[cls.free_dof]
         vel_b = vel_b[cls.free_dof]
-        inc = inc.flatten()
         periodicity_vel = np.array([])
         for i in range(cls.nnodes_free):
             v = (
                 -Frame.get_inverse_tangent_operator(
-                    cls.n_dim, -inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
+                    cls.n_dim, -inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node, 0]
                 ) @ vel_a[i * cls.dof_per_node:(i + 1) * cls.dof_per_node] +
                 Frame.get_inverse_tangent_operator(
-                    cls.n_dim, inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
+                    cls.n_dim, inc[i * cls.dof_per_node:(i + 1) * cls.dof_per_node, 0]
                 ) @ vel_b[i * cls.dof_per_node:(i + 1) * cls.dof_per_node]
             )
             periodicity_vel = np.concatenate((periodicity_vel, v))
         return periodicity_vel.reshape(-1, 1)
 
-    @staticmethod
-    def periodicity_INC_linear(pose_a, pose_b):
-        return (pose_b - pose_a).reshape(-1, 1)
-    
-    @classmethod
-    def periodicity_VEL_linear(cls, vel_a, vel_b):
-        return (vel_b[cls.free_dof] - vel_a[cls.free_dof]).reshape(-1, 1)
-    
     @classmethod
     def sensitivity_periodicity_SE_correction(cls, monodromy, periodicity_inc, vel_time):
-        
         N = cls.ndof_free
         nodes = cls.nnodes_free
         dpn = cls.dof_per_node
         n_dim = cls.n_dim
-        twoN = 2 * N
         vel_time = vel_time[cls.free_dof]
-        sens_SE = np.zeros((twoN, twoN + 1))
+        sens_SE = np.zeros((2 * N, 2 * N + 1))
 
         # Precompute indices
-        indices_N = np.array([(dpn * i, dpn * i + dpn) for i in range(nodes)])
-        indices_2N = np.array([(dpn * i, dpn * i + dpn) for i in range(nodes * 2)])
-        indices_comb = np.array([(dpn * i, dpn * i + dpn, N + dpn * i, N + dpn * i + dpn) for i in range(nodes)])
-        
+        indices_N = np.array([(dpn * i, dpn * (i + 1)) for i in range(nodes)])
+        indices_2N = np.array([(dpn * i, dpn * (i + 1)) for i in range(nodes * 2)])
+        indices_comb = np.array(
+            [(dpn * i, dpn * (i + 1), N + dpn * i, N + dpn * (i + 1)) for i in range(nodes)]
+        )
+
         # Precompute inverse tangent operators
-        T_pos_neg = np.array([
-            (Frame.get_inverse_tangent_operator(n_dim, periodicity_inc[dpn * i : dpn * i + dpn]),
-            Frame.get_inverse_tangent_operator(n_dim, -periodicity_inc[dpn * i : dpn * i + dpn]))
-            for i in range(nodes)
-        ])
-        
+        T_pos_neg = np.array(
+            [
+                (
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, periodicity_inc[dpn * i:dpn * (i + 1), 0]
+                    ),
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, -periodicity_inc[dpn * i:dpn * (i + 1), 0]
+                    ),
+                ) for i in range(nodes)
+            ]
+        )
+
         # POSE sensitivities
         for i, (start, end) in enumerate(indices_N):
             T_pos, T_neg = T_pos_neg[i]
-            for (j_start, j_end) in indices_2N:
-                sens_SE[start:end, j_start:j_end] = (
-                    T_pos @ monodromy[start:end, j_start:j_end]
-                )
+            for j_start, j_end in indices_2N:
+                sens_SE[start:end, j_start:j_end] = T_pos @ monodromy[start:end, j_start:j_end]
             # add T_neg on the diagonal elements only
             sens_SE[start:end, start:end] += -T_neg
 
@@ -472,18 +480,17 @@ class BeamCpp:
 
         # VEL sensitivities:
         for i, (start, end, n_start, n_end) in enumerate(indices_comb):
-            psi = periodicity_inc[start:end]
+            psi = periodicity_inc[start:end, 0]
             v0 = vel_time[start:end, 0]
             vT = vel_time[start:end, -1]
             T_pos, T_neg = T_pos_neg[i]
             DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
             DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
-            for (j_start, j_end) in indices_2N:
+            for j_start, j_end in indices_2N:
                 pose_sens = sens_SE[start:end, j_start:j_end]
                 sens_SE[n_start:n_end, j_start:j_end] = (
-                    (T_pos @ monodromy[n_start:n_end, j_start:j_end])
-                    + DT_neg @ pose_sens
-                    + DT_pos @ pose_sens
+                    (T_pos @ monodromy[n_start:n_end, j_start:j_end]) + DT_neg @ pose_sens +
+                    DT_pos @ pose_sens
                 )
             # add T_neg on the diagonal elements only
             sens_SE[n_start:n_end, n_start:n_end] += -T_neg
@@ -491,9 +498,7 @@ class BeamCpp:
             # VEL sensitivities wrt period
             pose_sens = sens_SE[start:end, -1]
             sens_SE[n_start:n_end, -1] = (
-                T_pos @ monodromy[n_start:n_end, -1]
-                + DT_neg @ pose_sens
-                + DT_pos @ pose_sens
+                T_pos @ monodromy[n_start:n_end, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens
             )
 
         return sens_SE
