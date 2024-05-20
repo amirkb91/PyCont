@@ -1,5 +1,5 @@
 import numpy as np
-from .SO3 import UnitQuaternion, tilde
+from SO3 import UnitQuaternion, tilde
 
 
 class Frame:
@@ -31,6 +31,26 @@ class Frame:
             Tm1T = frame[0] * np.eye(3) - tilde(0.5 * p[3:])
             p[:3] = np.matmul(Tm1T, frame[4:])
         return p
+
+    @staticmethod
+    def get_frame_from_parameters(n_dim, parameters):
+        if n_dim == 2:
+            p0 = np.sqrt(1.0 - 0.25 * parameters[2]**2)
+            q = np.array([p0, 0.5 * parameters[2]])
+            p_tilde_over_2 = np.array([[0, -0.5 * parameters[2]], [0.5 * parameters[2], 0]])
+            TT = (
+                1.0 / p0 * (np.eye(2) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
+            )
+            x = np.matmul(TT, parameters[:2])
+        elif n_dim == 3:
+            p0 = np.sqrt(1.0 - 0.25 * np.dot(parameters[3:], parameters[3:]))
+            q = np.concatenate([p0, 0.5 * parameters[3:]])
+            p_tilde_over_2 = tilde(0.5 * parameters[3:])
+            TT = (
+                1.0 / p0 * (np.eye(3) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
+            )
+            x = np.matmul(TT, parameters[:3])
+        return np.concatenate([q, x])
 
     @staticmethod
     def get_inverse_tangent_operator(n_dim, parameters):
