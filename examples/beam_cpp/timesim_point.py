@@ -65,3 +65,10 @@ elif method == "multiple":
         f.create_dataset("/Config_Time/POSE", data=pose_time)
         f.create_dataset("/Config_Time/VELOCITY", data=vel_time)
         f.create_dataset("/Config_Time/Time", data=time)
+
+    # one more time sime with initial conditions of first partition for whole orbit so we can plot
+    x = vel[BeamCpp.free_dof, 0]
+    X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
+    BeamCpp.runsim_single(1.0, T, X, pose[:, 0], par, sensitivity=False)
+    # call plotbeam
+    subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)

@@ -250,7 +250,8 @@ class BeamCpp:
                     pose_time[:, indices_start[block_order]],
                     pose_time[:, indices_end[block_order]],
                 )
-                H2 = cls.periodicity_VEL_linear(
+                H2 = cls.periodicity_VEL_SE(
+                    H1,
                     vel_time[:, indices_start[block_order]],
                     vel_time[:, indices_end[block_order]],
                 )
@@ -514,31 +515,33 @@ class BeamCpp:
             # POSE sensitivities wrt period
             dHdT[i0:i1] = T_pos @ monodromy[i0:i1, -1]
 
-        # # VEL sensitivities:
-        # for i, (i0, i1, I0, I1) in enumerate(indices_comb):
-        #     psi = periodicity_inc[i0:i1]
-        #     v0 = V0_nextpart[i0:i1]
-        #     vT = VT_thispart[i0:i1]
-        #     T_pos, T_neg = T_pos_neg[i]
-        #     DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
-        #     DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
-        #     for j0, j1 in indices_2N:
-        #         pose_sens_x0 = dHdx0[i0:i1, j0:j1]
-        #         pose_sens_x1 = dHdx1[i0:i1, j0:j1]
-        #         dHdx0[I0:I1, j0:j1] = (
-        #             (T_pos @ monodromy[I0:I1, j0:j1]) + DT_pos @ pose_sens_x0 +
-        #             DT_neg @ pose_sens_x1
-        #         )
-        #     dHdx1[I0:I1, I0:I1] = -T_neg
+        # VEL sensitivities:
+        for i, (i0, i1, I0, I1) in enumerate(indices_comb):
+            psi = periodicity_inc[i0:i1]
+            v0 = V0_nextpart[i0:i1]
+            vT = VT_thispart[i0:i1]
+            T_pos, T_neg = T_pos_neg[i]
+            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
+            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
+            for j0, j1 in indices_2N:
+                pose_sens_x0 = dHdx0[i0:i1, j0:j1]
+                pose_sens_x1 = dHdx1[i0:i1, j0:j1]
+                dHdx0[I0:I1, j0:j1] = (
+                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_pos @ pose_sens_x0 +
+                    DT_neg @ pose_sens_x0
+                )
+                dHdx1[I0:I1, j0:j1] = DT_pos @ pose_sens_x1 + DT_neg @ pose_sens_x1
+            dHdx1[I0:I1, I0:I1] = -T_neg
 
-        #     # VEL sensitivities wrt period
-        #     pose_sens = dHdT[i0:i1]
-        #     dHdT[I0:I1] = T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens
+            # VEL sensitivities wrt period
+            pose_sens = dHdT[i0:i1]
+            dHdT[I0:I1] = T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens
 
-        # VEL periodicity is done linearly, so sensitivities are the same as the linear case
-        dHdx0[N:,:] = monodromy[N:,:-1]
-        dHdT[N:] = monodromy[N:, -1]
-        dHdx1[N:, N:] = -np.eye(N)
+        # **** If you choose to do VEL periodicity linearly, use the following code instead ****
+        # VEL sensitivities:
+        # dHdx0[N:,:] = monodromy[N:,:-1]
+        # dHdT[N:] = monodromy[N:, -1]
+        # dHdx1[N:, N:] = -np.eye(N)
 
         return dHdx0, dHdx1, dHdT
 
