@@ -5,6 +5,7 @@ import numpy as np
 from copy import deepcopy as dp
 import shutil
 from concurrent.futures import ProcessPoolExecutor
+from Frame import Frame
 
 
 class BeamCpp:
@@ -54,6 +55,11 @@ class BeamCpp:
     ndof_all = None
     node_config = None
     ndof_config = None
+    config_per_node = None
+    nnodes_all = None
+    dof_per_node = None
+    nnodes_free = None
+    n_dim = None
     if "cpp_def_period" not in vars():
         cpp_def_period = 1.0
 
@@ -121,7 +127,7 @@ class BeamCpp:
         T = tau / omega
         X = Xtilde.copy()
         X[N:] *= omega  # scale velocities from Xtilde to X
-        H = J = pose_time = vel_time = energy = None
+        H = J = pose = vel = energy = None
 
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
@@ -133,10 +139,15 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            pose = pose_time[:, 0]
+            vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
                 J = simdata["/Sensitivity/Monodromy"][:, :]
+                # monodromy = J.copy()
+                # monodromy[:, :-1] += np.eye(2 * N)
+                # sens = cls.sensitivity_periodicity_SE_correction(monodromy, periodicity_inc, vel_time)
                 J[:, N:] *= omega
                 J[:, -1] *= nperiod / omega
             simdata.close()
@@ -154,6 +165,8 @@ class BeamCpp:
                         cls.free_dof]
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                    pose = pose_time[:, 0]
+                    vel = vel_time[:, 0]
                     H = np.concatenate([periodicity_inc, periodicity_vel])
                     dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                     sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
@@ -163,73 +176,107 @@ class BeamCpp:
             sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
             J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
 
-        pose = pose_time[:, 0]
-        vel = vel_time[:, 0]
         if not fulltime:
             return H, J, pose, vel, energy, cvg
         else:
             return H, J, pose_time, vel_time, energy, cvg
 
     @classmethod
-    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
+        # multiple shooting sensitivity SE correction has to be done in Python
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
+            "apply_SE_correction"] = False
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
         twoN = 2 * N
         delta_S = 1 / npartition
-        T = tau / omega
+        T = tau / omega  # scaling is not implemented in this method, omega will not be used
 
-        # initialise
+        # Precomputations
+        partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
+        indices_start = partition_extremeties[:npartition]
+        indices_end = indices_start - 1
+        block_order = (np.arange(npartition) + 1) % npartition
+
+        # Initialisations
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((cls.ndof_config, (nsteps + 1), npartition))
-        vel_time = np.zeros((cls.ndof_all, (nsteps + 1), npartition))
-        energy = np.zeros(npartition)
+        M_all = np.empty(npartition, dtype=object)
+        pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
+        vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        energy = 0
+        H = pose = vel = None
         cvg = [None] * npartition
 
         for ipart in range(npartition):
             # index values required for looping the partitions
-            i = ipart * twoN
-            i1 = (ipart + 1) * twoN
-            j = (ipart + 1) % npartition * twoN
-            j1 = ((ipart + 1) % npartition + 1) * twoN
+            i0, i1 = ipart * twoN, (ipart + 1) * twoN
+            j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
+            p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
 
-            X = Xtilde[i:i1].copy()
-            X[N:] *= omega  # scale velocities from Xtilde to X
+            X = Xtilde[i0:i1].copy()
             cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps)
-            simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-            M = simdata["/Sensitivity/Monodromy"][:]
-            dHdtau = M[:, -1] * delta_S * 1 / omega  # scale time derivative
-            M = np.delete(M, -1, axis=1)
-            M[:, N:] *= omega  # scale velocity derivatives
-            J[i:i1, i:i1] = M
-            J[i:i1, j:j1] -= np.eye(twoN)
-            J[i:i1, -1] = dHdtau
-            pose_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-            vel_time[:, :, ipart] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-            energy[ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, -1][0]
-            simdata.close()
-        energy = np.mean(energy)
+            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, sensitivity)
+            if cvg[ipart]:
+                simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
+                E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
+                energy = np.max([energy, E])
+                pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                M = simdata["/Sensitivity/Monodromy"][:]
+                # cpp gives M - I when apply_SE_correction=false
+                M[:twoN, :twoN] += np.eye(twoN)
+                simdata.close()
+                if cls.SEbeam:
+                    # Jacobian can only be computed after all partitions are solved because
+                    # it requires the periodicity vector
+                    M_all[ipart] = M
+                else:
+                    # VK beam Jacobian composed of M and eye blocks
+                    J[i0:i1, i0:i1] = M[:, :-1]
+                    J[i0:i1, j0:j1] -= np.eye(twoN)
+                    J[i0:i1, -1] = M[:, -1] * delta_S  # scale time derivative
+
         cvg = all(cvg)
 
-        # solution pose and vel taken from time 0
-        pose = pose_time[:, 0, :]
-        vel = vel_time[:, 0, :]
+        if cvg:
+            # solution pose and vel at time 0 for each partition
+            pose = pose_time[:, indices_start]
+            vel = vel_time[:, indices_start]
 
-        # periodicity (to be put in seperate method)
-        partition_order = (np.arange(npartition) + 1) % npartition
-        H = np.array([])
-        for ipart in range(npartition):
-            h_pose = (
-                pose_time[cls.free_dof, -1, ipart] -
-                pose_time[cls.free_dof, 0, partition_order[ipart]]
-            )
-            h_vel = (
-                vel_time[cls.free_dof, -1, ipart] -
-                vel_time[cls.free_dof, 0, partition_order[ipart]]
-            )
-            H = np.append(H, np.concatenate([h_pose, h_vel]))
-        H = H.reshape(-1, 1)
+            # Periodicity condition for all partitions
+            if cls.SEbeam:
+                H1 = cls.periodicity_INC_SE(
+                    pose_time[:, indices_start[block_order]],
+                    pose_time[:, indices_end[block_order]],
+                )
+                H2 = cls.periodicity_VEL_SE(
+                    H1,
+                    vel_time[:, indices_start[block_order]],
+                    vel_time[:, indices_end[block_order]],
+                )
+                # Jacobian computation for SE beam
+                for ipart in range(npartition):
+                    i0, i1 = ipart * twoN, (ipart + 1) * twoN
+                    j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
+                    VT_thispart = vel_time[:, indices_end[block_order][ipart]]
+                    V0_nextpart = vel_time[:, indices_start[block_order][ipart]]
+                    [dHdx0, dHdx1, dHdT] = cls.sensitivity_periodicity_SE_correction_multi(
+                        M_all[ipart], H1[:, ipart], VT_thispart, V0_nextpart
+                    )
+                    J[i0:i1, i0:i1] = dHdx0
+                    J[i0:i1, j0:j1] = dHdx1
+                    J[i0:i1, -1] = dHdT * delta_S  # scale time derivative
+            else:
+                H1 = cls.periodicity_INC_linear(
+                    pose_time[:, indices_start[block_order]],
+                    pose_time[:, indices_end[block_order]],
+                )
+                H2 = cls.periodicity_VEL_linear(
+                    vel_time[:, indices_start[block_order]],
+                    vel_time[:, indices_end[block_order]],
+                )
+            H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
         return H, J, pose, vel, energy, cvg
 
@@ -318,7 +365,6 @@ class BeamCpp:
     def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
@@ -327,20 +373,18 @@ class BeamCpp:
         X[N:] *= omega  # scale velocities from Xtilde to X
 
         cls.config_update(pose_base)
-        # do time integration along whole orbit before slicing.
-        # run nsteps per partition to ensure slicing is done at correct indices
-        cvg = cls.run_cpp(T, X, nsteps * npartition, rel_tol)
+        # do time integration along whole orbit before slicing
+        cls.run_cpp(T, X, nsteps * npartition, True)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
         pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-
         pose = pose_time[:, slicing_index]
-        V = vel_time[cls.free_dof][:, slicing_index]
+        vel = vel_time[cls.free_dof][:, slicing_index]
         # set inc to zero as solution stored in pose, keep velocity but scale first
-        V *= 1 / omega
-        X_out = np.concatenate((np.zeros((cls.ndof_free, npartition)), V))
-        X_out = np.reshape(X_out, (-1), order="F")
-        return X_out, pose
+        vel *= 1 / omega
+        Xsol = np.concatenate((np.zeros((N, npartition)), vel))
+        Xsol = np.reshape(Xsol, (-1), order="F")
+        return Xsol, pose
 
     @classmethod
     def config_update(cls, pose):
@@ -351,16 +395,21 @@ class BeamCpp:
 
     @classmethod
     def read_dofdata(cls):
-        data = h5py.File(cls.cpp_path + cls.model_name + ".h5", "r")
-        cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
-        cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
-        NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
-        cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
-        cls.ndof_free = len(cls.free_dof)
-        cls.ndof_fix = len(cls.fix_dof)
-        cls.ndof_config = np.size(cls.node_config)
+        with h5py.File(cls.cpp_path + cls.model_name + ".h5", "r") as data:
+            cls.free_dof = np.array(data["/FEModel/loc_dof_free/MOTION"])[:, 0]
+            cls.fix_dof = np.array(data["/FEModel/loc_dof_fix/MOTION"])[:, 0]
+            NodalFrame = list(data["/FEModel/Nodes_config/"].keys())[0]
+            cls.node_config = np.array(data["/FEModel/Nodes_config/" + NodalFrame])[1:, :]
+        cls.ndof_free = cls.free_dof.size
+        cls.ndof_fix = cls.fix_dof.size
+        cls.ndof_config = cls.node_config.size
         cls.ndof_all = cls.ndof_free + cls.ndof_fix
-        data.close()
+        cls.config_per_node = cls.node_config.shape[0]
+        cls.nnodes_all = cls.node_config.shape[1]
+        cls.dof_per_node = cls.ndof_all // cls.nnodes_all
+        cls.nnodes_free = cls.ndof_free // cls.dof_per_node
+        cls.n_dim = 2 if cls.dof_per_node == 3 else 3
+        cls.SEbeam = cls.config_per_node != cls.dof_per_node
 
     @classmethod
     def get_dofdata(cls):
@@ -373,13 +422,196 @@ class BeamCpp:
             "ndof_config": cls.ndof_config,
         }
 
-    # @classmethod
-    # def periodicity(cls, pose, vel, target):
-    #     if len(pose) == cls.ndof_all:
-    #         # VK formulation
-    #         posevel = np.concatenate([pose[cls.free_dof], vel[cls.free_dof]])
-    #         H = posevel - target
-    #     else:
-    #         # SE formulation
-    #         H = None
-    #     return H
+    @classmethod
+    def periodicity_INC_linear(cls, pose_a, pose_b):
+        return (pose_b - pose_a)[cls.free_dof, :]
+
+    @classmethod
+    def periodicity_VEL_linear(cls, vel_a, vel_b):
+        return (vel_b - vel_a)[cls.free_dof, :]
+
+    @classmethod
+    def periodicity_INC_SE(cls, pose_a, pose_b):
+        # inc = pose_a^-1 o pose_b
+        # loop over all partitions, inputs have to be 2D arrays
+        periodicity_inc = np.zeros((cls.ndof_all, pose_a.shape[1]))
+        for i in range(pose_a.shape[1]):
+            for j in range(cls.nnodes_all):
+                f = Frame.relative_frame(
+                    cls.n_dim,
+                    pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    pose_b[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                )
+                p = Frame.get_parameters_from_frame(cls.n_dim, f)
+                periodicity_inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = p
+        return periodicity_inc[cls.free_dof, :]
+
+    @classmethod
+    def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
+        # loop over all partitions, inputs have to be 2D arrays
+        # inc only has free dofs already, so slice vel_a and vel_b
+        vel_a = vel_a[cls.free_dof, :]
+        vel_b = vel_b[cls.free_dof, :]
+        periodicity_vel = np.zeros((cls.ndof_free, vel_a.shape[1]))
+        for i in range(vel_a.shape[1]):
+            for j in range(cls.nnodes_free):
+                v = (
+                    -Frame.get_inverse_tangent_operator(
+                        cls.n_dim, -inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    ) @ vel_a[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] +
+                    Frame.get_inverse_tangent_operator(
+                        cls.n_dim, inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    ) @ vel_b[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                )
+                periodicity_vel[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = v
+        return periodicity_vel
+
+    @classmethod
+    def sensitivity_periodicity_SE_correction_multi(
+        cls, monodromy, periodicity_inc, VT_thispart, V0_nextpart
+    ):
+        """
+        Compute the sensitivity of the periodicity condition with SE correction for multiple shooting.
+        """
+        N = cls.ndof_free
+        nodes = cls.nnodes_free
+        dpn = cls.dof_per_node
+        n_dim = cls.n_dim
+        VT_thispart = VT_thispart[cls.free_dof]
+        V0_nextpart = V0_nextpart[cls.free_dof]
+        dHdx0 = np.zeros((2 * N, 2 * N))
+        dHdx1 = np.zeros((2 * N, 2 * N))
+        dHdT = np.zeros((2 * N))
+
+        # Precompute indices
+        indices_N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes)])
+        indices_2N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes * 2)])
+        indices_comb = np.array(
+            [(i * dpn, (i + 1) * dpn, N + i * dpn, N + (i + 1) * dpn) for i in range(nodes)]
+        )
+
+        # Precompute inverse tangent operators
+        T_pos_neg = np.array(
+            [
+                (
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn]
+                    ),
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn]
+                    ),
+                ) for i in range(nodes)
+            ]
+        )
+
+        # POSE sensitivities
+        for i, (i0, i1) in enumerate(indices_N):
+            T_pos, T_neg = T_pos_neg[i]
+            for j0, j1 in indices_2N:
+                dHdx0[i0:i1, j0:j1] = T_pos @ monodromy[i0:i1, j0:j1]
+
+            dHdx1[i0:i1, i0:i1] = -T_neg
+
+            # POSE sensitivities wrt period
+            dHdT[i0:i1] = T_pos @ monodromy[i0:i1, -1]
+
+        # VEL sensitivities:
+        for i, (i0, i1, I0, I1) in enumerate(indices_comb):
+            psi = periodicity_inc[i0:i1]
+            v0 = V0_nextpart[i0:i1]
+            vT = VT_thispart[i0:i1]
+            T_pos, T_neg = T_pos_neg[i]
+            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
+            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
+            for j0, j1 in indices_2N:
+                pose_sens_x0 = dHdx0[i0:i1, j0:j1]
+                pose_sens_x1 = dHdx1[i0:i1, j0:j1]
+                dHdx0[I0:I1, j0:j1] = (
+                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_pos @ pose_sens_x0 +
+                    DT_neg @ pose_sens_x0
+                )
+                dHdx1[I0:I1, j0:j1] = DT_pos @ pose_sens_x1 + DT_neg @ pose_sens_x1
+            dHdx1[I0:I1, I0:I1] = -T_neg
+
+            # VEL sensitivities wrt period
+            pose_sens = dHdT[i0:i1]
+            dHdT[I0:I1] = T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens
+
+        # **** If you choose to do VEL periodicity linearly, use the following code instead ****
+        # VEL sensitivities:
+        # dHdx0[N:,:] = monodromy[N:,:-1]
+        # dHdT[N:] = monodromy[N:, -1]
+        # dHdx1[N:, N:] = -np.eye(N)
+
+        return dHdx0, dHdx1, dHdT
+
+    @classmethod
+    def sensitivity_periodicity_SE_correction(cls, monodromy, periodicity_inc, vel_time):
+        """
+        Compute the sensitivity of the periodicity condition with SE correction.
+
+        When SE correction is set to false in C++, the monodromy matrix is returned as M - I
+        If we add I we get the actual monodromy.
+        This method then corrects the monodromy to account for the SE contributions.
+        It gives the same result as the cpp code when SE correction is set to true."""
+        N = cls.ndof_free
+        nodes = cls.nnodes_free
+        dpn = cls.dof_per_node
+        n_dim = cls.n_dim
+        vel_time = vel_time[cls.free_dof]
+        sens_SE = np.zeros((2 * N, 2 * N + 1))
+
+        # Precompute indices
+        indices_N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes)])
+        indices_2N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes * 2)])
+        indices_comb = np.array(
+            [(i * dpn, (i + 1) * dpn, N + i * dpn, N + (i + 1) * dpn) for i in range(nodes)]
+        )
+
+        # Precompute inverse tangent operators
+        T_pos_neg = np.array(
+            [
+                (
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                    ),
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                    ),
+                ) for i in range(nodes)
+            ]
+        )
+
+        # POSE sensitivities
+        for i, (i0, i1) in enumerate(indices_N):
+            T_pos, T_neg = T_pos_neg[i]
+            for j0, j1 in indices_2N:
+                sens_SE[i0:i1, j0:j1] = T_pos @ monodromy[i0:i1, j0:j1]
+            # add T_neg on the diagonal elements only
+            sens_SE[i0:i1, i0:i1] += -T_neg
+
+            # POSE sensitivities wrt period
+            sens_SE[i0:i1, -1] = T_pos @ monodromy[i0:i1, -1]
+
+        # VEL sensitivities:
+        for i, (i0, i1, I0, I1) in enumerate(indices_comb):
+            psi = periodicity_inc[i0:i1, 0]
+            v0 = vel_time[i0:i1, 0]
+            vT = vel_time[i0:i1, -1]
+            T_pos, T_neg = T_pos_neg[i]
+            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
+            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
+            for j0, j1 in indices_2N:
+                pose_sens = sens_SE[i0:i1, j0:j1]
+                sens_SE[I0:I1, j0:j1] = (
+                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_neg @ pose_sens + DT_pos @ pose_sens
+                )
+            # add T_neg on the diagonal elements only
+            sens_SE[I0:I1, I0:I1] += -T_neg
+
+            # VEL sensitivities wrt period
+            pose_sens = sens_SE[i0:i1, -1]
+            sens_SE[I0:I1,
+                    -1] = (T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens)
+
+        return sens_SE

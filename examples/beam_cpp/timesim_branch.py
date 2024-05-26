@@ -42,8 +42,8 @@ n_solpoints = len(T)
 if new_nsteps:
     par["shooting"]["single"]["nsteps_per_period"] = int(new_nsteps)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
-pose_time = np.zeros([np.shape(pose)[0], nsteps + 1, n_solpoints])
-vel_time = np.zeros([np.shape(vel)[0], nsteps + 1, n_solpoints])
+pose_time = np.zeros([BeamCpp.ndof_config, nsteps + 1, n_solpoints])
+vel_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, n_solpoints])
 time = np.zeros([n_solpoints, nsteps + 1])
 if run_bif:
     print("\033[0;31m*** ENSURE apply_SE_correction = FALSE *** \033[0m\n")

@@ -28,11 +28,9 @@ def psacont(self):
     direction = continuation_params["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
-    # boolean masks (have no effect on single shooting)
+    # boolean masks to select inc and vel from X (has no effect on single shooting)
     inc_mask = np.mod(np.arange(X.size), twoN) < N
     vel_mask = ~inc_mask
-    tgt_mask = np.ones(np.shape(tgt), dtype=bool)
-    tgt_mask[twoN:-1] = False
 
     # continuation loop
     itercont = 1
@@ -94,8 +92,7 @@ def psacont(self):
             # apply corrections orthogonal to tangent
             itercorrect += 1
             Jcr = J.copy()
-            # orthogonality only on first partition and period: has no effect on single shooting
-            Jcr[-1, twoN:-1] = 0.0
+            # Jcr[-1, twoN:-1] = 0.0  # ortho only 1st partition and T (no effect single shooting)
             hx = self.h @ X_pred
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             if not forced:
@@ -129,15 +126,19 @@ def psacont(self):
                 elif forced:
                     tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
             tgt_next /= spl.norm(tgt_next)
+            # tgt_next /= spl.norm(tgt_next[-1])
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            # performed using tangent of first partition + T only
             beta = np.degrees(
-                np.arccos(
-                    (tgt_next[tgt_mask].T @ tgt[tgt_mask]) /
-                    (spl.norm(tgt[tgt_mask]) * spl.norm(tgt_next[tgt_mask]))
-                )
+                np.arccos(np.dot(tgt_next, tgt) / (spl.norm(tgt) * spl.norm(tgt_next)))
             )
+            # beta below found using tangent of first partition + T only
+            # beta_first_partition = np.degrees(
+            #     np.arccos(
+            #         (tgt_next[np.r_[0:twoN, -1]].T @ tgt[np.r_[0:twoN, -1]]) /
+            #         (spl.norm(tgt[np.r_[0:twoN, -1]]) * spl.norm(tgt_next[np.r_[0:twoN, -1]]))
+            #     )
+            # )
             if continuation_params["betacontrol"] and beta > continuation_params["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
@@ -165,15 +166,16 @@ def psacont(self):
 
                 itercont += 1
                 if frml in ("peeters", "secant"):  # and beta >= 90:
-                    # stepsign = np.sign(stepsign * tgt_next[tgt_mask].T @ tgt[tgt_mask])
-                    stepsign = np.sign(stepsign * np.cos(np.radians(beta)))
+                    # stepsign = np.sign(stepsign * np.dot(tgt_next, tgt))
+                    stepsign = np.sign(
+                        stepsign * np.cos(np.radians(beta))
+                    )  # cos same as dot product
                 tau = tau_pred
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
-                # update pose_base and set inc to zero (slice 0:N on each partition)
-                # pose will have included inc from current sol
+                # update pose_base and set inc to zero, pose will have included inc from current sol
                 pose_base = pose.copy()
-                X[np.mod(np.arange(X.size), twoN) < N] = 0.0
+                X[inc_mask] = 0.0
 
                 # if self.prob.cont_params["shooting"]["scaling"]:
                 #     # reset tau to 1.0
