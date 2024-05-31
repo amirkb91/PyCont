@@ -10,8 +10,8 @@ from Frame import Frame
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    cpp_example = "beam_2D"
-    # cpp_example = "beam_rightangle"
+    # cpp_example = "beam_2D"
+    cpp_example = "beam_rightangle"
     # cpp_example = "beam_boxwing"
     # cpp_example = "beam_vertcant"
 
@@ -68,10 +68,9 @@ class BeamCpp:
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
             "shooting"]["rel_tol"]
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"][
-            "initial_conditions"] = cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop(
-                "_initial_conditions"
-            )
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = (
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions")
+        )
         cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions_eig")
 
         if not cont_params["continuation"]["forced"]:
@@ -145,9 +144,6 @@ class BeamCpp:
             if sensitivity:
                 # scale velocity and time derivatives with omega and nperiod
                 J = simdata["/Sensitivity/Monodromy"][:, :]
-                # monodromy = J.copy()
-                # monodromy[:, :-1] += np.eye(2 * N)
-                # sens = cls.sensitivity_periodicity_SE_correction(monodromy, periodicity_inc, vel_time)
                 J[:, N:] *= omega
                 J[:, -1] *= nperiod / omega
             simdata.close()
@@ -246,11 +242,11 @@ class BeamCpp:
 
             # Periodicity condition for all partitions
             if cls.SEbeam:
-                H1 = cls.periodicity_INC_SE(
+                H1 = cls.periodicity_INC_SE_local(
                     pose_time[:, indices_start[block_order]],
                     pose_time[:, indices_end[block_order]],
                 )
-                H2 = cls.periodicity_VEL_SE(
+                H2 = cls.periodicity_VEL_SE_local(
                     H1,
                     vel_time[:, indices_start[block_order]],
                     vel_time[:, indices_end[block_order]],
@@ -261,7 +257,7 @@ class BeamCpp:
                     j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
                     VT_thispart = vel_time[:, indices_end[block_order][ipart]]
                     V0_nextpart = vel_time[:, indices_start[block_order][ipart]]
-                    [dHdx0, dHdx1, dHdT] = cls.sensitivity_periodicity_SE_correction_multi(
+                    [dHdx0, dHdx1, dHdT] = cls.sens_periodicity_SEcorrection_local_multi(
                         M_all[ipart], H1[:, ipart], VT_thispart, V0_nextpart
                     )
                     J[i0:i1, i0:i1] = dHdx0
@@ -431,7 +427,7 @@ class BeamCpp:
         return (vel_b - vel_a)[cls.free_dof, :]
 
     @classmethod
-    def periodicity_INC_SE(cls, pose_a, pose_b):
+    def periodicity_INC_SE_local(cls, pose_a, pose_b):
         # inc = pose_a^-1 o pose_b
         # loop over all partitions, inputs have to be 2D arrays
         periodicity_inc = np.zeros((cls.ndof_all, pose_a.shape[1]))
@@ -447,9 +443,10 @@ class BeamCpp:
         return periodicity_inc[cls.free_dof, :]
 
     @classmethod
-    def periodicity_VEL_SE(cls, inc, vel_a, vel_b):
+    def periodicity_VEL_SE_local(cls, inc, vel_a, vel_b):
         # loop over all partitions, inputs have to be 2D arrays
         # inc only has free dofs already, so slice vel_a and vel_b
+        # input inc should be periodicity_inc_local
         vel_a = vel_a[cls.free_dof, :]
         vel_b = vel_b[cls.free_dof, :]
         periodicity_vel = np.zeros((cls.ndof_free, vel_a.shape[1]))
@@ -467,11 +464,127 @@ class BeamCpp:
         return periodicity_vel
 
     @classmethod
-    def sensitivity_periodicity_SE_correction_multi(
+    def periodicity_INC_SE_global(cls, pose_a, pose_b):
+        # inc = pose_b o pose_a^-1
+        # loop over all partitions, inputs have to be 2D arrays
+        periodicity_inc = np.zeros((cls.ndof_all, pose_a.shape[1]))
+        for i in range(pose_a.shape[1]):
+            for j in range(cls.nnodes_all):
+                finv = Frame.get_inverse(
+                    cls.n_dim, pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i]
+                )
+                f = Frame.composition(
+                    cls.n_dim,
+                    pose_b[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    finv,
+                )
+                p = Frame.get_parameters_from_frame(cls.n_dim, f)
+                periodicity_inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = p
+        return periodicity_inc[cls.free_dof, :]
+
+    @classmethod
+    def periodicity_VEL_SE_global(cls, inc, pose_a, vel_a, vel_b):
+        # loop over all partitions, inputs have to be 2D arrays
+        # inc only has free dofs already, so slice vel_a and vel_b
+        # input inc should be periodicity_inc_global
+        vel_a = vel_a[cls.free_dof, :]
+        vel_b = vel_b[cls.free_dof, :]
+        periodicity_vel = np.zeros((cls.ndof_free, vel_a.shape[1]))
+        for i in range(vel_a.shape[1]):
+            for j in range(cls.nnodes_free):
+                v = (
+                    Frame.get_inverse_tangent_operator(
+                        cls.n_dim, inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    ) @ Frame.get_adjoint(
+                        cls.n_dim,
+                        pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    ) @ (
+                        vel_b[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] -
+                        vel_a[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                    )
+                )
+                periodicity_vel[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = v
+        return periodicity_vel
+
+    @classmethod
+    def sens_periodicity_SEcorrection_local(cls, monodromy, periodicity_inc, vel_time):
+        """
+        Compute the sensitivity of the periodicity condition with SE correction.
+        **** This applies to the LOCAL periodcity formulations. ****
+
+        When SE correction is set to false in C++, the monodromy matrix is returned as M - I
+        If we add I we get the actual monodromy.
+        This method then corrects the monodromy to account for the SE contributions.
+        It gives the same result as the cpp code when SE correction is set to true."""
+        N = cls.ndof_free
+        nodes = cls.nnodes_free
+        dpn = cls.dof_per_node
+        n_dim = cls.n_dim
+        vel_time = vel_time[cls.free_dof]
+        sens_SE = np.zeros((2 * N, 2 * N + 1))
+
+        # Precompute indices
+        indices_N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes)])
+        indices_2N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes * 2)])
+        indices_comb = np.array(
+            [(i * dpn, (i + 1) * dpn, N + i * dpn, N + (i + 1) * dpn) for i in range(nodes)]
+        )
+
+        # Precompute inverse tangent operators
+        T_pos_neg = np.array(
+            [
+                (
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                    ),
+                    Frame.get_inverse_tangent_operator(
+                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                    ),
+                ) for i in range(nodes)
+            ]
+        )
+
+        # POSE sensitivities
+        for i, (i0, i1) in enumerate(indices_N):
+            T_pos, T_neg = T_pos_neg[i]
+            for j0, j1 in indices_2N:
+                sens_SE[i0:i1, j0:j1] = T_pos @ monodromy[i0:i1, j0:j1]
+            # add T_neg on the diagonal elements only
+            sens_SE[i0:i1, i0:i1] += -T_neg
+
+            # POSE sensitivities wrt period
+            sens_SE[i0:i1, -1] = T_pos @ monodromy[i0:i1, -1]
+
+        # VEL sensitivities:
+        for i, (i0, i1, I0, I1) in enumerate(indices_comb):
+            psi = periodicity_inc[i0:i1, 0]
+            v0 = vel_time[i0:i1, 0]
+            vT = vel_time[i0:i1, -1]
+            T_pos, T_neg = T_pos_neg[i]
+            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
+            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
+            for j0, j1 in indices_2N:
+                pose_sens = sens_SE[i0:i1, j0:j1]
+                sens_SE[I0:I1, j0:j1] = (
+                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_neg @ pose_sens + DT_pos @ pose_sens
+                )
+            # add T_neg on the diagonal elements only
+            sens_SE[I0:I1, I0:I1] += -T_neg
+
+            # VEL sensitivities wrt period
+            pose_sens = sens_SE[i0:i1, -1]
+            sens_SE[I0:I1,
+                    -1] = (T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens)
+
+        return sens_SE
+
+    @classmethod
+    def sens_periodicity_SEcorrection_local_multi(
         cls, monodromy, periodicity_inc, VT_thispart, V0_nextpart
     ):
         """
         Compute the sensitivity of the periodicity condition with SE correction for multiple shooting.
+        **** This applies to the LOCAL periodcity formulations. ****
         """
         N = cls.ndof_free
         nodes = cls.nnodes_free
@@ -544,74 +657,3 @@ class BeamCpp:
         # dHdx1[N:, N:] = -np.eye(N)
 
         return dHdx0, dHdx1, dHdT
-
-    @classmethod
-    def sensitivity_periodicity_SE_correction(cls, monodromy, periodicity_inc, vel_time):
-        """
-        Compute the sensitivity of the periodicity condition with SE correction.
-
-        When SE correction is set to false in C++, the monodromy matrix is returned as M - I
-        If we add I we get the actual monodromy.
-        This method then corrects the monodromy to account for the SE contributions.
-        It gives the same result as the cpp code when SE correction is set to true."""
-        N = cls.ndof_free
-        nodes = cls.nnodes_free
-        dpn = cls.dof_per_node
-        n_dim = cls.n_dim
-        vel_time = vel_time[cls.free_dof]
-        sens_SE = np.zeros((2 * N, 2 * N + 1))
-
-        # Precompute indices
-        indices_N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes)])
-        indices_2N = np.array([(i * dpn, (i + 1) * dpn) for i in range(nodes * 2)])
-        indices_comb = np.array(
-            [(i * dpn, (i + 1) * dpn, N + i * dpn, N + (i + 1) * dpn) for i in range(nodes)]
-        )
-
-        # Precompute inverse tangent operators
-        T_pos_neg = np.array(
-            [
-                (
-                    Frame.get_inverse_tangent_operator(
-                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn, 0]
-                    ),
-                    Frame.get_inverse_tangent_operator(
-                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn, 0]
-                    ),
-                ) for i in range(nodes)
-            ]
-        )
-
-        # POSE sensitivities
-        for i, (i0, i1) in enumerate(indices_N):
-            T_pos, T_neg = T_pos_neg[i]
-            for j0, j1 in indices_2N:
-                sens_SE[i0:i1, j0:j1] = T_pos @ monodromy[i0:i1, j0:j1]
-            # add T_neg on the diagonal elements only
-            sens_SE[i0:i1, i0:i1] += -T_neg
-
-            # POSE sensitivities wrt period
-            sens_SE[i0:i1, -1] = T_pos @ monodromy[i0:i1, -1]
-
-        # VEL sensitivities:
-        for i, (i0, i1, I0, I1) in enumerate(indices_comb):
-            psi = periodicity_inc[i0:i1, 0]
-            v0 = vel_time[i0:i1, 0]
-            vT = vel_time[i0:i1, -1]
-            T_pos, T_neg = T_pos_neg[i]
-            DT_pos = Frame.get_derivative_inverse_tangent_operator(n_dim, psi, vT)
-            DT_neg = Frame.get_derivative_inverse_tangent_operator(n_dim, -psi, v0)
-            for j0, j1 in indices_2N:
-                pose_sens = sens_SE[i0:i1, j0:j1]
-                sens_SE[I0:I1, j0:j1] = (
-                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_neg @ pose_sens + DT_pos @ pose_sens
-                )
-            # add T_neg on the diagonal elements only
-            sens_SE[I0:I1, I0:I1] += -T_neg
-
-            # VEL sensitivities wrt period
-            pose_sens = sens_SE[i0:i1, -1]
-            sens_SE[I0:I1,
-                    -1] = (T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens)
-
-        return sens_SE

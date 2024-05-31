@@ -4,6 +4,67 @@ from SO3 import UnitQuaternion, tilde
 
 class Frame:
     @staticmethod
+    def get_inverse(n_dim, frame):
+        # Calculate the inverse of the frame
+        if n_dim == 2:
+            q, x = frame[:2], frame[2:]
+            q_inv = np.array([q[0], -q[1]])
+        elif n_dim == 3:
+            q, x = frame[:4], frame[4:]
+            q_inv = np.array([q[0], -q[1], -q[2], -q[3]])
+        x_inv = -1 * UnitQuaternion.rotateT_vec(n_dim, q, x)
+        frame_inv = np.concatenate([q_inv, x_inv])
+        return frame_inv
+
+    @staticmethod
+    def composition(n_dim, frame_a, frame_b):
+        # f = frame_a o frame_b
+        if n_dim == 2:
+            frame_a_q, frame_a_x = frame_a[:2], frame_a[2:]
+            frame_b_q, frame_b_x = frame_b[:2], frame_b[2:]
+        elif n_dim == 3:
+            frame_a_q, frame_a_x = frame_a[:4], frame_a[4:]
+            frame_b_q, frame_b_x = frame_b[:4], frame_b[4:]
+        q = UnitQuaternion.composition(n_dim, frame_a_q, frame_b_q)
+        x = frame_a_x + UnitQuaternion.rotate_vec(n_dim, frame_a_q, frame_b_x)
+        f = np.concatenate([q, x])
+        return f
+
+    @staticmethod
+    def get_adjoint(n_dim, frame):
+        # Calculate the adjoint of the frame
+        if n_dim == 2:
+            q, x = frame[:2], frame[2:]
+            Adj = np.eye(3)
+            R = UnitQuaternion.get_rotation_matrix(n_dim, q)
+            Adj[:2, :2] = R
+            Adj[0, 2] = x[1]
+            Adj[1, 2] = -x[0]
+        elif n_dim == 3:
+            q, x = frame[:4], frame[4:]
+            R = UnitQuaternion.get_rotation_matrix(n_dim, q)
+            Adj = np.block([[R, np.matmul(tilde(x), R)], [np.zeros((3, 3)), R]])
+        return Adj
+
+    @staticmethod
+    def lie_bracket(n_dim, vec_a, vec_b):
+        if n_dim == 2:
+            bracket = np.array(
+                [
+                    vec_b[2] * vec_a[1] - vec_a[2] * vec_b[0],
+                    vec_a[2] * vec_b[1] - vec_b[2] * vec_a[0],
+                    0.0,
+                ]
+            )
+        else:
+            a_x = vec_a[:3]
+            a_r = vec_a[3:]
+            b_x = vec_b[:3]
+            b_r = vec_b[3:]
+            bracket = np.concatenate((np.cross(a_r, b_x) + np.cross(a_x, b_r), np.cross(a_r, b_r)))
+        return bracket
+
+    @staticmethod
     def relative_frame(n_dim, frame_a, frame_b):
         # Calculate the relative frame from frame_a to frame_b
         # f = frame_a^-1 o frame_b

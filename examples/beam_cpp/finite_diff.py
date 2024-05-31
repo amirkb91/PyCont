@@ -6,6 +6,8 @@ from Frame import Frame
 import numpy as np
 import h5py
 
+# Finite difference code to check sensitivity of multiple shooting periodicity condition
+
 # Read ic0 files
 with h5py.File("ic0.h5", "r") as f:
     pose0 = f["/dynamic_analysis/FEModel/POSE/MOTION"][:]
@@ -59,11 +61,11 @@ with h5py.File(BeamCpp.cpp_path + BeamCpp.simout_file + ".h5", "r") as f:
     M = f["/Sensitivity/Monodromy"][:]
     M[:X0.size, :X0.size] += np.eye(X0.size)
 
-H1 = BeamCpp.periodicity_INC_SE(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
-H2 = BeamCpp.periodicity_VEL_SE(H1, vel1.reshape(-1, 1), velT.reshape(-1, 1))
+H1 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
+H2 = BeamCpp.periodicity_VEL_SE_local(H1, vel1.reshape(-1, 1), velT.reshape(-1, 1))
 H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-[dHdx0, dHdx1, dHdT] = BeamCpp.sensitivity_periodicity_SE_correction_multi(M, H1, velT, vel1)
+[dHdx0, dHdx1, dHdT] = BeamCpp.sens_periodicity_SEcorrection_local_multi(M, H1, velT, vel1)
 np.savetxt("dHdX0.txt", dHdx0)
 np.savetxt("dHdX1.txt", dHdx1)
 np.savetxt("dHdT.txt", dHdT)
@@ -85,8 +87,8 @@ for i in range(H.size):
         poseT = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
         velT = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
 
-    H1 = BeamCpp.periodicity_INC_SE(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
-    H2 = BeamCpp.periodicity_VEL_SE(H1, vel1.reshape(-1, 1), velT.reshape(-1, 1))
+    H1 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
+    H2 = BeamCpp.periodicity_VEL_SE_local(H1, vel1.reshape(-1, 1), velT.reshape(-1, 1))
     H_plus = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
     BeamCpp.config_update(pose_ref)
@@ -94,8 +96,8 @@ for i in range(H.size):
     with h5py.File(BeamCpp.cpp_path + BeamCpp.simout_file + ".h5", "r") as f:
         poseT = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
         velT = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
-    H3 = BeamCpp.periodicity_INC_SE(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
-    H4 = BeamCpp.periodicity_VEL_SE(H3, vel1.reshape(-1, 1), velT.reshape(-1, 1))
+    H3 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
+    H4 = BeamCpp.periodicity_VEL_SE_local(H3, vel1.reshape(-1, 1), velT.reshape(-1, 1))
     H_minus = np.reshape(np.concatenate([H3, H4]), (-1, 1), order="F")
 
     sens_X0[:, i] = (H_plus - H_minus).flatten() / (2 * epsilon)
@@ -131,14 +133,14 @@ for i in range(H.size):
         poseT = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
         velT = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
 
-    H1 = BeamCpp.periodicity_INC_SE(pose1_plus.reshape(-1, 1), poseT.reshape(-1, 1))
+    H1 = BeamCpp.periodicity_INC_SE_local(pose1_plus.reshape(-1, 1), poseT.reshape(-1, 1))
     v1_ = np.concatenate([np.zeros(3), X1_plus[X0.size // 2:], np.zeros(3)])
-    H2 = BeamCpp.periodicity_VEL_SE(H1, v1_.reshape(-1, 1), velT.reshape(-1, 1))
+    H2 = BeamCpp.periodicity_VEL_SE_local(H1, v1_.reshape(-1, 1), velT.reshape(-1, 1))
     H_plus = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-    H3 = BeamCpp.periodicity_INC_SE(pose1_minus.reshape(-1, 1), poseT.reshape(-1, 1))
+    H3 = BeamCpp.periodicity_INC_SE_local(pose1_minus.reshape(-1, 1), poseT.reshape(-1, 1))
     v1_ = np.concatenate([np.zeros(3), X1_minus[X0.size // 2:], np.zeros(3)])
-    H4 = BeamCpp.periodicity_VEL_SE(H3, v1_.reshape(-1, 1), velT.reshape(-1, 1))
+    H4 = BeamCpp.periodicity_VEL_SE_local(H3, v1_.reshape(-1, 1), velT.reshape(-1, 1))
     H_minus = np.reshape(np.concatenate([H3, H4]), (-1, 1), order="F")
 
     sens_X1[:, i] = (H_plus - H_minus).flatten() / (2 * epsilon)
@@ -153,8 +155,8 @@ with h5py.File(BeamCpp.cpp_path + BeamCpp.simout_file + ".h5", "r") as f:
     pose_T = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
     vel_T = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
 
-H1 = BeamCpp.periodicity_INC_SE(pose1.reshape(-1, 1), pose_T.reshape(-1, 1))
-H2 = BeamCpp.periodicity_VEL_SE(H1, vel1.reshape(-1, 1), vel_T.reshape(-1, 1))
+H1 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), pose_T.reshape(-1, 1))
+H2 = BeamCpp.periodicity_VEL_SE_local(H1, vel1.reshape(-1, 1), vel_T.reshape(-1, 1))
 H_plus = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
 BeamCpp.config_update(pose_ref)
@@ -163,8 +165,8 @@ cvg_minus = BeamCpp.run_cpp(T_minus, X0, 300, False)
 with h5py.File(BeamCpp.cpp_path + BeamCpp.simout_file + ".h5", "r") as f:
     pose_T = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
     vel_T = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
-H3 = BeamCpp.periodicity_INC_SE(pose1.reshape(-1, 1), pose_T.reshape(-1, 1))
-H4 = BeamCpp.periodicity_VEL_SE(H3, vel1.reshape(-1, 1), vel_T.reshape(-1, 1))
+H3 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), pose_T.reshape(-1, 1))
+H4 = BeamCpp.periodicity_VEL_SE_local(H3, vel1.reshape(-1, 1), vel_T.reshape(-1, 1))
 H_minus = np.reshape(np.concatenate([H3, H4]), (-1, 1), order="F")
 
 sens_period = (H_plus - H_minus).flatten() / (2 * epsilon)
