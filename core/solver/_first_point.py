@@ -170,4 +170,4 @@ def first_point(self):
         elif shooting_method == "multiple":
             pass
 
-    # log screen output just a line
+    self.log.screenline("-")

@@ -130,3 +130,4 @@ def seqcont(self):
         if cvg_cont and energy and energy > cont_params_cont["Emax"]:
             print(f"Energy {energy:.5e} exceeds Emax.")
             break
+        self.log.screenline("-")
