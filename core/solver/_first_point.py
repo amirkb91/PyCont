@@ -14,14 +14,14 @@ def first_point(self):
 
     if eig_start and not forced:
         iter_firstpoint = 0
-        linearsol = self.X0.copy()  # velocities are zero so no scaling needed
+        linearsol = self.X0.copy()
 
         while True:
             if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")
 
             [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, cont_params
+                1.0, self.T0, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -34,19 +34,19 @@ def first_point(self):
                 iter=0,
                 correct=iter_firstpoint,
                 res=residual,
-                freq=self.omega / self.tau,
+                freq=1 / self.T0,
                 energy=energy,
             )
 
             if residual < cont_params["continuation"]["tol"] and iter_firstpoint > 0:
                 break
 
-            # correct X0 and tau
+            # correct X0 and T0
             iter_firstpoint += 1
             hx = self.h @ self.X0
             Z = np.vstack([H, hx.reshape(-1, 1), np.zeros(1)])
             dxt = spl.lstsq(J, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
-            self.tau += dxt[-1, 0]
+            self.T0 += dxt[-1, 0]
             dx = dxt[:-1, 0]
             self.X0 += dx
 
@@ -59,13 +59,12 @@ def first_point(self):
         elif shooting_method == "multiple":
             # partition solution
             self.X0, self.pose = self.prob.partitionfunction(
-                self.omega, self.tau, self.X0, self.pose, cont_params
+                1.0, self.T0, self.X0, self.pose, cont_params
             )
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
-            # override Jacobian with new Jacobian for all partitions
-            [_, J, _, vel, _,
-             _] = self.prob.zerofunction(self.omega, self.tau, self.X0, self.pose, cont_params)
+            # override Jacobian with new Jacobian for all partitions, zerofunction is multiple shooting
+            [_, J, _, vel, _, _] = self.prob.zerofunction(1.0, self.T0, self.X0, self.pose, cont_params)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
 
         J[-1, -1] = 1
@@ -74,15 +73,10 @@ def first_point(self):
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-        # if cont_params["shooting"]["scaling"]:
-        #     # reset tau to 1.0
-        #     self.omega = self.omega / self.tau
-        #     self.tau = 1.0
-
         self.log.store(
             sol_pose=self.pose,
             sol_vel=vel,
-            sol_T=self.tau / self.omega,
+            sol_T=self.T0,
             sol_tgt=self.tgt0,
             sol_energy=energy,
             sol_itercorrect=iter_firstpoint,
@@ -96,7 +90,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, cont_params
+                1.0, self.T0, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -107,7 +101,7 @@ def first_point(self):
                 iter=0,
                 correct=iter_firstpoint,
                 res=residual,
-                freq=self.omega / self.tau,
+                freq=1 / self.T0,
                 energy=energy,
             )
 
@@ -134,17 +128,17 @@ def first_point(self):
         self.log.store(
             sol_pose=self.pose,
             sol_vel=vel,
-            sol_T=self.tau / self.omega,
+            sol_T=self.T0,
             sol_tgt=self.tgt0,
             sol_energy=energy,
             sol_itercorrect=iter_firstpoint,
             sol_step=0,
         )
 
-    elif restart:
+    elif restart and not forced:
         if shooting_method == "single":
             [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                self.omega, self.tau, self.X0, self.pose0, cont_params
+                1.0, self.T0, self.X0, self.pose0, cont_params
             )
             residual = spl.norm(H)
 
@@ -161,12 +155,12 @@ def first_point(self):
                 self.tgt0 /= spl.norm(self.tgt0)
 
             self.log.screenout(
-                iter=0, correct=0, res=residual, freq=self.omega / self.tau, energy=energy
+                iter=0, correct=0, res=residual, freq=1/self.T0, energy=energy
             )
             self.log.store(
                 sol_pose=self.pose,
                 sol_vel=vel,
-                sol_T=self.tau / self.omega,
+                sol_T=self.T0,
                 sol_tgt=self.tgt0,
                 sol_energy=energy,
                 sol_itercorrect=0,
@@ -175,3 +169,6 @@ def first_point(self):
 
         elif shooting_method == "multiple":
             pass
+
+    # log screen output just a line
+

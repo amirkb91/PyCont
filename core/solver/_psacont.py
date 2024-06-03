@@ -8,52 +8,57 @@ from ._cont_step import cont_step
 
 
 def psacont(self):
-    continuation_params = self.prob.cont_params["continuation"]
-    frml = continuation_params["tangent"].lower()
-    forced = continuation_params["forced"]
+    cont_params = self.prob.cont_params
+    cont_params_cont = cont_params["continuation"]
+    frml = cont_params_cont["tangent"].lower()
+    forced = cont_params_cont["forced"]
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
     cvg_sol = namedtuple("converged_solution", "X, T, H, J")
 
-    # first point solution
+    # first point converged solution
     X = self.X0
     pose_base = self.pose
     tgt = self.tgt0
-    omega = self.omega
-    tau = self.tau
+    omega = 1.0
+    tau = self.T0
+    
+    if cont_params["shooting"]["scaling"]: 
+        omega = 1 / self.T0
+        tau = 1.0
 
     # continuation parameters
-    step = continuation_params["s0"]
-    direction = continuation_params["dir"]
+    step = cont_params_cont["s0"]
+    direction = cont_params_cont["dir"]
     stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # boolean masks to select inc and vel from X (has no effect on single shooting)
     inc_mask = np.mod(np.arange(X.size), twoN) < N
     vel_mask = ~inc_mask
 
-    # continuation loop
+    # --- MAIN CONTINUATION LOOP
     itercont = 1
     while True:
         # prediction step along tangent
         tau_pred = tau + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
 
-        if (omega / tau_pred > continuation_params["fmax"] or
-                omega / tau_pred < continuation_params["fmin"]):
+        if (omega / tau_pred > cont_params_cont["fmax"] or
+                omega / tau_pred < cont_params_cont["fmin"]):
             print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
             break
 
         # correction step
         itercorrect = 0
         while True:
-            if itercorrect % continuation_params["iterjac"] == 0:
+            if itercorrect % cont_params_cont["iterjac"] == 0:
                 sensitivity = True
             else:
                 sensitivity = False
 
             [H, Jsim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
-                omega, tau_pred, X_pred, pose_base, self.prob.cont_params, sensitivity=sensitivity
+                omega, tau_pred, X_pred, pose_base, cont_params, sensitivity=sensitivity
             )
             if not cvg_zerof:
                 cvg_cont = False
@@ -72,11 +77,11 @@ def psacont(self):
             J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
             soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
 
-            if (residual < continuation_params["tol"] and
-                    itercorrect >= continuation_params["itermin"]):
+            if (residual < cont_params_cont["tol"] and
+                    itercorrect >= cont_params_cont["itermin"]):
                 cvg_cont = True
                 break
-            elif itercorrect > continuation_params["itermax"] or residual > 1e10:
+            elif itercorrect > cont_params_cont["itermax"] or residual > 1e10:
                 cvg_cont = False
                 break
 
@@ -139,7 +144,7 @@ def psacont(self):
             #         (spl.norm(tgt[np.r_[0:twoN, -1]]) * spl.norm(tgt_next[np.r_[0:twoN, -1]]))
             #     )
             # )
-            if continuation_params["betacontrol"] and beta > continuation_params["betamax"]:
+            if cont_params_cont["betacontrol"] and beta > cont_params_cont["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
@@ -177,19 +182,19 @@ def psacont(self):
                 pose_base = pose.copy()
                 X[inc_mask] = 0.0
 
-                # if self.prob.cont_params["shooting"]["scaling"]:
+                # if cont_params["shooting"]["scaling"]:
                 #     # reset tau to 1.0
                 #     omega = omega / tau
                 #     tau = 1.0
 
         # adaptive step size for next point
-        if itercont > continuation_params["nadapt"] or not cvg_cont:
+        if itercont > cont_params_cont["nadapt"] or not cvg_cont:
             step = cont_step(self, step, itercorrect, cvg_cont)
 
-        if itercont > continuation_params["npts"]:
+        if itercont > cont_params_cont["npts"]:
             print("Maximum number of continuation points reached.")
             break
-        if cvg_cont and energy and energy > continuation_params["Emax"]:
+        if cvg_cont and energy and energy > cont_params_cont["Emax"]:
             print(f"Energy {energy:.5e} exceeds Emax.")
             break
 
