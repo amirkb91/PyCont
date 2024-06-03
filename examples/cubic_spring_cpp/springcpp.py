@@ -21,7 +21,8 @@ class SpringCpp:
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
     model_name = model_def["ModelDef"]["model_name"]
     analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"][
-        "analysis_name"]
+        "analysis_name"
+    ]
 
     free_dof = None
     fix_dof = None
@@ -42,7 +43,8 @@ class SpringCpp:
             cls.model_def["ModelDef"]["phase_ratio"] = cont_params["forcing"]["phase_ratio"]
             cls.model_def["ModelDef"]["damping_M"] = cont_params["forcing"]["damping"]
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"][
-                "rho_GA"]
+                "rho_GA"
+            ]
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
@@ -50,8 +52,14 @@ class SpringCpp:
     @classmethod
     def run_eig(cls):
         subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " " +
-            cls.cpp_paramfile_eig,
+            "cd "
+            + cls.cpp_path
+            + "&&"
+            + cls.cpp_exe
+            + " _"
+            + cls.cpp_modelfile
+            + " "
+            + cls.cpp_paramfile_eig,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -108,8 +116,8 @@ class SpringCpp:
     def run_cpp(cls, T, X, nsteps, rel_tol):
         pose = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
-        pose[cls.free_dof] = X[:cls.ndof_free]
-        vel[cls.free_dof] = X[cls.ndof_free:]
+        pose[cls.free_dof] = X[: cls.ndof_free]
+        vel[cls.free_dof] = X[cls.ndof_free :]
 
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
         icdata["/" + cls.analysis_name + "/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
@@ -119,17 +127,23 @@ class SpringCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = rel_tol
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"][
-            "initial_conditions"] = cls.cpp_params_sim["TimeIntegrationSolverParameters"][
-                "_initial_conditions"]
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = (
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]
+        )
         json.dump(
             cls.cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2
         )
 
         try:
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                cls.cpp_paramfile_sim,
+                "cd "
+                + cls.cpp_path
+                + "&&"
+                + cls.cpp_exe
+                + " _"
+                + cls.cpp_modelfile
+                + " _"
+                + cls.cpp_paramfile_sim,
                 shell=True,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w"),

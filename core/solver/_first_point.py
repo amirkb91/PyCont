@@ -64,7 +64,9 @@ def first_point(self):
             # size of X0 has changed so reconfigure phase condition matrix
             phase_condition(self)
             # override Jacobian with new Jacobian for all partitions, zerofunction is multiple shooting
-            [_, J, _, vel, _, _] = self.prob.zerofunction(1.0, self.T0, self.X0, self.pose, cont_params)
+            [_, J, _, vel, _, _] = self.prob.zerofunction(
+                1.0, self.T0, self.X0, self.pose, cont_params
+            )
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])
 
         J[-1, -1] = 1
@@ -149,14 +151,12 @@ def first_point(self):
                 J[-1, -1] = 1
                 Z = np.zeros((np.shape(J)[0], 1))
                 Z[-1] = 1
-                self.tgt0 = spl.lstsq(
-                    J, Z, cond=None, check_finite=False, lapack_driver="gelsd"
-                )[0][:, 0]
+                self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[
+                    0
+                ][:, 0]
                 self.tgt0 /= spl.norm(self.tgt0)
 
-            self.log.screenout(
-                iter=0, correct=0, res=residual, freq=1/self.T0, energy=energy
-            )
+            self.log.screenout(iter=0, correct=0, res=residual, freq=1 / self.T0, energy=energy)
             self.log.store(
                 sol_pose=self.pose,
                 sol_vel=vel,
@@ -171,4 +171,3 @@ def first_point(self):
             pass
 
     # log screen output just a line
-

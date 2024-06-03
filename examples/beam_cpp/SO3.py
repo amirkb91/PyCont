@@ -74,18 +74,21 @@ class UnitQuaternion:
             e0e1 = q[0] * q[1]
 
             x = 2.0 * (
-                (q[1] * q[1] + e0e0 - 0.5) * vec[0] + (e1e2 - e0e3) * vec[1] +
-                (e0e2 + e1e3) * vec[2]
+                (q[1] * q[1] + e0e0 - 0.5) * vec[0]
+                + (e1e2 - e0e3) * vec[1]
+                + (e0e2 + e1e3) * vec[2]
             )
 
             y = 2.0 * (
-                (q[2] * q[2] + e0e0 - 0.5) * vec[1] + (e1e2 + e0e3) * vec[0] +
-                (-e0e1 + e2e3) * vec[2]
+                (q[2] * q[2] + e0e0 - 0.5) * vec[1]
+                + (e1e2 + e0e3) * vec[0]
+                + (-e0e1 + e2e3) * vec[2]
             )
 
             z = 2.0 * (
-                (q[3] * q[3] + e0e0 - 0.5) * vec[2] + (e1e3 - e0e2) * vec[0] +
-                (e0e1 + e2e3) * vec[1]
+                (q[3] * q[3] + e0e0 - 0.5) * vec[2]
+                + (e1e3 - e0e2) * vec[0]
+                + (e0e1 + e2e3) * vec[1]
             )
 
             out = np.array([x, y, z])
@@ -109,16 +112,19 @@ class UnitQuaternion:
             e0e1 = q[0] * q[1]
 
             x = 2 * (
-                (q[1] * q[1] + e0e0 - 0.5) * vec[0] + (e1e2 + e0e3) * vec[1] +
-                (-e0e2 + e1e3) * vec[2]
+                (q[1] * q[1] + e0e0 - 0.5) * vec[0]
+                + (e1e2 + e0e3) * vec[1]
+                + (-e0e2 + e1e3) * vec[2]
             )
             y = 2 * (
-                (q[2] * q[2] + e0e0 - 0.5) * vec[1] + (e1e2 - e0e3) * vec[0] +
-                (e0e1 + e2e3) * vec[2]
+                (q[2] * q[2] + e0e0 - 0.5) * vec[1]
+                + (e1e2 - e0e3) * vec[0]
+                + (e0e1 + e2e3) * vec[2]
             )
             z = 2 * (
-                (q[3] * q[3] + e0e0 - 0.5) * vec[2] + (e1e3 + e0e2) * vec[0] +
-                (-e0e1 + e2e3) * vec[1]
+                (q[3] * q[3] + e0e0 - 0.5) * vec[2]
+                + (e1e3 + e0e2) * vec[0]
+                + (-e0e1 + e2e3) * vec[1]
             )
 
             out = np.array([x, y, z])

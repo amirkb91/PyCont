@@ -15,8 +15,8 @@ def seqcont(self):
     X = self.X0
     pose_base = self.pose
     omega = 1.0
-    tau = self.T0    
-    if cont_params["shooting"]["scaling"]: 
+    tau = self.T0
+    if cont_params["shooting"]["scaling"]:
         omega = 1 / self.T0
         tau = 1.0
 
@@ -26,7 +26,7 @@ def seqcont(self):
     stepsign = -1 * direction  # corrections are always added
 
     # boolean mask to select inc from X (has no effect on single shooting)
-    inc_mask = np.mod(np.arange(X.size), twoN) < N    
+    inc_mask = np.mod(np.arange(X.size), twoN) < N
 
     # --- MAIN CONTINUATION LOOP
     itercont = 1
@@ -35,8 +35,10 @@ def seqcont(self):
         tau_pred = tau + step * stepsign
         X_pred = X.copy()
 
-        if (omega / tau_pred > cont_params_cont["fmax"] or
-                omega / tau_pred < cont_params_cont["fmin"]):
+        if (
+            omega / tau_pred > cont_params_cont["fmax"]
+            or omega / tau_pred < cont_params_cont["fmin"]
+        ):
             print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
             break
 
@@ -61,8 +63,7 @@ def seqcont(self):
             if sensitivity:
                 J = np.block([[Jsim[:, :-1]], [self.h]])
 
-            if (residual < cont_params_cont["tol"] and
-                    itercorrect >= cont_params_cont["itermin"]):
+            if residual < cont_params_cont["tol"] and itercorrect >= cont_params_cont["itermin"]:
                 cvg_cont = True
                 break
             elif itercorrect > cont_params_cont["itermax"] or residual > 1e10:

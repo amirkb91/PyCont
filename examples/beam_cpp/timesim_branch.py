@@ -5,6 +5,7 @@ import sys, shutil
 import numpy as np
 from examples.beam_cpp.beamcpp import BeamCpp
 from postprocess.bifurcation import bifurcation_functions
+
 """ Run time simulations for all NNM solutions and store """
 
 new_nsteps = input("Specify new nsteps per period if desired: ")

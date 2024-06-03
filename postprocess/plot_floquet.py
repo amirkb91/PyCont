@@ -44,10 +44,8 @@ for i in range(n_solpoints):
     amp[i] = np.max(np.abs(pose_time[pose_ind2plot, :, i])) / normalise_amp
 a2.plot(1 / T, amp, marker="none", fillstyle="none", color="green")
 
-(floq_points, ) = a1.plot(
-    floquet.real[:, 0], floquet.imag[:, 0], "o", markersize=5, color="orange"
-)
-(famp_points, ) = a2.plot(1 / T[0], amp[0], "o", markersize=5, color="black")
+(floq_points,) = a1.plot(floquet.real[:, 0], floquet.imag[:, 0], "o", markersize=5, color="orange")
+(famp_points,) = a2.plot(1 / T[0], amp[0], "o", markersize=5, color="black")
 
 ax = f.add_axes([0.05, 0.15, 0.0225, 0.63])
 slider = Slider(

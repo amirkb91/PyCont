@@ -19,10 +19,10 @@ class Cubic_Spring:
     @classmethod
     def model_ode(cls, t, X):
         # State equation of the mass spring system. Xdot(t) = g(X(t))
-        x = X[:cls.ndof_free]
-        xdot = X[cls.ndof_free:]
+        x = X[: cls.ndof_free]
+        xdot = X[cls.ndof_free :]
         KX = cls.K @ x
-        fnl = np.array([cls.Knl * x[0]**3, 0])
+        fnl = np.array([cls.Knl * x[0] ** 3, 0])
         Xdot = np.concatenate((xdot, -cls.Minv @ (KX + fnl)))
         return Xdot
 
@@ -42,13 +42,13 @@ class Cubic_Spring:
         x = X[:N]
         xdot = X[N:]
         KX = K @ x
-        fnl = np.array([cls.Knl * x[0]**3, 0])
+        fnl = np.array([cls.Knl * x[0] ** 3, 0])
         Xdot = np.concatenate((xdot, -Minv @ (KX + fnl)))
         dgdX = np.array(
             [
                 [0, 0, 1, 0],
                 [0, 0, 0, 1],
-                [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x[0]**2), -1 / M[0, 0] * K[0, 1], 0, 0],
+                [-1 / M[0, 0] * (K[0, 0] + knl * 3 * x[0] ** 2), -1 / M[0, 0] * K[0, 1], 0, 0],
                 [-1 / M[1, 1] * K[1, 0], -1 / M[1, 1] * K[1, 1], 0, 0],
             ]
         )
@@ -101,10 +101,9 @@ class Cubic_Spring:
 
         # Energy
         energy = np.max(
-            0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
-                            np.dot(cls.M, Xsol[:, N:].T).T) +
-            0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
-                            np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
+            0.5 * np.einsum("ij,ij->i", Xsol[:, N:], np.dot(cls.M, Xsol[:, N:].T).T)
+            + 0.5 * np.einsum("ij,ij->i", Xsol[:, :N], np.dot(cls.K, Xsol[:, :N].T).T)
+            + 0.25 * cls.Knl * Xsol[:, 0] ** 4
         )
 
         return H, J, pose, vel, energy, True
@@ -157,21 +156,20 @@ class Cubic_Spring:
 
             # Energy
             E[:, ipart] = (
-                0.5 * np.einsum("ij,ij->i", Xsol[:, N:],
-                                np.dot(cls.M, Xsol[:, N:].T).T) +
-                0.5 * np.einsum("ij,ij->i", Xsol[:, :N],
-                                np.dot(cls.K, Xsol[:, :N].T).T) + 0.25 * cls.Knl * Xsol[:, 0]**4
+                0.5 * np.einsum("ij,ij->i", Xsol[:, N:], np.dot(cls.M, Xsol[:, N:].T).T)
+                + 0.5 * np.einsum("ij,ij->i", Xsol[:, :N], np.dot(cls.K, Xsol[:, :N].T).T)
+                + 0.25 * cls.Knl * Xsol[:, 0] ** 4
             )
             energy = np.max([energy, np.max(E)])
 
         # Periodicity condition for all partitions
         H1 = (
-            pose_time[cls.free_dof][:, indices_end[block_order]] -
-            pose_time[cls.free_dof][:, indices_start[block_order]]
+            pose_time[cls.free_dof][:, indices_end[block_order]]
+            - pose_time[cls.free_dof][:, indices_start[block_order]]
         )
         H2 = (
-            vel_time[cls.free_dof][:, indices_end[block_order]] -
-            vel_time[cls.free_dof][:, indices_start[block_order]]
+            vel_time[cls.free_dof][:, indices_end[block_order]]
+            - vel_time[cls.free_dof][:, indices_start[block_order]]
         )
         H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 

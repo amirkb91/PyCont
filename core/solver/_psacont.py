@@ -23,8 +23,7 @@ def psacont(self):
     tgt = self.tgt0
     omega = 1.0
     tau = self.T0
-    
-    if cont_params["shooting"]["scaling"]: 
+    if cont_params["shooting"]["scaling"]:
         omega = 1 / self.T0
         tau = 1.0
 
@@ -44,8 +43,10 @@ def psacont(self):
         tau_pred = tau + tgt[-1] * step * stepsign
         X_pred = X + tgt[:-1] * step * stepsign
 
-        if (omega / tau_pred > cont_params_cont["fmax"] or
-                omega / tau_pred < cont_params_cont["fmin"]):
+        if (
+            omega / tau_pred > cont_params_cont["fmax"]
+            or omega / tau_pred < cont_params_cont["fmin"]
+        ):
             print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
             break
 
@@ -69,16 +70,16 @@ def psacont(self):
 
             if not sensitivity:
                 # Broyden's Jacobian update
-                deltaX = (np.append(X_pred, tau_pred / omega) -
-                          np.append(soldata.X, soldata.T)).reshape(-1, 1)
+                deltaX = (
+                    np.append(X_pred, tau_pred / omega) - np.append(soldata.X, soldata.T)
+                ).reshape(-1, 1)
                 deltaf = H - soldata.H
                 Jsim = soldata.J + 1 / spl.norm(deltaX) * (deltaf - soldata.J @ deltaX) @ deltaX.T
 
             J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
             soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
 
-            if (residual < cont_params_cont["tol"] and
-                    itercorrect >= cont_params_cont["itermin"]):
+            if residual < cont_params_cont["tol"] and itercorrect >= cont_params_cont["itermin"]:
                 cvg_cont = True
                 break
             elif itercorrect > cont_params_cont["itermax"] or residual > 1e10:

@@ -46,7 +46,7 @@ class StartingPoint:
         vel = restartsol["/Config/VELOCITY"][:, index]
         v0 = vel[dofdata["free_dof"]]
         x0 = np.zeros_like(v0)
-        self.X0 = np.concatenate([x0, v0])        
+        self.X0 = np.concatenate([x0, v0])
         try:
             self.tgt0 = restartsol["/Tangent"][:, index]
         except:
