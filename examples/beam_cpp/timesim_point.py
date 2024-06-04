@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 import numpy as np
-from examples.beam_cpp.beamcpp import BeamCpp
+from beamcpp import BeamCpp
 
 # inputs
 solno = int(input("Solution Index: "))
