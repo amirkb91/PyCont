@@ -363,17 +363,16 @@ class BeamCpp:
         return not bool(cpprun.returncode)
 
     @classmethod
-    def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, tau, Xtilde, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
-        T = tau / omega
+        T = tau
         X = Xtilde.copy()
-        X[N:] *= omega  # scale velocities from Xtilde to X
-
         cls.config_update(pose_base)
+
         # do time integration along whole orbit before slicing
         cls.run_cpp(T, X, nsteps * npartition, True)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
@@ -381,8 +380,7 @@ class BeamCpp:
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
         pose = pose_time[:, slicing_index]
         vel = vel_time[cls.free_dof][:, slicing_index]
-        # set inc to zero as solution stored in pose, keep velocity but scale first
-        vel *= 1 / omega
+        # set inc to zero as solution stored in pose
         Xsol = np.concatenate((np.zeros((N, npartition)), vel))
         Xsol = np.reshape(Xsol, (-1), order="F")
         return Xsol, pose

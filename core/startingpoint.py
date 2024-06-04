@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import json
 
 
 class StartingPoint:
@@ -40,13 +41,27 @@ class StartingPoint:
         )
         index = self.prob.cont_params["first_point"]["restart"]["index"]
         dofdata = self.prob.doffunction()
+        N = dofdata["ndof_free"]
 
         self.T0 = restartsol["/T"][index]
         self.pose0 = restartsol["/Config/POSE"][:, index]
         vel = restartsol["/Config/VELOCITY"][:, index]
-        v0 = vel[dofdata["free_dof"]]
-        x0 = np.zeros_like(v0)
-        self.X0 = np.concatenate([x0, v0])
+        restartsol_parameters = json.loads(restartsol["/Parameters"][()])
+        restartsol_shooting_method = restartsol_parameters["shooting"]["method"]
+
+        # restart solution could be single or multiple shooting
+        if restartsol_shooting_method == "single":
+            v0 = vel[dofdata["free_dof"]]
+            x0 = np.zeros_like(v0)
+            self.X0 = np.concatenate([x0, v0])
+        elif restartsol_shooting_method == "multiple":
+            npartition = restartsol_parameters["shooting"]["multiple"]["npartition"]
+            self.pose0 = np.reshape(self.pose0, (-1, npartition), order="F")
+            vel = np.reshape(vel, (-1, npartition), order="F")
+            v0 = vel[dofdata["free_dof"], :]
+            self.X0 = np.concatenate((np.zeros((N, npartition)), v0))
+            self.X0 = np.reshape(self.X0, (-1), order="F")
+
         try:
             self.tgt0 = restartsol["/Tangent"][:, index]
         except:
