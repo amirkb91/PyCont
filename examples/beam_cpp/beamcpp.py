@@ -141,6 +141,7 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            acc_time = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -179,10 +180,12 @@ class BeamCpp:
         if not fulltime:
             return H, J, pose, vel, energy, cvg
         else:
-            return H, J, pose_time, vel_time, energy, cvg
+            return H, J, pose_time, vel_time, acc_time, energy, cvg
 
     @classmethod
-    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
+    def runsim_multiple(
+        cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
+    ):
         # multiple shooting sensitivity SE correction has to be done in Python
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
             "apply_SE_correction"
@@ -205,7 +208,9 @@ class BeamCpp:
         M_all = np.empty(npartition, dtype=object)
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        acc_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         energy = 0
+        energy_time = np.zeros((nsteps + 1, npartition))
         H = pose = vel = None
         cvg = [None] * npartition
 
@@ -224,6 +229,8 @@ class BeamCpp:
                 energy = np.max([energy, E])
                 pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                 vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                acc_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
+                energy_time[:, ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, :]
                 M = simdata["/Sensitivity/Monodromy"][:]
                 # cpp gives M - I when apply_SE_correction=false
                 M[:twoN, :twoN] += np.eye(twoN)
@@ -279,7 +286,13 @@ class BeamCpp:
                 )
             H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-        return H, J, pose, vel, energy, cvg
+        if not fulltime:
+            return H, J, pose, vel, energy, cvg
+        else:
+            p3d = np.transpose(pose_time.reshape(cls.ndof_config, npartition, nsteps + 1), (0, 2, 1))  # fmt: skip
+            v3d = np.transpose(vel_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
+            a3d = np.transpose(acc_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
+            return H, J, p3d, v3d, a3d, energy_time, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, sensitivity):

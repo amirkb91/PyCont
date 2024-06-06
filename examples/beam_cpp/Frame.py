@@ -103,11 +103,25 @@ class Frame:
             x = np.matmul(TT, parameters[:2])
         elif n_dim == 3:
             p0 = np.sqrt(1.0 - 0.25 * np.dot(parameters[3:], parameters[3:]))
-            q = np.concatenate([p0, 0.5 * parameters[3:]])
+            q = np.concatenate([np.array([p0]), 0.5 * parameters[3:]])
             p_tilde_over_2 = tilde(0.5 * parameters[3:])
             TT = 1.0 / p0 * (np.eye(3) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
             x = np.matmul(TT, parameters[:3])
         return np.concatenate([q, x])
+
+    @classmethod
+    def add_inc_to_frame_local(cls, n_dim, frame, inc):
+        # out = frame o exp(inc)
+        frame_from_inc = cls.get_frame_from_parameters(n_dim, inc)
+        out = cls.composition(n_dim, frame, frame_from_inc)
+        return out
+
+    @classmethod
+    def add_inc_to_frame_global(cls, n_dim, frame, inc):
+        # out = exp(inc) o frame
+        frame_from_inc = cls.get_frame_from_parameters(n_dim, inc)
+        out = cls.composition(n_dim, frame_from_inc, frame)
+        return out
 
     @staticmethod
     def get_inverse_tangent_operator(n_dim, parameters):
