@@ -76,10 +76,10 @@ with h5py.File(new_file_name, mode="w", libver=("earliest", "v112")) as h5_file:
     dataset_IC = group_POSE.create_dataset("MOTION", shape=(n_config_VK, 1), dtype=np.float64)
     for i in range(n_nodes):
         i_x_VK, i_x_SE = i * (number_of_q - 1 + dim), number_of_q + i * (number_of_q + dim)
-        dataset_IC[i_x_VK:i_x_VK + dim, 0] = pose_motion[i_x_SE:i_x_SE + dim]
+        dataset_IC[i_x_VK : i_x_VK + dim, 0] = pose_motion[i_x_SE : i_x_SE + dim]
 
         i_r_VK, i_r_SE = i_x_VK + dim, i_x_SE - number_of_q
-        dataset_IC[i_r_VK:i_r_VK + (number_of_q - 1), 0] = unit_quat_to_angle(
-            pose_motion[i_r_SE:i_r_SE + number_of_q],
-            pose_motion_ref[i_r_SE:i_r_SE + number_of_q],
+        dataset_IC[i_r_VK : i_r_VK + (number_of_q - 1), 0] = unit_quat_to_angle(
+            pose_motion[i_r_SE : i_r_SE + number_of_q],
+            pose_motion_ref[i_r_SE : i_r_SE + number_of_q],
         )

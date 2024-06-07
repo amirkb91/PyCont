@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 import numpy as np
-from examples.beam_cpp.beamcpp import BeamCpp
+from beamcpp import BeamCpp
 
 # inputs
 solno = int(input("Solution Index: "))
@@ -40,35 +40,40 @@ if method == "single":
 
 elif method == "multiple":
     npartition = par["shooting"]["multiple"]["npartition"]
-    par["shooting"]["single"]["nsteps_per_period"] = nsteps
-
     delta_S = 1 / npartition
+
     pose = pose.reshape(BeamCpp.ndof_config, npartition, order="F")
     vel = vel.reshape(BeamCpp.ndof_all, npartition, order="F")
-    pose_time = np.zeros([BeamCpp.ndof_config, nsteps + 1, npartition])
-    vel_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, npartition])
-    time = np.zeros([nsteps + 1, npartition])
+    time = np.array(
+        [
+            np.linspace(ipart * T * delta_S, (ipart + 1) * T * delta_S, nsteps + 1)
+            for ipart in range(npartition)
+        ]
+    ).T
 
-    for ipart in range(npartition):
-        x = vel[BeamCpp.free_dof, ipart]
-        X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-        [_, _, pose_time[:, :, ipart], vel_time[:, :, ipart], _, _] = BeamCpp.runsim_single(
-            1.0, T * delta_S, X, pose[:, ipart], par, sensitivity=False, fulltime=True
-        )
+    x = vel[BeamCpp.free_dof, :]
+    X = np.concatenate([np.zeros((BeamCpp.ndof_free, npartition)), x])
+    X = X.flatten(order="F")
+    [_, _, pose_time, vel_time, acc_time, energy, _] = BeamCpp.runsim_multiple(
+        1.0, T, X, pose, par, fulltime=True
+    )
 
-        partition_starttime = ipart * T * delta_S
-        t_part = np.linspace(0, T * delta_S, nsteps + 1)
-        time[:, ipart] = t_part + partition_starttime
-    # write pose_time and vel_time to a new hdf file
     output_file = file.strip(".h5") + "_with_pointtime.h5"
     with h5py.File(output_file, "w") as f:
         f.create_dataset("/Config_Time/POSE", data=pose_time)
         f.create_dataset("/Config_Time/VELOCITY", data=vel_time)
+        f.create_dataset("/Config_Time/ACCELERATION", data=acc_time)
         f.create_dataset("/Config_Time/Time", data=time)
+        f.create_dataset("/Config_Time/Energy", data=energy)
 
-    # one more time sime with initial conditions of first partition for whole orbit so we can plot
-    x = vel[BeamCpp.free_dof, 0]
-    X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-    BeamCpp.runsim_single(1.0, T, X, pose[:, 0], par, sensitivity=False)
-    # call plotbeam
-    subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)
+    # copy solution over to C++ directory for plotting
+    subprocess.run("cp " + output_file + " " + BeamCpp.cpp_path + "/beam_sim_mult.h5", shell=True)
+
+    subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam_mult.py ", shell=True)
+
+    # # one more time sime with initial conditions of first partition for whole orbit so we can plot
+    # x = vel[BeamCpp.free_dof, 0]
+    # X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
+    # BeamCpp.runsim_single(1.0, T, X, pose[:, 0], par, sensitivity=False)
+    # # call plotbeam
+    # subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)

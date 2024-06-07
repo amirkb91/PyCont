@@ -11,6 +11,7 @@ class Logger:
     def __init__(self, prob):
         self.prob = prob
         self.store_index = 0
+        self.linewidth = 14
         self.sol_X = []
         self.sol_T = []
         self.sol_tgt = []
@@ -63,44 +64,42 @@ class Logger:
             self.solplot()
 
     def screenout(self, **screen_data):
-        width = 14
         screen = dict.fromkeys(
             ["Iter Cont", "Iter Corr", "Residual", "Freq", "Energy", "Step", "Beta"],
-            " ".ljust(width),
+            " ".ljust(self.linewidth),
         )
         header = list(screen.keys())
-        printborder = False
         iterprinted = None
 
         for key, value in screen_data.items():
             if key == "iter":
-                screen["Iter Cont"] = f"{value}".ljust(width)
+                screen["Iter Cont"] = f"{value}".ljust(self.linewidth)
                 itercont = value
             elif key == "correct":
-                screen["Iter Corr"] = f"{value}".ljust(width)
+                screen["Iter Corr"] = f"{value}".ljust(self.linewidth)
                 itercorr = value
             elif key == "res":
-                screen["Residual"] = f"{value:.4e}".ljust(width)
+                screen["Residual"] = f"{value:.4e}".ljust(self.linewidth)
             elif key == "freq":
-                screen["Freq"] = f"{value:.4f}".ljust(width)
+                screen["Freq"] = f"{value:.4f}".ljust(self.linewidth)
             elif key == "energy":
-                screen["Energy"] = f"{value:.4e}".ljust(width)
+                screen["Energy"] = f"{value:.4e}".ljust(self.linewidth)
             elif key == "step":
-                screen["Step"] = f"{value:.3e}".ljust(width)
+                screen["Step"] = f"{value:.3e}".ljust(self.linewidth)
             elif key == "beta":
-                screen["Beta"] = f"{value:.4f}".ljust(width)
-                printborder = True
+                screen["Beta"] = f"{value:.4f}".ljust(self.linewidth)
 
         if np.mod(itercont, 20) == 0 and itercorr == 0 and itercont != iterprinted:
             itercont = iterprinted
             print("\n")
-            print(*[f"{x}".ljust(width) for x in header], sep="")
-            print("=" * len(header) * width)
+            print(*[f"{x}".ljust(self.linewidth) for x in header], sep="")
+            self.screenline("=")
 
         screen_vals = list(screen.values())
         print(*screen_vals, sep="")
-        if printborder:
-            print("-" * len(header) * width)
+
+    def screenline(self, char):
+        print(char * 7 * self.linewidth)
 
     def savetodisk(self):
         savefile = h5py.File(self.prob.cont_params["Logger"]["file_name"] + ".h5", "w")
@@ -164,8 +163,7 @@ class Logger:
                 self.ax[2].xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))
                 self.ln.append(
                     self.ax[2].plot(
-                        range(1,
-                              len(beta) + 1), beta, marker=".", fillstyle="none", color="red"
+                        range(1, len(beta) + 1), beta, marker=".", fillstyle="none", color="red"
                     )
                 )
             plt.pause(0.01)

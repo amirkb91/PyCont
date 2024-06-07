@@ -5,6 +5,7 @@ import numpy as np
 from scipy.integrate import odeint
 from duffing import Duffing
 import matplotlib.pyplot as plt
+
 """ Run time simulations for single point solution branch and plot """
 
 # inputs
@@ -29,7 +30,7 @@ nsteps = par["shooting"]["single"]["nsteps_per_period"]
 Duffing.forcing_parameters(par)
 t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
 X = np.concatenate([pose, vel])
-timesol = np.array(odeint(Duffing.model_ode, X, t, args=(T * nperiod, ), rtol=1e-8, tfirst=True))
+timesol = np.array(odeint(Duffing.model_ode, X, t, args=(T * nperiod,), rtol=1e-8, tfirst=True))
 pose_time = timesol[:, 0]
 vel_time = timesol[:, 1]
 

@@ -25,8 +25,8 @@ with h5py.File("beam_eig.h5", "r") as f:
 # convert pose0 and vel0 to X0
 p = np.array([])
 for j in range(31):
-    frame_0 = pose0[j * 4:(j + 1) * 4]
-    frame_ref = pose_ref[j * 4:(j + 1) * 4]
+    frame_0 = pose0[j * 4 : (j + 1) * 4]
+    frame_ref = pose_ref[j * 4 : (j + 1) * 4]
     frame = Frame.relative_frame(2, frame_ref, frame_0)
     parameters = Frame.get_parameters_from_frame(2, frame)
     p = np.concatenate([p, parameters])
@@ -36,8 +36,8 @@ X0 = np.concatenate((p, vel0[3:-3]))
 # convert pose1 and vel1 to X1
 p = np.array([])
 for j in range(31):
-    frame_1 = pose1[j * 4:(j + 1) * 4]
-    frame_ref = pose_ref[j * 4:(j + 1) * 4]
+    frame_1 = pose1[j * 4 : (j + 1) * 4]
+    frame_ref = pose_ref[j * 4 : (j + 1) * 4]
     frame = Frame.relative_frame(2, frame_ref, frame_1)
     parameters = Frame.get_parameters_from_frame(2, frame)
     p = np.concatenate([p, parameters])
@@ -59,7 +59,7 @@ with h5py.File(BeamCpp.cpp_path + BeamCpp.simout_file + ".h5", "r") as f:
     poseT = f["/dynamic_analysis/FEModel/POSE/MOTION"][:, -1]
     velT = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
     M = f["/Sensitivity/Monodromy"][:]
-    M[:X0.size, :X0.size] += np.eye(X0.size)
+    M[: X0.size, : X0.size] += np.eye(X0.size)
 
 H1 = BeamCpp.periodicity_INC_SE_local(pose1.reshape(-1, 1), poseT.reshape(-1, 1))
 H2 = BeamCpp.periodicity_VEL_SE_local(H1, vel1.reshape(-1, 1), velT.reshape(-1, 1))
@@ -111,9 +111,9 @@ for i in range(H.size):
     X1_plus[i] += epsilon
 
     pose1_plus = np.array([])
-    p = np.concatenate([np.zeros(3), X1_plus[:X0.size // 2], np.zeros(3)])
+    p = np.concatenate([np.zeros(3), X1_plus[: X0.size // 2], np.zeros(3)])
     for j in range(31):
-        parameters = p[j * 3:(j + 1) * 3]
+        parameters = p[j * 3 : (j + 1) * 3]
         frame = Frame.get_frame_from_parameters(2, parameters)
         pose1_plus = np.concatenate([pose1_plus, frame])
 
@@ -121,9 +121,9 @@ for i in range(H.size):
     X1_minus[i] -= epsilon
 
     pose1_minus = np.array([])
-    p = np.concatenate([np.zeros(3), X1_minus[:X0.size // 2], np.zeros(3)])
+    p = np.concatenate([np.zeros(3), X1_minus[: X0.size // 2], np.zeros(3)])
     for j in range(31):
-        parameters = p[j * 3:(j + 1) * 3]
+        parameters = p[j * 3 : (j + 1) * 3]
         frame = Frame.get_frame_from_parameters(2, parameters)
         pose1_minus = np.concatenate([pose1_minus, frame])
 
@@ -134,12 +134,12 @@ for i in range(H.size):
         velT = f["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:, -1]
 
     H1 = BeamCpp.periodicity_INC_SE_local(pose1_plus.reshape(-1, 1), poseT.reshape(-1, 1))
-    v1_ = np.concatenate([np.zeros(3), X1_plus[X0.size // 2:], np.zeros(3)])
+    v1_ = np.concatenate([np.zeros(3), X1_plus[X0.size // 2 :], np.zeros(3)])
     H2 = BeamCpp.periodicity_VEL_SE_local(H1, v1_.reshape(-1, 1), velT.reshape(-1, 1))
     H_plus = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
     H3 = BeamCpp.periodicity_INC_SE_local(pose1_minus.reshape(-1, 1), poseT.reshape(-1, 1))
-    v1_ = np.concatenate([np.zeros(3), X1_minus[X0.size // 2:], np.zeros(3)])
+    v1_ = np.concatenate([np.zeros(3), X1_minus[X0.size // 2 :], np.zeros(3)])
     H4 = BeamCpp.periodicity_VEL_SE_local(H3, v1_.reshape(-1, 1), velT.reshape(-1, 1))
     H_minus = np.reshape(np.concatenate([H3, H4]), (-1, 1), order="F")
 

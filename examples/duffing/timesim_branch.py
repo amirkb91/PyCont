@@ -6,6 +6,7 @@ import numpy as np
 from scipy.integrate import odeint
 from duffing import Duffing
 from postprocess.bifurcation import bifurcation_functions
+
 """ Run time simulations for all points on solution branch and store """
 
 run_bif = input("Compute bifurcation functions (y/n)? ")
@@ -57,8 +58,9 @@ if run_bif == "y":
 with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         X = np.array([0.0, vel[0, i]])
-        [_, J, pose_time[:, :, i], vel_time[:, :, i], _,
-         _] = Duffing.time_solve(1.0, T[i], X, pose[0, i], par)
+        [_, J, pose_time[:, :, i], vel_time[:, :, i], _, _] = Duffing.time_solve(
+            1.0, T[i], X, pose[0, i], par
+        )
         if run_bif == "y":
             M = J[:, :-1] + np.eye(2)
             bifurcation_out = bifurcation_functions(M)
@@ -70,9 +72,10 @@ with alive_bar(n_solpoints) as bar:
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
         # Acceleration
         acc_time[:, :, i] = (
-            Duffing.F * np.cos(2 * np.pi / T[i] * time[i, :] + Duffing.phi) -
-            Duffing.delta * vel_time[:, :, i] - Duffing.alpha * pose_time[:, :, i] -
-            Duffing.beta * pose_time[:, :, i]**3
+            Duffing.F * np.cos(2 * np.pi / T[i] * time[i, :] + Duffing.phi)
+            - Duffing.delta * vel_time[:, :, i]
+            - Duffing.alpha * pose_time[:, :, i]
+            - Duffing.beta * pose_time[:, :, i] ** 3
         )
         bar()
 

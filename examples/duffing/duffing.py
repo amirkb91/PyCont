@@ -92,7 +92,7 @@ class Duffing:
         t = np.linspace(0, T, nsteps + 1)
         # Initial conditions for the augmented system, eye for monodromy and zero for time and force sens
         all_ic = np.concatenate((X0, np.eye(2).flatten(), np.zeros(2), np.zeros(2)))
-        sol = odeint(cls.model_sens_ode, all_ic, t, args=(T, ), rtol=rel_tol, tfirst=True)
+        sol = odeint(cls.model_sens_ode, all_ic, t, args=(T,), rtol=rel_tol, tfirst=True)
         # unpack solution
         Xsol, M, dXdT, dXdF = sol[:, :2], sol[-1, 2:6].reshape(2, 2), sol[-1, 6:8], sol[-1, 8:]
 
@@ -112,11 +112,14 @@ class Duffing:
         vel = Xsol[0, 1]
 
         # Energy
-        E0 = (0.5 * (Xsol[:, 1]**2 + cls.alpha * Xsol[:, 0]**2) + 0.25 * cls.beta * Xsol[:, 0]**4)
+        E0 = (
+            0.5 * (Xsol[:, 1] ** 2 + cls.alpha * Xsol[:, 0] ** 2)
+            + 0.25 * cls.beta * Xsol[:, 0] ** 4
+        )
         force_vel = cls.F * np.cos(2 * np.pi / T * t + cls.phi) * Xsol[:, 1]
-        damping_vel = cls.delta * Xsol[:, 1]**2
+        damping_vel = cls.delta * Xsol[:, 1] ** 2
         E1 = np.array(
-            [simps(force_vel[:i + 1] - damping_vel[:i + 1], t[:i + 1]) for i in range(len(t))]
+            [simps(force_vel[: i + 1] - damping_vel[: i + 1], t[: i + 1]) for i in range(len(t))]
         )
         E = E0 + E1
         energy = np.max(E)

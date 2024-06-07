@@ -25,7 +25,8 @@ class ROMChallenge:
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
     model_name = model_def["ModelDef"]["model_name"]
     analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"][
-        "analysis_name"]
+        "analysis_name"
+    ]
 
     free_dof = None
     fix_dof = None
@@ -39,11 +40,11 @@ class ROMChallenge:
     def initialise(cls, cont_params, ForcePeriod=False, nprocs=1):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
-            "shooting"]["rel_tol"]
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"][
-            "initial_conditions"] = cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop(
-                "_initial_conditions"
-            )
+            "shooting"
+        ]["rel_tol"]
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = (
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions")
+        )
         cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions_eig")
 
         if not cont_params["continuation"]["forced"]:
@@ -59,7 +60,8 @@ class ROMChallenge:
             cls.model_def["ModelDef"]["def_period"] = 1.0
             cls.model_def["ModelDef"]["with_ratio"] = True
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"][
-                "rho_GA"]
+                "rho_GA"
+            ]
 
         if ForcePeriod:
             # if force period is specified, we want to de-couple force period from sim time
@@ -74,8 +76,14 @@ class ROMChallenge:
     @classmethod
     def run_eig(cls):
         subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " " +
-            cls.cpp_paramfile_eig,
+            "cd "
+            + cls.cpp_path
+            + "&&"
+            + cls.cpp_exe
+            + " _"
+            + cls.cpp_modelfile
+            + " "
+            + cls.cpp_paramfile_eig,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -120,8 +128,9 @@ class ROMChallenge:
             H = np.concatenate([periodicity_inc, periodicity_vel])
             if sensitivity:
                 # scale velocity and time derivatives with omega
-                sens_H = simdata["/Sensitivity/Monodromy"
-                                ][:, :-1]  # sens of periodicity function H wrt IC
+                sens_H = simdata["/Sensitivity/Monodromy"][
+                    :, :-1
+                ]  # sens of periodicity function H wrt IC
                 sens_H[:, N:] *= omega
                 dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
                 J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
@@ -141,7 +150,8 @@ class ROMChallenge:
                     energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
                     periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
                     periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][
-                        cls.free_dof]
+                        cls.free_dof
+                    ]
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
                     pose = pose_time[:, 0]
@@ -212,12 +222,12 @@ class ROMChallenge:
         H = np.array([])
         for ipart in range(npartition):
             h_pose = (
-                pose_time[cls.free_dof, -1, ipart] -
-                pose_time[cls.free_dof, 0, partition_order[ipart]]
+                pose_time[cls.free_dof, -1, ipart]
+                - pose_time[cls.free_dof, 0, partition_order[ipart]]
             )
             h_vel = (
-                vel_time[cls.free_dof, -1, ipart] -
-                vel_time[cls.free_dof, 0, partition_order[ipart]]
+                vel_time[cls.free_dof, -1, ipart]
+                - vel_time[cls.free_dof, 0, partition_order[ipart]]
             )
             H = np.append(H, np.concatenate([h_pose, h_vel]))
         H = H.reshape(-1, 1)
@@ -228,8 +238,8 @@ class ROMChallenge:
     def run_cpp(cls, T, X, nsteps, sensitivity):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
-        inc[cls.free_dof] = X[:cls.ndof_free]
-        vel[cls.free_dof] = X[cls.ndof_free:]
+        inc[cls.free_dof] = X[: cls.ndof_free]
+        vel[cls.free_dof] = X[cls.ndof_free :]
 
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
         icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
@@ -247,8 +257,14 @@ class ROMChallenge:
                 cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2
             )
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                cls.cpp_paramfile_sim,
+                "cd "
+                + cls.cpp_path
+                + "&&"
+                + cls.cpp_exe
+                + " _"
+                + cls.cpp_modelfile
+                + " _"
+                + cls.cpp_paramfile_sim,
                 shell=True,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -266,9 +282,7 @@ class ROMChallenge:
 
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 convergence = list(
-                    executor.map(
-                        cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1))
-                    )
+                    executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1)))
                 )
             cvg = np.all(convergence)
 
@@ -281,12 +295,14 @@ class ROMChallenge:
         requested_cols = np.array([start_index, end_index]).tolist()
         suffix = f"_{run_id:03d}"
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
-            "requested_cols"] = requested_cols
+            "requested_cols"
+        ] = requested_cols
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
             cls.simout_file + suffix
         )
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
-            "file_name"] = (cls.ic_file + suffix)
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
+            cls.ic_file + suffix
+        )
         json.dump(
             cls.cpp_params_sim,
             open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
@@ -297,8 +313,16 @@ class ROMChallenge:
         )
 
         cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-            cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
+            "cd "
+            + cls.cpp_path
+            + "&&"
+            + cls.cpp_exe
+            + " _"
+            + cls.cpp_modelfile
+            + " _"
+            + cls.cpp_paramfile_sim.split(".")[0]
+            + suffix
+            + ".json",
             shell=True,
             stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
             stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),

@@ -1,6 +1,6 @@
 [style]
 based_on_style = facebook
-column_limit = 99
+column_limit = 100
 spaces_before_comment = 2
 join_multiple_lines = true
 split_before_first_argument = true

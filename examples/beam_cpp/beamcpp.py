@@ -46,7 +46,8 @@ class BeamCpp:
     ic_file = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"]["file_name"]
     model_name = model_def["ModelDef"]["model_name"]
     analysis_name = cpp_params_sim["TimeIntegrationSolverParameters"]["_initial_conditions"][
-        "analysis_name"]
+        "analysis_name"
+    ]
 
     free_dof = None
     fix_dof = None
@@ -67,7 +68,8 @@ class BeamCpp:
     def initialise(cls, cont_params, ForcePeriod=False, nprocs=1):
         # prep para file and assign fixed values
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rel_tol_res_forces"] = cont_params[
-            "shooting"]["rel_tol"]
+            "shooting"
+        ]["rel_tol"]
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"] = (
             cls.cpp_params_sim["TimeIntegrationSolverParameters"].pop("_initial_conditions")
         )
@@ -86,7 +88,8 @@ class BeamCpp:
             cls.model_def["ModelDef"]["def_period"] = cls.cpp_def_period
             cls.model_def["ModelDef"]["with_ratio"] = True
             cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = cont_params["forcing"][
-                "rho_GA"]
+                "rho_GA"
+            ]
 
         if ForcePeriod:
             # if force period is specified, we want to de-couple force period from sim time
@@ -100,9 +103,9 @@ class BeamCpp:
 
     @classmethod
     def run_eig(cls):
+        cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " " + cls.cpp_paramfile_eig  # fmt: skip
         subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " " +
-            cls.cpp_paramfile_eig,
+            cmd,
             shell=True,
             stdout=open(cls.cpp_path + "cpp.out", "w"),
             stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -138,6 +141,7 @@ class BeamCpp:
             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][cls.free_dof]
             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            acc_time = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
             pose = pose_time[:, 0]
             vel = vel_time[:, 0]
             H = np.concatenate([periodicity_inc, periodicity_vel])
@@ -158,7 +162,8 @@ class BeamCpp:
                     energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
                     periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
                     periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][
-                        cls.free_dof]
+                        cls.free_dof
+                    ]
                     pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                     vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
                     pose = pose_time[:, 0]
@@ -175,13 +180,16 @@ class BeamCpp:
         if not fulltime:
             return H, J, pose, vel, energy, cvg
         else:
-            return H, J, pose_time, vel_time, energy, cvg
+            return H, J, pose_time, vel_time, acc_time, energy, cvg
 
     @classmethod
-    def runsim_multiple(cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True):
+    def runsim_multiple(
+        cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
+    ):
         # multiple shooting sensitivity SE correction has to be done in Python
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
-            "apply_SE_correction"] = False
+            "apply_SE_correction"
+        ] = False
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
@@ -200,7 +208,9 @@ class BeamCpp:
         M_all = np.empty(npartition, dtype=object)
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
+        acc_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         energy = 0
+        energy_time = np.zeros((nsteps + 1, npartition))
         H = pose = vel = None
         cvg = [None] * npartition
 
@@ -219,6 +229,8 @@ class BeamCpp:
                 energy = np.max([energy, E])
                 pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
                 vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+                acc_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
+                energy_time[:, ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, :]
                 M = simdata["/Sensitivity/Monodromy"][:]
                 # cpp gives M - I when apply_SE_correction=false
                 M[:twoN, :twoN] += np.eye(twoN)
@@ -274,14 +286,20 @@ class BeamCpp:
                 )
             H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
-        return H, J, pose, vel, energy, cvg
+        if not fulltime:
+            return H, J, pose, vel, energy, cvg
+        else:
+            p3d = np.transpose(pose_time.reshape(cls.ndof_config, npartition, nsteps + 1), (0, 2, 1))  # fmt: skip
+            v3d = np.transpose(vel_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
+            a3d = np.transpose(acc_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
+            return H, J, p3d, v3d, a3d, energy_time, cvg
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, sensitivity):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
-        inc[cls.free_dof] = X[:cls.ndof_free]
-        vel[cls.free_dof] = X[cls.ndof_free:]
+        inc[cls.free_dof] = X[: cls.ndof_free]
+        vel[cls.free_dof] = X[cls.ndof_free :]
 
         icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
         icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
@@ -298,9 +316,9 @@ class BeamCpp:
             json.dump(
                 cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2
             )
+            cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim  # fmt: skip
             cpprun = subprocess.run(
-                "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-                cls.cpp_paramfile_sim,
+                cmd,
                 shell=True,
                 stdout=open(cls.cpp_path + "cpp.out", "w"),
                 stderr=open(cls.cpp_path + "cpp.err", "w"),
@@ -318,9 +336,7 @@ class BeamCpp:
 
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 convergence = list(
-                    executor.map(
-                        cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1))
-                    )
+                    executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1)))
                 )
             cvg = np.all(convergence)
 
@@ -333,12 +349,14 @@ class BeamCpp:
         requested_cols = np.array([start_index, end_index]).tolist()
         suffix = f"_{run_id:03d}"
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
-            "requested_cols"] = requested_cols
+            "requested_cols"
+        ] = requested_cols
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
             cls.simout_file + suffix
         )
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
-            "file_name"] = (cls.ic_file + suffix)
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
+            cls.ic_file + suffix
+        )
         json.dump(
             cls.cpp_params_sim,
             open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
@@ -348,9 +366,9 @@ class BeamCpp:
             cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5"
         )
 
+        cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json"  # fmt: skip
         cpprun = subprocess.run(
-            "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" +
-            cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json",
+            cmd,
             shell=True,
             stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
             stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
@@ -358,17 +376,16 @@ class BeamCpp:
         return not bool(cpprun.returncode)
 
     @classmethod
-    def partition_singleshooting_solution(cls, omega, tau, Xtilde, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, tau, Xtilde, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         N = cls.ndof_free
         slicing_index = nsteps * np.arange(npartition)
 
-        T = tau / omega
+        T = tau
         X = Xtilde.copy()
-        X[N:] *= omega  # scale velocities from Xtilde to X
-
         cls.config_update(pose_base)
+
         # do time integration along whole orbit before slicing
         cls.run_cpp(T, X, nsteps * npartition, True)
         simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
@@ -376,8 +393,7 @@ class BeamCpp:
         vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
         pose = pose_time[:, slicing_index]
         vel = vel_time[cls.free_dof][:, slicing_index]
-        # set inc to zero as solution stored in pose, keep velocity but scale first
-        vel *= 1 / omega
+        # set inc to zero as solution stored in pose
         Xsol = np.concatenate((np.zeros((N, npartition)), vel))
         Xsol = np.reshape(Xsol, (-1), order="F")
         return Xsol, pose
@@ -435,11 +451,11 @@ class BeamCpp:
             for j in range(cls.nnodes_all):
                 f = Frame.relative_frame(
                     cls.n_dim,
-                    pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
-                    pose_b[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    pose_a[j * cls.config_per_node : (j + 1) * cls.config_per_node, i],
+                    pose_b[j * cls.config_per_node : (j + 1) * cls.config_per_node, i],
                 )
                 p = Frame.get_parameters_from_frame(cls.n_dim, f)
-                periodicity_inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = p
+                periodicity_inc[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i] = p
         return periodicity_inc[cls.free_dof, :]
 
     @classmethod
@@ -454,13 +470,15 @@ class BeamCpp:
             for j in range(cls.nnodes_free):
                 v = (
                     -Frame.get_inverse_tangent_operator(
-                        cls.n_dim, -inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
-                    ) @ vel_a[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] +
-                    Frame.get_inverse_tangent_operator(
-                        cls.n_dim, inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
-                    ) @ vel_b[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                        cls.n_dim, -inc[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
+                    )
+                    @ vel_a[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
+                    + Frame.get_inverse_tangent_operator(
+                        cls.n_dim, inc[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
+                    )
+                    @ vel_b[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
                 )
-                periodicity_vel[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = v
+                periodicity_vel[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i] = v
         return periodicity_vel
 
     @classmethod
@@ -471,15 +489,15 @@ class BeamCpp:
         for i in range(pose_a.shape[1]):
             for j in range(cls.nnodes_all):
                 finv = Frame.get_inverse(
-                    cls.n_dim, pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i]
+                    cls.n_dim, pose_a[j * cls.config_per_node : (j + 1) * cls.config_per_node, i]
                 )
                 f = Frame.composition(
                     cls.n_dim,
-                    pose_b[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
+                    pose_b[j * cls.config_per_node : (j + 1) * cls.config_per_node, i],
                     finv,
                 )
                 p = Frame.get_parameters_from_frame(cls.n_dim, f)
-                periodicity_inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = p
+                periodicity_inc[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i] = p
         return periodicity_inc[cls.free_dof, :]
 
     @classmethod
@@ -494,16 +512,18 @@ class BeamCpp:
             for j in range(cls.nnodes_free):
                 v = (
                     Frame.get_inverse_tangent_operator(
-                        cls.n_dim, inc[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
-                    ) @ Frame.get_adjoint(
+                        cls.n_dim, inc[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
+                    )
+                    @ Frame.get_adjoint(
                         cls.n_dim,
-                        pose_a[j * cls.config_per_node:(j + 1) * cls.config_per_node, i],
-                    ) @ (
-                        vel_b[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] -
-                        vel_a[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i]
+                        pose_a[j * cls.config_per_node : (j + 1) * cls.config_per_node, i],
+                    )
+                    @ (
+                        vel_b[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
+                        - vel_a[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i]
                     )
                 )
-                periodicity_vel[j * cls.dof_per_node:(j + 1) * cls.dof_per_node, i] = v
+                periodicity_vel[j * cls.dof_per_node : (j + 1) * cls.dof_per_node, i] = v
         return periodicity_vel
 
     @classmethod
@@ -535,12 +555,13 @@ class BeamCpp:
             [
                 (
                     Frame.get_inverse_tangent_operator(
-                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                        n_dim, periodicity_inc[i * dpn : (i + 1) * dpn, 0]
                     ),
                     Frame.get_inverse_tangent_operator(
-                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn, 0]
+                        n_dim, -periodicity_inc[i * dpn : (i + 1) * dpn, 0]
                     ),
-                ) for i in range(nodes)
+                )
+                for i in range(nodes)
             ]
         )
 
@@ -573,8 +594,9 @@ class BeamCpp:
 
             # VEL sensitivities wrt period
             pose_sens = sens_SE[i0:i1, -1]
-            sens_SE[I0:I1,
-                    -1] = (T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens)
+            sens_SE[I0:I1, -1] = (
+                T_pos @ monodromy[I0:I1, -1] + DT_neg @ pose_sens + DT_pos @ pose_sens
+            )
 
         return sens_SE
 
@@ -608,12 +630,13 @@ class BeamCpp:
             [
                 (
                     Frame.get_inverse_tangent_operator(
-                        n_dim, periodicity_inc[i * dpn:(i + 1) * dpn]
+                        n_dim, periodicity_inc[i * dpn : (i + 1) * dpn]
                     ),
                     Frame.get_inverse_tangent_operator(
-                        n_dim, -periodicity_inc[i * dpn:(i + 1) * dpn]
+                        n_dim, -periodicity_inc[i * dpn : (i + 1) * dpn]
                     ),
-                ) for i in range(nodes)
+                )
+                for i in range(nodes)
             ]
         )
 
@@ -640,8 +663,9 @@ class BeamCpp:
                 pose_sens_x0 = dHdx0[i0:i1, j0:j1]
                 pose_sens_x1 = dHdx1[i0:i1, j0:j1]
                 dHdx0[I0:I1, j0:j1] = (
-                    (T_pos @ monodromy[I0:I1, j0:j1]) + DT_pos @ pose_sens_x0 +
-                    DT_neg @ pose_sens_x0
+                    (T_pos @ monodromy[I0:I1, j0:j1])
+                    + DT_pos @ pose_sens_x0
+                    + DT_neg @ pose_sens_x0
                 )
                 dHdx1[I0:I1, j0:j1] = DT_pos @ pose_sens_x1 + DT_neg @ pose_sens_x1
             dHdx1[I0:I1, I0:I1] = -T_neg

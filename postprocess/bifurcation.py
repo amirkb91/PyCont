@@ -60,8 +60,10 @@ def bialternate(A, B):
             for r in range(1, n):
                 for s in range(r):
                     Bialt[i, j] = 0.5 * (
-                        A[p, r] * B[q, s] - A[p, s] * B[q, r] + B[p, r] * A[q, s] -
-                        B[p, s] * A[q, r]
+                        A[p, r] * B[q, s]
+                        - A[p, s] * B[q, r]
+                        + B[p, r] * A[q, s]
+                        - B[p, s] * A[q, r]
                     )
                     j += 1
             i += 1

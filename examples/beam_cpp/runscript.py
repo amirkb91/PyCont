@@ -3,7 +3,7 @@ from core.logger import Logger
 from core.solver.continuation import ConX
 from core.startingpoint import StartingPoint
 
-from examples.beam_cpp.beamcpp import BeamCpp
+from beamcpp import BeamCpp
 
 # Problem
 prob = Prob()

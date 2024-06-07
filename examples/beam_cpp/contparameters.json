@@ -10,8 +10,8 @@
     "iteropt": 4,
     "itermax": 7,
     "iterjac": 1,
-    "s0": 0.001,
     "nadapt": 2,
+    "s0": 0.001,    
     "smin": 1e-06,
     "smax": 0.0025,
     "betacontrol": false,
@@ -27,7 +27,7 @@
     "rel_tol": 1e-08,
     "single": {
       "nperiod": 1,
-      "nsteps_per_period": 200
+      "nsteps_per_period": 240
     },
     "multiple": {
       "npartition": 1,
