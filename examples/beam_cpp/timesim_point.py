@@ -7,8 +7,6 @@ from beamcpp import BeamCpp
 
 # inputs
 solno = int(input("Solution Index: "))
-nperiod = int(input("Number of periods: "))
-nsteps = int(input("Steps per period: "))
 
 # read solution file
 file = sys.argv[-1]
@@ -27,6 +25,9 @@ BeamCpp.initialise(par, T)
 BeamCpp.run_eig()  # To get nodal data in class
 
 if method == "single":
+    nsteps_par = par["shooting"]["single"]["nsteps_per_period"]
+    nperiod = int(input("Number of periods: ") or 1)
+    nsteps = int(input("Steps per period: ") or nsteps_par)
     par["shooting"]["single"]["nperiod"] = nperiod
     par["shooting"]["single"]["nsteps_per_period"] = nsteps
 
@@ -40,6 +41,7 @@ if method == "single":
 
 elif method == "multiple":
     npartition = par["shooting"]["multiple"]["npartition"]
+    nsteps = par["shooting"]["multiple"]["nsteps_per_partition"]
     delta_S = 1 / npartition
 
     pose = pose.reshape(BeamCpp.ndof_config, npartition, order="F")

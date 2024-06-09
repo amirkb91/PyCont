@@ -242,7 +242,7 @@ class BeamCpp:
                 else:
                     # VK beam Jacobian composed of M and eye blocks
                     J[i0:i1, i0:i1] = M[:, :-1]
-                    J[i0:i1, j0:j1] -= np.eye(twoN)
+                    J[i0:i1, j0:j1] += -np.eye(twoN)
                     J[i0:i1, -1] = M[:, -1] * delta_S  # scale time derivative
 
         cvg = all(cvg)
@@ -273,7 +273,7 @@ class BeamCpp:
                         M_all[ipart], H1[:, ipart], VT_thispart, V0_nextpart
                     )
                     J[i0:i1, i0:i1] = dHdx0
-                    J[i0:i1, j0:j1] = dHdx1
+                    J[i0:i1, j0:j1] += dHdx1
                     J[i0:i1, -1] = dHdT * delta_S  # scale time derivative
             else:
                 H1 = cls.periodicity_INC_linear(
@@ -535,7 +535,8 @@ class BeamCpp:
         When SE correction is set to false in C++, the monodromy matrix is returned as M - I
         If we add I we get the actual monodromy.
         This method then corrects the monodromy to account for the SE contributions.
-        It gives the same result as the cpp code when SE correction is set to true."""
+        It gives the same result as the C++ code when apply_SE_correction == true.
+        """
         N = cls.ndof_free
         nodes = cls.nnodes_free
         dpn = cls.dof_per_node
@@ -607,6 +608,10 @@ class BeamCpp:
         """
         Compute the sensitivity of the periodicity condition with SE correction for multiple shooting.
         **** This applies to the LOCAL periodcity formulations. ****
+
+        Running multiple shooting with a single partition gives the same result as single shooting.
+        Since single shooting sensitivities are computed in C++ with apply_SE_correction, this means
+        this method is implemented correctly and is therefore verified. Both flavours of velocity tested.
         """
         N = cls.ndof_free
         nodes = cls.nnodes_free
@@ -676,7 +681,7 @@ class BeamCpp:
 
         # **** If you choose to do VEL periodicity linearly, use the following code instead ****
         # VEL sensitivities:
-        # dHdx0[N:,:] = monodromy[N:,:-1]
+        # dHdx0[N:,:] = monodromy[N:, :-1]
         # dHdT[N:] = monodromy[N:, -1]
         # dHdx1[N:, N:] = -np.eye(N)
 
