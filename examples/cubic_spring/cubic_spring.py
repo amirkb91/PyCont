@@ -69,7 +69,7 @@ class Cubic_Spring:
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, T, X, pose_base, cont_params, sensitivity=True):
+    def time_solve(cls, omega, T, X, pose_base, cont_params, sensitivity=True, fulltime=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -109,7 +109,9 @@ class Cubic_Spring:
         return H, J, pose, vel, energy, True
 
     @classmethod
-    def time_solve_multiple(cls, omega, T, X, pose_base, cont_params, sensitivity=True):
+    def time_solve_multiple(
+        cls, omega, T, X, pose_base, cont_params, sensitivity=True, fulltime=False
+    ):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]
@@ -180,7 +182,7 @@ class Cubic_Spring:
         return H, J, pose, vel, energy, True
 
     @classmethod
-    def partition_singleshooting_solution(cls, omega, T, X, pose_base, cont_params):
+    def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
         rel_tol = cont_params["shooting"]["rel_tol"]

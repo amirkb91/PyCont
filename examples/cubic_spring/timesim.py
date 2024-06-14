@@ -3,10 +3,11 @@ import sys
 import json
 import numpy as np
 from scipy.integrate import odeint
-from examples.cubic_spring.cubic_spring import Cubic_Spring
+from cubic_spring import Cubic_Spring
 import matplotlib.pyplot as plt
 
-# inputs
+plt.rcParams["text.usetex"] = True
+
 solno = int(input("Solution Index: "))
 
 # read solution file
@@ -54,46 +55,46 @@ elif method == "multiple":
     # pose_time = np.reshape(np.transpose(pose_time, (2, 0, 1)), (-1, 2))
     # vel_time = np.reshape(np.transpose(vel_time, (2, 0, 1)), (-1, 2))
 
-# plot
-f, (a1, a2, a3) = plt.subplots(1, 3, figsize=(10, 4))
-f.suptitle(f"Frequency = {1 / T:.3f} Hz")
-a1.set(xlabel="Time (s)", ylabel="Position (m)")
-a2.set(xlabel="Position DoF 1 (m)", ylabel="Position DoF 2 (m)")
-a3.set(xlabel="Time (s)", ylabel="Velocity (m/s)")
+# Plot
+f, (a1, a2, a3) = plt.subplots(1, 3, figsize=(15, 5))
+f.suptitle(r"Frequency = " + f"{(1 / T):.3f} Hz", fontsize=16, weight="bold")
+
+# Common settings for all axes
+for ax in (a1, a2, a3):
+    ax.grid(True, linestyle="--", alpha=0.6)
+    ax.tick_params(axis="both", which="major", labelsize=12)
+
+a1.set_xlabel(r"Time (s)", fontsize=14)
+a1.set_ylabel(r"Position (m)", fontsize=14)
+a2.set_xlabel(r"Position DoF 1 (m)", fontsize=14)
+a2.set_ylabel(r"Position DoF 2 (m)", fontsize=14)
+a3.set_xlabel(r"Time (s)", fontsize=14)
+a3.set_ylabel(r"Velocity (m/s)", fontsize=14)
 
 if method == "single":
-    a1.plot(t, pose_time[:, 0], "-", label="DoF 1")
-    a1.plot(t, pose_time[:, 1], "--", label="DoF 2")
-    a2.plot(pose_time[:, 0], pose_time[:, 1], "-")
-    a3.plot(t, vel_time[:, 0], "-", label="DoF 1")
-    a3.plot(t, vel_time[:, 1], "--", label="DoF 2")
+    a1.plot(t, pose_time[:, 0], "-", label=r"DoF 1", linewidth=1.5)
+    a1.plot(t, pose_time[:, 1], "--", label=r"DoF 2", linewidth=1.5)
+    a2.plot(pose_time[:, 0], pose_time[:, 1], "-", linewidth=1.5)
+    a3.plot(t, vel_time[:, 0], "-", label=r"DoF 1", linewidth=1.5)
+    a3.plot(t, vel_time[:, 1], "--", label=r"DoF 2", linewidth=1.5)
 elif method == "multiple":
     for ipart in range(npartition):
         partition_starttime = ipart * T * delta_S
-        a1.axvline(partition_starttime, color="gray", linestyle="--", alpha=0.1, label="_nolegend_")
-        a1.axvline(
-            partition_starttime + T * delta_S,
-            color="gray",
-            linestyle="--",
-            alpha=0.1,
-            label="_nolegend_",
-        )
-        a3.axvline(partition_starttime, color="gray", linestyle="--", alpha=0.1, label="_nolegend_")
-        a3.axvline(
-            partition_starttime + T * delta_S,
-            color="gray",
-            linestyle="--",
-            alpha=0.1,
-            label="_nolegend_",
-        )
         color = plt.cm.turbo(ipart / npartition)
-        a1.plot(t[:, :, ipart], pose_time[:, 0, ipart], "-", color=color)
-        a1.plot(t[:, :, ipart], pose_time[:, 1, ipart], "--", color=color)
-        a2.plot(pose_time[:, 0, ipart], pose_time[:, 1, ipart], "-", color=color)
-        a3.plot(t[:, :, ipart], vel_time[:, 0, ipart], "-", color=color)
-        a3.plot(t[:, :, ipart], vel_time[:, 1, ipart], "--", color=color)
+        a1.plot(t[:, 0, ipart], pose_time[:, 0, ipart], "-", color=color, linewidth=1.5)
+        a1.plot(t[:, 0, ipart], pose_time[:, 1, ipart], "--", color=color, linewidth=1.5)
+        a2.plot(pose_time[:, 0, ipart], pose_time[:, 1, ipart], "-", color=color, linewidth=1.5)
+        a3.plot(t[:, 0, ipart], vel_time[:, 0, ipart], "-", color=color, linewidth=1.5)
+        a3.plot(t[:, 0, ipart], vel_time[:, 1, ipart], "--", color=color, linewidth=1.5)
+        # np.savetxt(f"partition_{ipart}_t.txt", t[:, 0, ipart])
+        # np.savetxt(f"partition_{ipart}_pose_time.txt", pose_time[:, :, ipart])
+        # np.savetxt(f"partition_{ipart}_vel_time.txt", vel_time[:, :, ipart])
 
-a1.legend(["DoF 1", "DoF 2"], loc="upper left")
 
-plt.tight_layout()
+a1.legend([r"DoF 1", r"DoF 2"], loc="upper left", fontsize=12)
+plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust rect to leave space for the suptitle
+
+# Save the plot in vector format
+# plt.savefig('plot_vector_format.pdf', format='pdf', dpi=300)
+
 plt.show()

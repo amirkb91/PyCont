@@ -1,7 +1,7 @@
 .idea/
 __pycache__/
 .vscode/
-Results/
+Results*/
 *.egg-info/
 *.out
 *.err
