@@ -19,8 +19,8 @@ a1.YLabel.Interpreter = "latex";
 grid(a1, 'on'); hold(a1, 'on');
 a1.YLimMode = 'auto';
 a1.XLimitMethod = 'tight';
-xlabel(a1, 'Position $x_2$ (m)');
-ylabel(a1, 'Velocity $x_1$ (m/s)');
+xlabel(a1, '$x_2$ (m)');
+ylabel(a1, '$\dot{x}_1$ (m/s)');
 
 f2 = figure('Units','centimeters','PaperUnits','centimeters',...
     'Position',[2 2 fsizex fsizey],'PaperPosition',[0 0 fsizex fsizey],...
@@ -33,8 +33,8 @@ a2.YLabel.Interpreter = "latex";
 grid(a2, 'on'); hold(a2, 'on');
 a2.YLimMode = 'auto';
 a2.XLimitMethod = 'tight';
-xlabel(a2, 'Position $x_2$ (m)');
-ylabel(a2, 'Velocity $x_1$ (m/s)');
+xlabel(a2, '$x_2$ (m)');
+ylabel(a2, '$\dot{x}_1$ (m/s)');
 % 
 
 %%
