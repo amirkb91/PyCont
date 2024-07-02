@@ -5,6 +5,7 @@ import sys, shutil
 import numpy as np
 from beamcpp import BeamCpp
 from postprocess.bifurcation import bifurcation_functions
+from Frame import Frame
 
 """ Run time simulations for all NNM solutions and store """
 
@@ -38,13 +39,14 @@ else:
 
 # run sims
 BeamCpp.initialise(par)
-BeamCpp.run_eig()  # To get nodal data in class
+[_, _, pose_ref] = BeamCpp.run_eig()  # To get nodal data in class
 n_solpoints = len(T)
 if new_nsteps:
     par["shooting"]["single"]["nsteps_per_period"] = int(new_nsteps)
 nsteps = par["shooting"]["single"]["nsteps_per_period"]
 pose_time = np.zeros([BeamCpp.ndof_config, nsteps + 1, n_solpoints])
 vel_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, n_solpoints])
+inc_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, n_solpoints])
 time = np.zeros([n_solpoints, nsteps + 1])
 if run_bif:
     print("\033[0;31m*** ENSURE apply_SE_correction = FALSE *** \033[0m\n")
@@ -59,7 +61,7 @@ with alive_bar(n_solpoints) as bar:
         x = vel[BeamCpp.free_dof, i]
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
         if run_bif:
-            [_, J, pose_time[:, :, i], vel_time[:, :, i], _, _] = BeamCpp.runsim_single(
+            [_, J, pose_time[:, :, i], vel_time[:, :, i], _, _, _] = BeamCpp.runsim_single(
                 1.0, T[i], X, pose[:, i], par, fulltime=True
             )
             M = J[:, :-1] + np.eye(2 * BeamCpp.ndof_free)
@@ -70,10 +72,23 @@ with alive_bar(n_solpoints) as bar:
             Flip[i] = bifurcation_out[3]
             Neimark_Sacker[i] = bifurcation_out[4]
         else:
-            [_, _, pose_time[:, :, i], vel_time[:, :, i], _, _] = BeamCpp.runsim_single(
+            [_, _, pose_time[:, :, i], vel_time[:, :, i], _, _, _] = BeamCpp.runsim_single(
                 1.0, T[i], X, pose[:, i], par, sensitivity=False, fulltime=True
             )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
+
+        for j in range(nsteps + 1):
+            for k in range(BeamCpp.nnodes_all):
+                f = Frame.relative_frame(
+                    BeamCpp.n_dim,
+                    pose_ref[k * BeamCpp.config_per_node : (k + 1) * BeamCpp.config_per_node],
+                    pose_time[
+                        k * BeamCpp.config_per_node : (k + 1) * BeamCpp.config_per_node, j, i
+                    ],
+                )
+                inc_time[k * BeamCpp.dof_per_node : (k + 1) * BeamCpp.dof_per_node, j, i] = (
+                    Frame.get_parameters_from_frame(BeamCpp.n_dim, f)
+                )
         bar()
 
 # write to file
@@ -82,10 +97,13 @@ if "/Config_Time/POSE" in time_data.keys():
     del time_data["/Config_Time/POSE"]
 if "/Config_Time/VELOCITY" in time_data.keys():
     del time_data["/Config_Time/VELOCITY"]
+if "/Config_Time/INC" in time_data.keys():
+    del time_data["/Config_Time/INC"]
 if "/Config_Time/Time" in time_data.keys():
     del time_data["/Config_Time/Time"]
 time_data["/Config_Time/POSE"] = pose_time
 time_data["/Config_Time/VELOCITY"] = vel_time
+time_data["/Config_Time/INC"] = inc_time
 time_data["/Config_Time/Time"] = time
 if run_bif:
     if "/Bifurcation/Floquet" in time_data.keys():
