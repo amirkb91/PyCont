@@ -10,8 +10,8 @@ from Frame import Frame
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    # cpp_example = "beam_2D"
-    cpp_example = "beam_rightangle"
+    cpp_example = "beam_2D"
+    # cpp_example = "beam_rightangle"
     # cpp_example = "beam_boxwing"
     # cpp_example = "beam_vertcant"
 
@@ -432,6 +432,11 @@ class BeamCpp:
             "ndof_free": cls.ndof_free,
             "node_config": cls.node_config,
             "ndof_config": cls.ndof_config,
+            "config_per_node": cls.config_per_node,
+            "nnodes_all": cls.nnodes_all,
+            "dof_per_node": cls.dof_per_node,
+            "n_dim": cls.n_dim,
+            "SEbeam": cls.SEbeam,
         }
 
     @classmethod

@@ -9,6 +9,7 @@ class StartingPoint:
         self.X0 = None
         self.T0 = None
         self.pose0 = None
+        self.pose_ref = None
         self.tgt0 = None
         self.eig = None
         self.frq = None
@@ -16,6 +17,7 @@ class StartingPoint:
     def get_startingpoint(self):
         # eigen solution is always required for dof data
         self.eig, self.frq, self.pose0 = self.prob.icfunction()
+        self.pose_ref = self.pose0.copy()
 
         if self.prob.cont_params["first_point"]["from_eig"]:
             self.eig_start()

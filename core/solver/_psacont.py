@@ -2,9 +2,7 @@ import numpy as np
 import scipy.linalg as spl
 from collections import namedtuple
 from ._cont_step import cont_step
-
-# import warnings
-# warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
+from examples.beam_cpp.Frame import Frame
 
 
 def psacont(self):
@@ -20,6 +18,7 @@ def psacont(self):
     # first point converged solution
     X = self.X0
     pose_base = self.pose
+    pose_ref = self.pose_ref  # undeformed pose
     tgt = self.tgt0
     omega = 1.0
     tau = self.T0
@@ -67,6 +66,7 @@ def psacont(self):
                 break
 
             residual = spl.norm(H)
+            residual = normalise_residual(residual, pose_base, pose_ref, dofdata)
 
             if not sensitivity:
                 # Broyden's Jacobian update
@@ -199,6 +199,30 @@ def psacont(self):
             print(f"Energy {energy:.5e} exceeds Emax.")
             break
         self.log.screenline("-")
+
+
+def normalise_residual(residual, pose_base, pose_ref, dofdata):
+    ndof_all = dofdata["ndof_all"]
+    n_nodes = dofdata["nnodes_all"]
+    config_per_node = dofdata["config_per_node"]
+    dof_per_node = dofdata["dof_per_node"]
+    n_dim = dofdata["n_dim"]
+    SEbeam = dofdata["SEbeam"]
+    inc_from_ref = np.zeros((ndof_all))
+
+    if SEbeam:
+        for k in range(n_nodes):
+            f = Frame.relative_frame(
+                n_dim,
+                pose_ref[k * config_per_node : (k + 1) * config_per_node],
+                pose_base[k * config_per_node : (k + 1) * config_per_node],
+            )
+            inc_from_ref[k * dof_per_node : (k + 1) * dof_per_node] = (
+                Frame.get_parameters_from_frame(n_dim, f)
+            )
+    else:
+        inc_from_ref = pose_base - pose_ref
+    return residual / spl.norm(inc_from_ref)
 
 
 # def qrlinearsolver(A, b):
