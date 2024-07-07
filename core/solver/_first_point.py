@@ -74,7 +74,7 @@ def first_point(self):
         self.tgt0 = spl.lstsq(J, Z, cond=None, check_finite=False, lapack_driver="gelsd")[0][:, 0]
         self.tgt0 /= spl.norm(self.tgt0)
 
-    elif eig_start and forced:  # (restart and forced) could be added here
+    elif forced:
         while True:
             if iter_firstpoint > cont_params["first_point"]["itermax"]:
                 raise Exception("Max number of iterations reached without convergence.")

@@ -5,16 +5,17 @@ import scipy.linalg as spl
 def bifurcation_functions(M):
     # floquet multipliers
     floq = np.sort(spl.eigvals(M))
-    stability = ~np.any(np.abs(floq) > 1) * 1.0
+    stability = 1.0 if np.all(np.abs(floq) <= 1) else 0.0
 
-    # bifurcation test functions
-    phi_fold = np.sign(spl.det(M - np.eye(len(M))))
-    phi_flip = np.sign(spl.det(M + np.eye(len(M))))
+    # Bifurcation test functions
+    phi_fold = np.sign(np.linalg.det(M - np.eye(len(M))))
+    phi_flip = np.sign(np.linalg.det(M + np.eye(len(M))))
+
     n = len(floq)
     phi_NS = 1
     for i in range(n):
         for j in range(i + 1, n):
-            phi_NS *= floq[i] * floq[j] - 1
+            phi_NS *= (floq[i] * floq[j] - 1)
     phi_NS = np.sign(np.real(phi_NS))
 
     # floq_conjugates_index = np.where(np.diff(np.real(floq)) == 0)[0]

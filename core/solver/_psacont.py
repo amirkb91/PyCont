@@ -4,6 +4,10 @@ from collections import namedtuple
 from ._cont_step import cont_step
 from examples.beam_cpp.Frame import Frame
 
+import warnings
+
+warnings.filterwarnings("ignore", category=spl.LinAlgWarning)
+
 
 def psacont(self):
     cont_params = self.prob.cont_params
