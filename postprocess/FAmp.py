@@ -13,7 +13,7 @@ def show_annotation(sel, offsets):
     sel.annotation.set_text(f"index:{global_index}")
 
 
-config2plot = 87
+config2plot = -1
 normalise_freq = 4.183e1
 normalise_amp = 1.0
 
@@ -59,7 +59,7 @@ for file, color in zip(files, color_cycle):
             # Ensure the segments are joined properly
             stable_index = stable_index[stable_index < len(T)]
             segments = np.split(np.arange(len(T)), stable_index)
-        
+
         for i, seg in enumerate(segments):
             linestyle = "solid" if stability[seg[0]] else "dashed"
             if i > 0:

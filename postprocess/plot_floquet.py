@@ -4,7 +4,7 @@ from matplotlib.widgets import Slider
 import sys
 import h5py
 
-config2plot = 87
+config2plot = -1
 normalise_freq = 4.183e1
 normalise_amp = 1.0
 

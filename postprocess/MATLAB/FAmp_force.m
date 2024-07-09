@@ -24,10 +24,10 @@ a.XLabel.Interpreter = "latex";
 a.YLabel.Interpreter = "latex";
 grid(a, 'off'); hold(a, 'on');
 
-a.XLim = [0.98 1.08];
+% a.XLim = [0.98 1.08];
 a.YLimMode = 'auto';
 a.XLimitMethod = 'tight';
-ylabel(a, '$y_P$ (m)');
+ylabel(a, '$\theta$ ($\pi$ rad)');
 xlabel(a, '$\Omega/\omega_1$');
 
 %% Geometries Undeformed Positions
@@ -35,11 +35,11 @@ normalise_amp = 1.0;
 normalise_frq = 41.7182203819309;
 
 %% DoF Index (+1 for MATLAB starting index)
-node = 21;
+node_number = 21;
 
 configpernode = 4;
-config2plot_X = configpernode*node + 3;  % x direction
-config2plot_Y = configpernode*node + 4;  % y direction
+xconfig = configpernode*node_number + 3;  % x direction
+yconfig = configpernode*node_number + 4;  % y direction
 
 %% Data Load
 files1 = {}; files2 = {};
@@ -81,13 +81,13 @@ for i=1:length(files1)
     % find normalised max pose for each cont solution
     % following finds the max over T in one go, no need for for loop
     % -1 for x becuase that's the X position of tip undeformed
-    [maxpose_X, ~] = max(abs(pose(config2plot_X,:,:)-1)/normalise_amp);
+    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-1)/normalise_amp);
     maxpose_X = 1-reshape(maxpose_X, size(T));
     
-    [maxpose_Y, ~] = max(abs(pose(config2plot_Y,:,:))/normalise_amp);
+    [maxpose_Y, ~] = max(abs(pose(yconfig,:,:))/normalise_amp);
     maxpose_Y = reshape(maxpose_Y, size(T));
     
-    [maxtheta, ~] = max(abs(theta(node+1,:,:)));
+    [maxtheta, ~] = max(abs(theta(node_number+1,:,:)));
     maxtheta = reshape(maxtheta, size(T))/pi;
     
     color = 'k';
@@ -98,19 +98,19 @@ for i=1:length(files1)
 %             'HandleVisibility','off');
 %     end
     
-    if i==1
-        plot(a,f/normalise_frq,maxpose_Y,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1);
-    else
-        plot(a,f/normalise_frq,maxpose_Y,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1,...
-            'HandleVisibility','off');
-    end
-    
 %     if i==1
-%         plot(a,f/normalise_frq,maxtheta,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1);
+%         plot(a,f/normalise_frq,maxpose_Y,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1);
 %     else
-%         plot(a,f/normalise_frq,maxtheta,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1,...
+%         plot(a,f/normalise_frq,maxpose_Y,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1,...
 %             'HandleVisibility','off');
-%     end    
+%     end
+    
+    if i==1
+        plot(a,f/normalise_frq,maxtheta,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1);
+    else
+        plot(a,f/normalise_frq,maxtheta,'-','LineWidth',plotlinew,'Color',color,'DisplayName',name1,...
+            'HandleVisibility','off');
+    end    
 end
 
 for i=1:length(files2)
@@ -141,13 +141,13 @@ for i=1:length(files2)
     
     % find normalised max pose for each cont solution
     % -1 for x becuase that's the X position of tip undeformed
-    [maxpose_X, ~] = max(abs(pose(config2plot_X,:,:)-1)/normalise_amp);
+    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-1)/normalise_amp);
     maxpose_X = 1-reshape(maxpose_X, size(T));
     
-    [maxpose_Y, ~] = max(abs(pose(config2plot_Y,:,:))/normalise_amp);
+    [maxpose_Y, ~] = max(abs(pose(yconfig,:,:))/normalise_amp);
     maxpose_Y = reshape(maxpose_Y, size(T));
     
-    [maxtheta, ~] = max(abs(theta(node+1,:,:)));
+    [maxtheta, ~] = max(abs(theta(node_number+1,:,:)));
     maxtheta = reshape(maxtheta, size(T))/pi;
     
     color = "#0072BD";
@@ -163,17 +163,6 @@ for i=1:length(files2)
 %             'LineStyle',linestyle,'LineWidth',plotlinew,'Color',color,'DisplayName',name2,'HandleVisibility','off');
 %     end
     
-    for j=1:length(stable_index)-1
-        is_stable = stability(stable_index(j+1)-1);
-        if is_stable
-            linestyle = '-';
-        else
-            linestyle = '--';
-        end
-        plot(a,f(stable_index(j):stable_index(j+1)),maxpose_Y(stable_index(j):stable_index(j+1)),...
-            'LineStyle',linestyle,'LineWidth',plotlinew,'Color',color,'DisplayName',name2,'HandleVisibility','off');
-    end
-    
 %     for j=1:length(stable_index)-1
 %         is_stable = stability(stable_index(j+1)-1);
 %         if is_stable
@@ -181,8 +170,19 @@ for i=1:length(files2)
 %         else
 %             linestyle = '--';
 %         end
-%         plot(a,f(stable_index(j):stable_index(j+1)),maxtheta(stable_index(j):stable_index(j+1)),...
+%         plot(a,f(stable_index(j):stable_index(j+1)),maxpose_Y(stable_index(j):stable_index(j+1)),...
 %             'LineStyle',linestyle,'LineWidth',plotlinew,'Color',color,'DisplayName',name2,'HandleVisibility','off');
-%     end    
+%     end
+    
+    for j=1:length(stable_index)-1
+        is_stable = stability(stable_index(j+1)-1);
+        if is_stable
+            linestyle = '-';
+        else
+            linestyle = '--';
+        end
+        plot(a,f(stable_index(j):stable_index(j+1)),maxtheta(stable_index(j):stable_index(j+1)),...
+            'LineStyle',linestyle,'LineWidth',plotlinew,'Color',color,'DisplayName',name2,'HandleVisibility','off');
+    end    
 end
 axis square

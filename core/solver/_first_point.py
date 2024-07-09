@@ -95,7 +95,7 @@ def first_point(self):
                 energy=energy,
             )
 
-            if residual < cont_params["continuation"]["tol"]:
+            if residual < cont_params["continuation"]["tol"] or restart:
                 break
 
             # correct only X0
