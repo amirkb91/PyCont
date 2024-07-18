@@ -32,11 +32,10 @@ a.ZLimitMethod = 'padded';
 
 a.View=[-47,21];
 axis(a,'square')
-zlabel(a, '$x_p/L$');
+zlabel(a, '$\theta$ ($\pi$ rad)');
 xlabel(a, '$\Omega/\omega_1$');
 ylabel(a, 'F (N)');
 a.YTick = [];
-a.ZDir = 'reverse';
 
 %% Geometries Undeformed Positions
 normalise_amp = 1.0;
@@ -71,6 +70,22 @@ for i=1:length(files)
     T = h5read(files{i},'/T');
     f = 1./T/normalise_frq;
     
+    nnodes = size(pose,1)/4;
+    theta = zeros(size(pose,1)/configpernode,size(pose,2),size(pose,3));
+    
+    for sol_idx = 1:size(pose, 3)
+        for time_idx = 1:size(pose, 2)
+            for node_idx = 1:size(pose,1)/configpernode
+                cos_theta_half_idx = (node_idx - 1) * 4 + 1;
+                sin_theta_half_idx = cos_theta_half_idx + 1;
+                cos_theta_half = pose(cos_theta_half_idx, time_idx, sol_idx);
+                sin_theta_half = pose(sin_theta_half_idx, time_idx, sol_idx);
+                theta(node_idx, time_idx, sol_idx) = ...
+                    2 * atan2(sin_theta_half, cos_theta_half);
+            end
+        end
+    end
+    
     % find normalised max pose for each cont solution
     % -1 for x becuase that's the X position of tip undeformed
     [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-1)/normalise_amp);
@@ -79,9 +94,12 @@ for i=1:length(files)
     [maxpose_Y, ~] = max(abs(pose(yconfig,:,:))/normalise_amp);
     maxpose_Y = reshape(maxpose_Y, size(T));
     
+    [maxtheta, ~] = max(abs(theta(node_number+1,:,:)));
+    maxtheta = reshape(maxtheta, size(T))/pi;
+    
     color = "#0072BD";
     
-    plot3(a,f,force_amplitudes(i)*ones(length(f),1),maxpose_X,...
+    plot3(a,f,force_amplitudes(i)*ones(length(f),1),maxtheta,...
         '-','LineWidth',plotlinew,'Color',color);
  
 end

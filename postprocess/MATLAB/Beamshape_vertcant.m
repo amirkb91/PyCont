@@ -38,23 +38,30 @@ ylabel(a1, '$Y$');
 
 
 %% Data Load
-file = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_cpp/FRF1_8000_timesim.h5';
-pose = h5read(file,'/dynamic_analysis/FEModel/POSE/MOTION').';
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_New\wide\';
+file = 'beam_sim_sweep_amp180.h5';
+pose = h5read([folder file],'/dynamic_analysis/FEModel/POSE/MOTION').';
+
+% file = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_cpp/FRF2_12000c_NSlargest_steadystate_timesim.h5';
+% pose = h5read(file,'/dynamic_analysis/FEModel/POSE/MOTION').';
+pose(1:4,:)=[];
+pose(5:8,:)=[];
 
 xconfig = (0:21)*4+3;
 yconfig = (0:21)*4+4;
 % zconfig = (0:21)*7+7;
-x_beamtip = 21*4+3;
+x_beamtip = 21*4+4;
 color = "#D95319";
 
 %% Plot Pose
-n_snaps_grey = 80;
-n_snaps = 20;
+pose = pose(:,900229:900657);
+n_snaps_grey = 0;
+n_snaps = 30;
 n_time = (length(pose));
-
+beam_length = 72e-3;
 index = 1:floor(n_time/n_snaps_grey):n_time;
 for i=1:n_snaps_grey
-    plot(a1,pose(xconfig,index(i)),pose(yconfig,index(i)),'o','LineWidth',plotlinew,'MarkerSize',0.5,'Color','#bcbcbc');
+    plot(a1,pose(xconfig,index(i))/beam_length,(pose(yconfig,index(i))-pose(4,index(i)))/beam_length,'o','LineWidth',plotlinew,'MarkerSize',0.5,'Color','#bcbcbc');
 end
 
 index = 1:floor(n_time/n_snaps):n_time;
@@ -63,7 +70,7 @@ abs_pose_normalized = (abs_pose - min(abs_pose)) / (max(abs_pose) - min(abs_pose
 cmap = custom_viridis(n_snaps);
 colors = interp1(linspace(0, 1, n_snaps), cmap, abs_pose_normalized);
 for i=1:n_snaps
-    plot(a1,pose(xconfig,index(i)),pose(yconfig,index(i)),'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',colors(i,:));
+    plot(a1,pose(xconfig,index(i))/beam_length,(pose(yconfig,index(i))-pose(4,index(i)))/beam_length,'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',colors(i,:));
 end
 
 axis equal
