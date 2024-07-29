@@ -38,8 +38,8 @@ ylabel(a1, '$Y$');
 
 
 %% Data Load
-folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_New\wide\';
-file = 'beam_sim_sweep_amp180.h5';
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_Final\';
+file = 'beam_sim_300.h5';
 pose = h5read([folder file],'/dynamic_analysis/FEModel/POSE/MOTION').';
 
 % file = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_cpp/FRF2_12000c_NSlargest_steadystate_timesim.h5';
@@ -54,9 +54,9 @@ x_beamtip = 21*4+4;
 color = "#D95319";
 
 %% Plot Pose
-pose = pose(:,900229:900657);
+pose = pose(:,918935:919514);
 n_snaps_grey = 0;
-n_snaps = 30;
+n_snaps = 50;
 n_time = (length(pose));
 beam_length = 72e-3;
 index = 1:floor(n_time/n_snaps_grey):n_time;

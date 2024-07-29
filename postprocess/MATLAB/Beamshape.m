@@ -22,34 +22,37 @@ a1 = axes(f1,'FontSize',afont,'LineWidth',aline,...
     'TickLabelInterpreter','latex','Box','on');
 a1.XLabel.Interpreter = "latex";
 a1.YLabel.Interpreter = "latex";
-% a1.ZLabel.Interpreter = "latex";
+a1.ZLabel.Interpreter = "latex";
 grid(a1, 'on'); hold(a1, 'on');
 a1.YLimMode = 'auto';
 a1.XLimitMethod = 'padded';
 a1.YLimitMethod = 'padded';
-% a1.ZLimitMethod = 'padded';
-% a1.PlotBoxAspectRatio=[1,1,1];
-% a1.XLim = [-0.5 1.5];
-% a1.YLim = [-1 1];
+a1.ZLimitMethod = 'padded';
+a1.PlotBoxAspectRatio=[1,1,1];
 xlabel(a1, '$X$');
 ylabel(a1, '$Y$');
-% zlabel(a1, '$Z$');
-% a1.View=[40 13];
+zlabel(a1, '$Z$');
+a1.View=[-50 15];
+a1.ZLim = [-1 1];
+a1.YLim = [-1 1];
+a1.XLim = [0 1];
 
 
 %% Data Load
-file = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_cpp/FRF1_8000_timesim.h5';
-pose = h5read(file,'/dynamic_analysis/FEModel/POSE/MOTION').';
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\3D_Cantilever\';
+file = 'FRF_0_005_III_timesim.h5';
+pose = h5read([folder file],'/dynamic_analysis/FEModel/POSE/MOTION').';
 
-xconfig = (0:21)*4+3;
-yconfig = (0:21)*4+4;
-% zconfig = (0:21)*7+7;
-x_beamtip = 21*4+3;
-color = "#D95319";
+xconfig = (0:21)*7+5;
+yconfig = (0:21)*7+6;
+zconfig = (0:21)*7+7;
+x_beamtip = 21*7+5;
+
+normalise_amp = 0.25;
 
 %% Plot Pose
-n_snaps_grey = 80;
-n_snaps = 20;
+n_snaps_grey = 0;
+n_snaps = 15;
 n_time = (length(pose));
 
 index = 1:floor(n_time/n_snaps_grey):n_time;
@@ -58,13 +61,15 @@ for i=1:n_snaps_grey
 end
 
 index = 1:floor(n_time/n_snaps):n_time;
-abs_pose = abs(pose(x_beamtip, index)-1);
+abs_pose = abs(pose(x_beamtip, index)-normalise_amp);
 abs_pose_normalized = (abs_pose - min(abs_pose)) / (max(abs_pose) - min(abs_pose));
 cmap = custom_viridis(n_snaps);
 colors = interp1(linspace(0, 1, n_snaps), cmap, abs_pose_normalized);
 for i=1:n_snaps
-    plot(a1,pose(xconfig,index(i)),pose(yconfig,index(i)),'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',colors(i,:));
+    plot3(a1,pose(xconfig,index(i))/normalise_amp,pose(yconfig,index(i))/normalise_amp,pose(zconfig,index(i))/normalise_amp,'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',"#EDB120");
+%     plot(a1,pose(xconfig,index(i))/normalise_amp,pose(zconfig,index(i))/normalise_amp,'o-','LineWidth',plotlinew,'MarkerSize',3,'Color',colors(i,:));
 end
+% plot3(a1,linspace(0,1,22),0*pose(yconfig,index(i))/0.25,0*pose(zconfig,index(i))/0.25,'o-','LineWidth',2,'MarkerSize',2,'Color','k');
 
 axis equal
 

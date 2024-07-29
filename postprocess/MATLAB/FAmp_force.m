@@ -81,7 +81,7 @@ for i=1:length(files1)
     % find normalised max pose for each cont solution
     % following finds the max over T in one go, no need for for loop
     % -1 for x becuase that's the X position of tip undeformed
-    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-1)/normalise_amp);
+    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-normalise_amp)/normalise_amp);
     maxpose_X = 1-reshape(maxpose_X, size(T));
     
     [maxpose_Y, ~] = max(abs(pose(yconfig,:,:))/normalise_amp);
@@ -141,7 +141,7 @@ for i=1:length(files2)
     
     % find normalised max pose for each cont solution
     % -1 for x becuase that's the X position of tip undeformed
-    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-1)/normalise_amp);
+    [maxpose_X, ~] = max(abs(pose(xconfig,:,:)-normalise_amp)/normalise_amp);
     maxpose_X = 1-reshape(maxpose_X, size(T));
     
     [maxpose_Y, ~] = max(abs(pose(yconfig,:,:))/normalise_amp);

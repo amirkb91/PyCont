@@ -17,28 +17,28 @@ xlabel(a1, '$\Omega$ (Hz)');
 ylabel(a1, 'Instantaneous Frequency (Hz)');
 
 %% Data Load
-folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_New\wide\';
-file = 'beam_sim_sweep_amp180.h5';
-pose = h5read([folder file],'/dynamic_analysis/FEModel/POSE/MOTION').';
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_Final\';
+file = 'beam_sim_180.h5';
+pose = h5read([folder file],'/dynamic_analysis/FEModel/ACCELERATION/MOTION').';
 
 node_number = 23; % first node is 0
 xconfig = node_number*4+3;
 yconfig = node_number*4+4;
 beam_length = 72e-3;
 nat_freq = 6.374;
-xdof = node_number*3+1;
+xdof = node_number*3+2;
 
 %% Sort out single outlier and select xconfig pose
-index = find(pose(yconfig,:)==0);
-pose(xconfig,index) = 0.5*(pose(xconfig,index-1)+pose(xconfig,index+1));
-pose(yconfig,index) = 0.5*(pose(yconfig,index-1)+pose(yconfig,index+1));
-X = pose(xconfig,:);
+% index = find(pose(yconfig,:)==0);
+% pose(xconfig,index) = 0.5*(pose(xconfig,index-1)+pose(xconfig,index+1));
+% pose(yconfig,index) = 0.5*(pose(yconfig,index-1)+pose(yconfig,index+1));
+X = pose(xdof,:);
 
 %% Sweep parameters which created the sine sweep signal
-f0 = 9;
+f0 = 10;
 f1 = 20;
 sweep_rate = 1;
-sampling_freq = 3000;
+sampling_freq = 4000;
 tend = abs(f1-f0)*(60/sweep_rate);
 k = (f1-f0)/tend;
 time_signal = 0:1/sampling_freq:tend;
@@ -81,18 +81,20 @@ ylabel('Normalised Position');
 % colormap jet;
 
 max_abs_y = max(max(abs(y(1:fac2plot:index_time,:))));
-levels = 10;
+levels = 20;
+% levels = linspace(20,100,10);
 % contourf(a1, finst(1:fac2plot:end), freqWT, abs(y(1:fac2plot:index_time,:))', levels, 'LineColor', 'none');
 contourf(a1, finst(1:fac2plot:end), freqWT, 20*log10(abs(y(1:fac2plot:index_time,:))'), levels, 'LineColor', 'none');
 colorbar(a1);
-colormap(a1, jet(levels)); % Use fewer colors for stronger contrast
+colormap(a1, jet(20)); % Use fewer colors for stronger contrast
 
 set(a1, 'FontSize', afont, 'LineWidth', aline, 'TickLabelInterpreter', 'latex', 'Box', 'on');
 a1.XLabel.Interpreter = "latex";
 a1.YLabel.Interpreter = "latex";
 xlabel(a1, '$\Omega$ (Hz)');
 ylabel(a1, 'Instantaneous Frequency (Hz)');
-
+% xlim([11 15])
+% ylim([0 30])
 
 % caxis([0.01, 0.05]); % Set color limits
 % hold on;

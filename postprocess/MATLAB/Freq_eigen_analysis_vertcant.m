@@ -22,8 +22,8 @@ ylabel(a1, 'Normalised Modal Amplitude');
 
 
 %% Data Load
-folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_New\wide\';
-file = 'beam_sim_sweep_amp180_INC.h5';
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Vertical_Cantilever\Sweep_Final\';
+file = 'beam_sim_300_INC.h5';
 inc = h5read([folder file],'/dynamic_analysis/FEModel/INC/MOTION')';
 
 file_eig = [folder 'beam_eig.h5'];
@@ -37,14 +37,9 @@ eig(4:6,:) = [];
 
 %% Selections
 num_modes = 10;
-node_number = 21; % first node is 0, side beams removed
-xconfig = node_number*4+3;
-yconfig = node_number*4+4;
-xdof = node_number*3+1;
-ydof = node_number*3+2;
 
-%% Modal amplitude and MAC plot
-dec = 20;
+%% Modal amplitude
+dec = 2;
 num_iterations = ceil(size(inc, 2) / dec);
 modal_amp = zeros(size(eig,2),num_iterations);
 
@@ -59,17 +54,11 @@ end
 factor = max(modal_amp(1,:));
 modal_amp = modal_amp / factor;
 
-
 %%
-f0 = 9;
+f0 = 10;
 f1 = 20;
 sweep_rate = 1;
-sampling_freq = 3000;
-
-% f0 = 10;
-% f1 = 18;
-% sweep_rate = 1;
-% sampling_freq = 4000;
+sampling_freq = 4000;
 
 tend = abs(f1-f0)*(60/sweep_rate);
 k = (f1-f0)/tend;
@@ -78,11 +67,12 @@ finst = k*time + f0 ;
 finst = finst(1:dec:end);
 
 % for i=1:num_modes
-%     plot(a1,finst, modal_amp(i,:),'-','LineWidth',plotlinew,'DisplayName',sprintf("Mode %i",i-1));
+%     plot(a1,finst, modal_amp(i,:),'-','LineWidth',plotlinew,'DisplayName',sprintf("Mode %i",i));
 % end
 
 [max_values, indices] = max(modal_amp(1:num_modes,:), [], 2);
 [~, sorted_indices] = sort(max_values, 'descend');
+
 % Plot the lines in the sorted order
 customColors = [
     0.0 0.4470 0.7410; % blue

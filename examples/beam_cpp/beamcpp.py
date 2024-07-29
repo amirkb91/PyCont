@@ -14,6 +14,7 @@ class BeamCpp:
     # cpp_example = "beam_rightangle"
     # cpp_example = "beam_boxwing"
     # cpp_example = "beam_vertcant"
+    # cpp_example = "beam_3Dcant"
 
     if cpp_example == "beam_2D":
         # mybeam_2D (doubly clamped, arch, cantilever)
@@ -32,6 +33,10 @@ class BeamCpp:
         cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_vertcant/"
         cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_vertcant"
         cpp_def_period = 2.0
+    elif cpp_example == "beam_3Dcant":
+        # mybeam_3Dcant (3D cantilever beam)
+        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_3Dcant/"
+        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_3Dcant"
     # -------------------------------------------------------#
 
     cpp_modelfile = "model_def.json"
