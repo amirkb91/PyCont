@@ -62,3 +62,9 @@ out_file["/Config/VELOCITY"] = np.asarray(vel_ic.reshape(-1, 1))
 out_file["/T"] = np.asarray(np.array([T]))
 out_file["/Parameters"] = json.dumps(par)
 out_file.close()
+
+
+# out_file = h5py.File("IC_unstable_only.h5", "w")
+# out_file["/dynamic_analysis/FEModel/INC/MOTION"] = np.asarray(scale*inc_eig.reshape(-1, 1))
+# out_file["/dynamic_analysis/FEModel/VELOCITY/MOTION"] = np.asarray(0*scale*vel_eig.reshape(-1, 1))
+# out_file.close()

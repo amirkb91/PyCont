@@ -32,8 +32,9 @@ a2.XLabel.Interpreter = "latex";
 a2.YLabel.Interpreter = "latex";
 grid(a2, 'on'); hold(a2, 'on');
 a2.YLimitMethod = 'tight';
+a2.XLimitMethod = 'tight';
 axis(a2,'square')
-xlabel(a2, 'Continuation Step');
+xlabel(a2, '$\Omega/\omega_4$');
 ylabel(a2, 'Mode Number');
 colormap(a2, 'turbo');
 colorbar(a2);
@@ -72,24 +73,36 @@ a4.YDir = 'normal';
 
 %% Data Load
 files1 = {};
-folder = '//wsl$/ubuntu/home/akb110/Codes/PyCont/examples/beam_cpp/';
-files1{end+1} = [folder 'right_sing_NNM1_withtime.h5'];
-files1{end+1} = [folder 'right_sing_NNM1b_withtime.h5'];
-files1{end+1} = [folder 'right_sing_NNM1c_withtime.h5'];
-files1{end+1} = [folder 'right_sing_NNM1d_trunc_withtime.h5'];
+folder = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Boxwing/';
+files1{end+1} = [folder 'FRC4_amp08_withtime.h5'];
+% files1{end+1} = [folder 'right_sing_NNM1b_withtime.h5'];
+% files1{end+1} = [folder 'right_sing_NNM1c_withtime.h5'];
+% files1{end+1} = [folder 'right_sing_NNM1d_trunc_withtime.h5'];
 
-file_eig = '//wsl$/ubuntu/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/beam_eig.h5';
+file_eig = 'C:\Users\akb110\OneDrive - Imperial College London\PhD Files\Simulation Results\LieC++-PyCont_Thesis2024\Boxwing\beam_eig.h5';
 eig = h5read(file_eig,'/eigen_analysis/Eigenvectors/MOTION').';
 
 %% Selections
-num_modes = 5;
-node_number = 42; % first node is 0
-xconfig = node_number*7+5;
-yconfig = node_number*7+6;
-zconfig = node_number*7+7;
-xdof = node_number*6+1;
-ydof = node_number*6+2;
-zdof = node_number*6+3;
+num_modes = 15;
+
+
+% node_number = 36; % right wing tip front
+% node_number = 48; % right wing tip rear 
+% node_number = 63; % vtail top
+node_number = 79; % fuselage rear
+
+configpernode = 7;
+xconfig = configpernode*node_number + 5;  % x direction
+yconfig = configpernode*node_number + 6;  % y direction
+zconfig = configpernode*node_number + 7;  % y direction
+
+
+% node_number = 42; % first node is 0
+% xconfig = node_number*7+5;
+% yconfig = node_number*7+6;
+% zconfig = node_number*7+7;
+
+normalise_frq = 7.616919386305014;
 
 %% Modal amplitude and MAC plot
 modal_amp = zeros(size(eig,2),0);
@@ -106,6 +119,7 @@ for i=1:length(files1)
     INC{i} = inc;
     POSE{i} = pose;
     T{i} = time;
+    f = 1./T{i}/normalise_frq;
     for j=1:size(inc,3)
         proj = abs(eig\inc(:,1,j));
         proj = proj / norm(proj);
@@ -124,10 +138,12 @@ POSE = cat(3, POSE{:});
 T = cat(1,T{:});
 
 for i=1:num_modes
-    plot(a1,modal_amp(i,:),'-','LineWidth',plotlinew,'DisplayName',sprintf("Mode %i",i));
+    plot(a1,f, modal_amp(i,:),'-','LineWidth',plotlinew,'DisplayName',sprintf("Mode %i",i));
 end
-imagesc(a2, MAC(1:num_modes,:))
-
+imagesc(a2, f,(1:num_modes),MAC(1:num_modes,:))
+colormap(a2,flipud(bone(20)));
+caxis(a2, [0.2 1])
+a2.YTick = (1:num_modes);
 %% Fourier Analysis
 for i=1:size(INC,3)
     t1 = linspace(0,T(i),size(INC,2));
@@ -143,7 +159,7 @@ for i=1:size(INC,3)
     P2 = ZP(1:L2+1);
     f = Fs*(0:(L2))/L;
     fund = 1/t1(end);  % fundamental frequencies are the end times
-    f = f/fund;
+%     f = f/fund;
     p_all(i,:) = P;
     f_all(i,:) = f;
 end

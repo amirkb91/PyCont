@@ -85,7 +85,7 @@ def first_point(self):
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
 
-            residual = spl.norm(H)
+            residual = spl.norm(H)  # Note this is different to psacont residual not normalised
 
             self.log.screenout(
                 iter=0,

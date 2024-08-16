@@ -48,6 +48,7 @@ pose_time = np.zeros([BeamCpp.ndof_config, nsteps + 1, n_solpoints])
 vel_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, n_solpoints])
 inc_time = np.zeros([BeamCpp.ndof_all, nsteps + 1, n_solpoints])
 time = np.zeros([n_solpoints, nsteps + 1])
+node_config = BeamCpp.node_config
 if run_bif:
     print("\033[0;31m*** ENSURE apply_SE_correction = FALSE *** \033[0m\n")
     Floquet = np.zeros([2 * BeamCpp.ndof_free, n_solpoints], dtype=np.complex128)
@@ -78,7 +79,12 @@ with alive_bar(n_solpoints) as bar:
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
 
         for j in range(nsteps + 1):
-            for k in range(BeamCpp.nnodes_all):
+            pose_nose = pose_time[node_config[:,0], j, i]
+            pose_nose_inverse = pose_nose_inv = Frame.get_inverse(3, pose_nose)
+            for k in range(BeamCpp.nnodes_all):                
+                # Apply RB translation to fix the nose at the origin
+                # pose_time[node_config[:, k], j, i] = Frame.composition(3, pose_nose_inv, pose_time[node_config[:, k], j, i])
+
                 f = Frame.relative_frame(
                     BeamCpp.n_dim,
                     pose_ref[k * BeamCpp.config_per_node : (k + 1) * BeamCpp.config_per_node],

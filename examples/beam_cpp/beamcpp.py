@@ -10,35 +10,30 @@ from Frame import Frame
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    cpp_example = "beam_2D"
-    # cpp_example = "beam_rightangle"
-    # cpp_example = "beam_boxwing"
-    # cpp_example = "beam_vertcant"
-    # cpp_example = "beam_3Dcant"
+    # cpp_example = "beam_2D"  # doubly clamped, arch, cantilever
+    # cpp_example = "beam_rightangle"  # right angle beam
+    cpp_example = "beam_boxwing"  # Benchmark Aircraft
+    # cpp_example = "beam_vertcant"  # 2D vertical cantilever beam
+    # cpp_example = "beam_3Dcant"  # 3D cantilever beam
+    # cpp_example = "beam_bristolwing" # 15% deflection Bristol wing
 
     if cpp_example == "beam_2D":
-        # mybeam_2D (doubly clamped, arch, cantilever)
-        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_2D/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_2D"
+        folder, exe = "mybeam_2D/", "mybeam_2D"
     elif cpp_example == "beam_rightangle":
-        # mybeam_rightangle
-        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_rightangle/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_rightangle"
+        folder, exe = "mybeam_rightangle/", "mybeam_rightangle"
     elif cpp_example == "beam_boxwing":
-        # mybeam_boxwing (Benchmark Aircraft)
-        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_boxwing/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_boxwing"
+        folder, exe = "mybeam_boxwing/", "mybeam_boxwing"
     elif cpp_example == "beam_vertcant":
-        # mybeam_vertcant
-        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_vertcant/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_vertcant"
+        folder, exe = "mybeam_vertcant/", "mybeam_vertcant"
         cpp_def_period = 2.0
     elif cpp_example == "beam_3Dcant":
-        # mybeam_3Dcant (3D cantilever beam)
-        cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/mybeam_3Dcant/"
-        cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/mybeam_3Dcant"
+        folder, exe = "mybeam_3Dcant/", "mybeam_3Dcant"
+    elif cpp_example == "beam_bristolwing":
+        folder, exe = "mybeam_bristolwing/", "mybeam_bristolwing"
     # -------------------------------------------------------#
 
+    cpp_path = "/home/akb110/Codes/mb_sef_cpp/examples/" + folder
+    cpp_exe = "/home/akb110/Codes/mb_sef_cpp/cmake-build-release/examples/" + exe
     cpp_modelfile = "model_def.json"
     cpp_paramfile_eig = "parameters_eig.json"
     cpp_paramfile_sim = "parameters_sim.json"
