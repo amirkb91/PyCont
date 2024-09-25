@@ -79,9 +79,9 @@ with alive_bar(n_solpoints) as bar:
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
 
         for j in range(nsteps + 1):
-            pose_nose = pose_time[node_config[:,0], j, i]
+            pose_nose = pose_time[node_config[:, 0], j, i]
             pose_nose_inverse = pose_nose_inv = Frame.get_inverse(3, pose_nose)
-            for k in range(BeamCpp.nnodes_all):                
+            for k in range(BeamCpp.nnodes_all):
                 # Apply RB translation to fix the nose at the origin
                 # pose_time[node_config[:, k], j, i] = Frame.composition(3, pose_nose_inv, pose_time[node_config[:, k], j, i])
 

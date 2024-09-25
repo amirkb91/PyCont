@@ -15,7 +15,7 @@ def bifurcation_functions(M):
     phi_NS = 1
     for i in range(n):
         for j in range(i + 1, n):
-            phi_NS *= (floq[i] * floq[j] - 1)
+            phi_NS *= floq[i] * floq[j] - 1
     phi_NS = np.sign(np.real(phi_NS))
 
     # floq_conjugates_index = np.where(np.diff(np.real(floq)) == 0)[0]

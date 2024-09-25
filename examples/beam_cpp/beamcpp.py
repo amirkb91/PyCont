@@ -336,7 +336,9 @@ class BeamCpp:
 
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 convergence = list(
-                    executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1)))
+                    executor.map(
+                        cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1))
+                    )
                 )
             cvg = np.all(convergence)
 
@@ -354,9 +356,9 @@ class BeamCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
             cls.simout_file + suffix
         )
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
-            cls.ic_file + suffix
-        )
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
+            "file_name"
+        ] = (cls.ic_file + suffix)
         json.dump(
             cls.cpp_params_sim,
             open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
