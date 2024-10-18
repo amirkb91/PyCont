@@ -125,10 +125,10 @@ def psacont(self):
             else:
                 if frml == "peeters":
                     # remove tgt from Jacobian and fix period component to 1
-                    J[-1, :] *= 0.0
+                    J[-1, :] = 0.0
                     J[-1, -1] = 1
                 Z = np.zeros((np.shape(J)[0], 1))
-                Z[-1] = 1
+                Z[-1] = 1.0
                 if not forced:
                     tgt_next = spl.lstsq(
                         J, Z, cond=None, check_finite=False, lapack_driver="gelsd"
@@ -136,12 +136,13 @@ def psacont(self):
                 elif forced:
                     tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
             tgt_next /= spl.norm(tgt_next)
+            tgt /= spl.norm(tgt)
             # tgt_next /= spl.norm(tgt_next[-1])
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            beta = np.degrees(
-                np.arccos(np.dot(tgt_next, tgt) / (spl.norm(tgt) * spl.norm(tgt_next)))
-            )
+            dot_product = np.dot(tgt_next, tgt)
+            dot_product = np.clip(dot_product, -1.0, 1.0)
+            beta = np.degrees(np.arccos(dot_product))
             # beta below found using tangent of first partition + T only
             # beta_first_partition = np.degrees(
             #     np.arccos(
@@ -149,11 +150,16 @@ def psacont(self):
             #         (spl.norm(tgt[np.r_[0:twoN, -1]]) * spl.norm(tgt_next[np.r_[0:twoN, -1]]))
             #     )
             # )
+
             if cont_params_cont["betacontrol"] and beta > cont_params_cont["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
             else:
-                # passed check, store and update for next step
+                # Adjust tangent vector and stepsign to maintain correct direction
+                if dot_product < 0:
+                    tgt_next = -tgt_next
+                    stepsign = -stepsign
+
                 self.log.screenout(
                     iter=itercont,
                     correct=itercorrect,
@@ -173,19 +179,14 @@ def psacont(self):
                     sol_itercorrect=itercorrect,
                     sol_step=stepsign * step,
                 )
-
-                itercont += 1
-                if frml in ("peeters", "secant"):  # and beta >= 90:
-                    # stepsign = np.sign(stepsign * np.dot(tgt_next, tgt))
-                    stepsign = np.sign(
-                        stepsign * np.cos(np.radians(beta))
-                    )  # cos same as dot product
+                
                 tau = tau_pred
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
                 # update pose_base and set inc to zero, pose will have included inc from current sol
                 pose_base = pose.copy()
                 X[inc_mask] = 0.0
+                itercont += 1
 
                 # if cont_params["shooting"]["scaling"]:
                 #     # reset tau to 1.0

@@ -99,17 +99,13 @@ class Frame:
             p0 = np.sqrt(1.0 - 0.25 * parameters[2] ** 2)
             q = np.array([p0, 0.5 * parameters[2]])
             p_tilde_over_2 = np.array([[0, -0.5 * parameters[2]], [0.5 * parameters[2], 0]])
-            TT = (
-                1.0 / p0 * (np.eye(2) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
-            )
+            TT = 1.0 / p0 * (np.eye(2) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
             x = np.matmul(TT, parameters[:2])
         elif n_dim == 3:
             p0 = np.sqrt(1.0 - 0.25 * np.dot(parameters[3:], parameters[3:]))
             q = np.concatenate([np.array([p0]), 0.5 * parameters[3:]])
             p_tilde_over_2 = tilde(0.5 * parameters[3:])
-            TT = (
-                1.0 / p0 * (np.eye(3) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
-            )
+            TT = 1.0 / p0 * (np.eye(3) + np.matmul(p_tilde_over_2, p_tilde_over_2)) + p_tilde_over_2
             x = np.matmul(TT, parameters[:3])
         return np.concatenate([q, x])
 

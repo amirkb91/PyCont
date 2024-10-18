@@ -10,9 +10,9 @@ from Frame import Frame
 
 class BeamCpp:
     # --------- Choose example case from mb_sef_cpp ---------#
-    # cpp_example = "beam_2D"  # doubly clamped, arch, cantilever
+    cpp_example = "beam_2D"  # doubly clamped, arch, cantilever
     # cpp_example = "beam_rightangle"  # right angle beam
-    cpp_example = "beam_boxwing"  # Benchmark Aircraft
+    # cpp_example = "beam_boxwing"  # Benchmark Aircraft
     # cpp_example = "beam_vertcant"  # 2D vertical cantilever beam
     # cpp_example = "beam_3Dcant"  # 3D cantilever beam
     # cpp_example = "beam_bristolwing" # 15% deflection Bristol wing
@@ -24,7 +24,7 @@ class BeamCpp:
     elif cpp_example == "beam_boxwing":
         folder, exe = "mybeam_boxwing/", "mybeam_boxwing"
     elif cpp_example == "beam_vertcant":
-        folder, exe = "mybeam_vertcant/", "mybeam_vertcant"
+        folder, exe = "mybeam_vertcant/", "mybeam_vertcant_nosupport"
         cpp_def_period = 2.0
     elif cpp_example == "beam_3Dcant":
         folder, exe = "mybeam_3Dcant/", "mybeam_3Dcant"
@@ -200,7 +200,7 @@ class BeamCpp:
         # Precomputations
         partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
         indices_start = partition_extremeties[:npartition]
-        indices_end = indices_start - 1
+        indices_end = partition_extremeties[1:] - 1
         block_order = (np.arange(npartition) + 1) % npartition
 
         # Initialisations
@@ -256,12 +256,12 @@ class BeamCpp:
             if cls.SEbeam:
                 H1 = cls.periodicity_INC_SE_local(
                     pose_time[:, indices_start[block_order]],
-                    pose_time[:, indices_end[block_order]],
+                    pose_time[:, indices_end],
                 )
                 H2 = cls.periodicity_VEL_SE_local(
                     H1,
                     vel_time[:, indices_start[block_order]],
-                    vel_time[:, indices_end[block_order]],
+                    vel_time[:, indices_end],
                 )
                 # Jacobian computation for SE beam
                 for ipart in range(npartition):
@@ -278,11 +278,11 @@ class BeamCpp:
             else:
                 H1 = cls.periodicity_INC_linear(
                     pose_time[:, indices_start[block_order]],
-                    pose_time[:, indices_end[block_order]],
+                    pose_time[:, indices_end],
                 )
                 H2 = cls.periodicity_VEL_linear(
                     vel_time[:, indices_start[block_order]],
-                    vel_time[:, indices_end[block_order]],
+                    vel_time[:, indices_end],
                 )
             H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
 
@@ -336,9 +336,7 @@ class BeamCpp:
 
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 convergence = list(
-                    executor.map(
-                        cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1))
-                    )
+                    executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1)))
                 )
             cvg = np.all(convergence)
 
@@ -356,9 +354,9 @@ class BeamCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
             cls.simout_file + suffix
         )
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"][
-            "file_name"
-        ] = (cls.ic_file + suffix)
+        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
+            cls.ic_file + suffix
+        )
         json.dump(
             cls.cpp_params_sim,
             open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
