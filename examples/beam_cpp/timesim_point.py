@@ -68,10 +68,10 @@ elif method == "multiple":
         f.create_dataset("/Config_Time/Time", data=time)
         f.create_dataset("/Config_Time/Energy", data=energy)
 
-    # copy solution over to C++ directory for plotting
+    # copy solution over to C++ directory for plotting then remove
     subprocess.run("cp " + output_file + " " + BeamCpp.cpp_path + "/beam_sim_mult.h5", shell=True)
-
     subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam_mult.py ", shell=True)
+    subprocess.run("rm " + output_file, shell=True)
 
     # # one more time sime with initial conditions of first partition for whole orbit so we can plot
     # x = vel[BeamCpp.free_dof, 0]

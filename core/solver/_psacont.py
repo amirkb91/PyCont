@@ -179,7 +179,7 @@ def psacont(self):
                     sol_itercorrect=itercorrect,
                     sol_step=stepsign * step,
                 )
-                
+
                 tau = tau_pred
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
@@ -214,6 +214,8 @@ def normalise_residual(residual, pose_base, pose_ref, dofdata):
     n_dim = dofdata["n_dim"]
     SEbeam = dofdata["SEbeam"]
     inc_from_ref = np.zeros((ndof_all))
+    # in multiple shooting, effectively takes pose_base of first partition only
+    pose_base = pose_base.flatten(order="F")
 
     if SEbeam:
         for k in range(n_nodes):
@@ -226,7 +228,7 @@ def normalise_residual(residual, pose_base, pose_ref, dofdata):
                 Frame.get_parameters_from_frame(n_dim, f)
             )
     else:
-        inc_from_ref = pose_base - pose_ref
+        inc_from_ref = pose_base[: n_nodes * config_per_node] - pose_ref
     return residual / spl.norm(inc_from_ref)
 
 
