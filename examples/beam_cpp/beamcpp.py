@@ -217,8 +217,7 @@ class BeamCpp:
         def run_partition(ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
             i0, i1 = ipart * twoN, (ipart + 1) * twoN
             X = Xtilde[i0:i1].copy()
-
-            cls.config_update(pose_base_column)
+            cls.config_update(pose_base_column, run_id=ipart + 1)
             cvg_ipart = cls.run_cpp(
                 T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1, method="multiple"
             )
@@ -239,12 +238,10 @@ class BeamCpp:
                     )
                 )
             for ipart, cvg_ipart in results:
-                cvg[ipart] = cvg_ipart
+                cvg[ipart] = cvg_ipart                
         else:
             for ipart in range(npartition):
-                ipart, cvg_ipart = run_partition(
-                    ipart, Xtilde, pose_base[:, ipart], T, delta_S, nsteps, sensitivity
-                )
+                ipart, cvg_ipart = run_partition(ipart, Xtilde, pose_base[:, ipart], T, delta_S, nsteps, sensitivity)
                 cvg[ipart] = cvg_ipart
 
         cvg = all(cvg)
@@ -256,7 +253,8 @@ class BeamCpp:
                 j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
                 p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
 
-                simdata = h5py.File(cls.cpp_path + cls.simout_file + f"_{ipart+1:03d}.h5", "r")
+                suffix = f"_{ipart+1:03d}"
+                simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
                 E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
                 energy = np.max([energy, E])
                 pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
@@ -339,7 +337,22 @@ class BeamCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
 
-        if cls.nprocs > 1 and sensitivity and method == "single":
+        if (cls.nprocs == 1 or not sensitivity) and method == "single":
+            cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently pop dict
+            if not sensitivity:
+                cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+            json.dump(
+                cpp_params_sim, open(cls.cpp_path + "_" + cls.cpp_paramfile_sim, "w"), indent=2
+            )
+            cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim  # fmt: skip
+            cpprun = subprocess.run(
+                cmd,
+                shell=True,
+                stdout=open(cls.cpp_path + "cpp.out", "w"),
+                stderr=open(cls.cpp_path + "cpp.err", "w"),
+            )
+            cvg = not bool(cpprun.returncode)
+        elif cls.nprocs > 1 and sensitivity and method == "single":
             # Calculate the basic split size and the number of splits that need an extra column
             basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)
             start_indices = np.arange(cls.nprocs) * basic_split_size + np.minimum(
@@ -355,7 +368,7 @@ class BeamCpp:
                 )
             cvg = np.all(convergence)
 
-        else:  # single shooting without column split or multiple shooting
+        elif method == "multiple":
             cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently pop dict
             if not sensitivity:
                 cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
@@ -365,7 +378,7 @@ class BeamCpp:
             )
             cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
                 cls.ic_file + suffix
-            )
+            )        
 
             json.dump(
                 cpp_params_sim,
@@ -443,9 +456,10 @@ class BeamCpp:
         return Xsol, pose
 
     @classmethod
-    def config_update(cls, pose):
+    def config_update(cls, pose, run_id=None):
         # update beam configuration by writing initial conditions pose
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        suffix = f"_{run_id:03d}" if run_id is not None else ""
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + suffix + ".h5", "w")
         icdata["/" + cls.analysis_name + "/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
         icdata.close()
 
