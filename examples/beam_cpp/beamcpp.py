@@ -217,18 +217,11 @@ class BeamCpp:
         H = pose = vel = None
         cvg = [None] * npartition
 
-        def run_partition(ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
-            i0, i1 = ipart * twoN, (ipart + 1) * twoN
-            X = Xtilde[i0:i1].copy()
-            cls.config_update(pose_base_column, run_id=ipart + 1)
-            cvg_ipart = cls.run_cpp(T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1)
-            return ipart, cvg_ipart
-
         if cls.nprocs > 1:
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 results = list(
                     executor.map(
-                        run_partition,
+                        cls.run_partition,
                         range(npartition),
                         [Xtilde] * npartition,
                         pose_base.T,
@@ -242,7 +235,7 @@ class BeamCpp:
                 cvg[ipart] = cvg_ipart
         else:
             for ipart in range(npartition):
-                ipart, cvg_ipart = run_partition(
+                ipart, cvg_ipart = cls.run_partition(
                     ipart, Xtilde, pose_base[:, ipart], T, delta_S, nsteps, sensitivity
                 )
                 cvg[ipart] = cvg_ipart
@@ -404,6 +397,16 @@ class BeamCpp:
         #     cvg = np.all(convergence)
 
         return cvg
+
+    @classmethod
+    def run_partition(cls, ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
+        N = cls.ndof_free
+        twoN = 2 * N
+        i0, i1 = ipart * twoN, (ipart + 1) * twoN
+        X = Xtilde[i0:i1].copy()
+        cls.config_update(pose_base_column, run_id=ipart + 1)
+        cvg_ipart = cls.run_cpp(T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1)
+        return ipart, cvg_ipart
 
     # @classmethod
     # def run_cpp_column_split(cls, combined_args):
