@@ -79,7 +79,7 @@ class BeamCpp:
             cls.model_def["ModelDef"]["amplitude"] = 0.0
             cls.model_def["ModelDef"]["tau0"] = 0.0
             cls.model_def["ModelDef"]["tau1"] = 0.0
-            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 1.0
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 0.9
         elif cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = cont_params["forcing"]["amplitude"]
             cls.model_def["ModelDef"]["tau0"] = cont_params["forcing"]["tau0"]
@@ -208,15 +208,15 @@ class BeamCpp:
 
         # Initialisations
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        M_all = np.empty(npartition, dtype=object)
+        M_all = np.empty((npartition, twoN, twoN + 1))
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         acc_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
-        energy = 0
         energy_time = np.zeros((nsteps + 1, npartition))
-        H = pose = vel = None
+        energy = 0
         cvg = [None] * npartition
 
+        # Run all partitions, in parallel if user specifies
         if cls.nprocs > 1:
             with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
                 results = list(
@@ -231,51 +231,29 @@ class BeamCpp:
                         [sensitivity] * npartition,
                     )
                 )
-            for ipart, cvg_ipart in results:
-                cvg[ipart] = cvg_ipart
         else:
+            results = []
             for ipart in range(npartition):
-                ipart, cvg_ipart = cls.run_partition(
+                res = cls.run_partition(
                     ipart, Xtilde, pose_base[:, ipart], T, delta_S, nsteps, sensitivity
                 )
-                cvg[ipart] = cvg_ipart
+                results.append(res)
 
+        # Collect results
+        for res in results:
+            ipart, cvg_ipart, E, pose_seg, vel_seg, acc_seg, energy_time_seg, M = res
+            p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
+            cvg[ipart] = cvg_ipart
+            energy = max(energy, E)
+            pose_time[:, p0:p1] = pose_seg
+            vel_time[:, p0:p1] = vel_seg
+            acc_time[:, p0:p1] = acc_seg
+            energy_time[:, ipart] = energy_time_seg
+            M_all[ipart] = M
         cvg = all(cvg)
 
+        # Compute periodicity and Jacobian
         if cvg:
-            for ipart in range(npartition):
-                # index values required for looping the partitions
-                i0, i1 = ipart * twoN, (ipart + 1) * twoN
-                j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
-                p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
-
-                suffix = f"_{ipart+1:03d}"
-                simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
-                E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
-                energy = np.max([energy, E])
-                pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-                acc_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
-                energy_time[:, ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, :]
-                M = simdata["/Sensitivity/Monodromy"][:]
-                # cpp gives M - I when apply_SE_correction=false
-                M[:twoN, :twoN] += np.eye(twoN)
-                simdata.close()
-                if cls.SEbeam:
-                    # Jacobian can only be computed after all partitions are solved because
-                    # it requires the periodicity vector
-                    M_all[ipart] = M
-                else:
-                    # VK beam Jacobian composed of M and eye blocks
-                    J[i0:i1, i0:i1] = M[:, :-1]
-                    J[i0:i1, j0:j1] += -np.eye(twoN)
-                    J[i0:i1, -1] = M[:, -1] * delta_S  # scale time derivative
-
-            # solution pose and vel at time 0 for each partition
-            pose = pose_time[:, indices_start]
-            vel = vel_time[:, indices_start]
-
-            # Periodicity condition for all partitions
             if cls.SEbeam:
                 H1 = cls.periodicity_INC_SE_local(
                     pose_time[:, indices_start[block_order]],
@@ -307,7 +285,20 @@ class BeamCpp:
                     vel_time[:, indices_start[block_order]],
                     vel_time[:, indices_end],
                 )
+                # Jacobian computation for VK beam
+                for ipart in range(npartition):
+                    i0, i1 = ipart * twoN, (ipart + 1) * twoN
+                    j0, j1 = (ipart + 1) % npartition * twoN, (
+                        ((ipart + 1) % npartition) + 1
+                    ) * twoN
+                    J[i0:i1, i0:i1] = M_all[ipart, :, :-1]
+                    J[i0:i1, j0:j1] += -np.eye(twoN)
+                    J[i0:i1, -1] = M_all[ipart, :, -1] * delta_S  # scale time derivative
+
             H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
+            # solution pose and vel at time 0 for each partition
+            pose = pose_time[:, indices_start]
+            vel = vel_time[:, indices_start]
 
         if not fulltime:
             return H, J, pose, vel, energy, cvg
@@ -316,6 +307,32 @@ class BeamCpp:
             v3d = np.transpose(vel_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
             a3d = np.transpose(acc_time.reshape(cls.ndof_all, npartition, nsteps + 1), (0, 2, 1))
             return H, J, p3d, v3d, a3d, energy_time, cvg
+
+    @classmethod
+    def run_partition(cls, ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
+        N = cls.ndof_free
+        twoN = 2 * N
+        i0, i1 = ipart * twoN, (ipart + 1) * twoN
+        X = Xtilde[i0:i1].copy()
+
+        cls.config_update(pose_base_column, run_id=ipart + 1)
+        cvg_ipart = cls.run_cpp(T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1)
+
+        # Read the output
+        suffix = f"_{ipart+1:03d}"
+        filepath = cls.cpp_path + cls.simout_file + suffix + ".h5"
+        with h5py.File(filepath, "r") as simdata:
+            energy_arr = simdata["/dynamic_analysis/FEModel/energy"][:]
+            E = np.max(energy_arr)
+            pose_seg = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_seg = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            acc_seg = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
+            energy_time_seg = simdata["/dynamic_analysis/FEModel/energy"][:]
+            M = simdata["/Sensitivity/Monodromy"][:]
+            # cpp gives M - I when apply_SE_correction=false
+            M[:twoN, :twoN] += np.eye(twoN)
+
+        return ipart, cvg_ipart, E, pose_seg, vel_seg, acc_seg, energy_time_seg, M
 
     @classmethod
     def run_cpp(cls, T, X, nsteps, sensitivity, run_id=None):
@@ -397,16 +414,6 @@ class BeamCpp:
         #     cvg = np.all(convergence)
 
         return cvg
-
-    @classmethod
-    def run_partition(cls, ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
-        N = cls.ndof_free
-        twoN = 2 * N
-        i0, i1 = ipart * twoN, (ipart + 1) * twoN
-        X = Xtilde[i0:i1].copy()
-        cls.config_update(pose_base_column, run_id=ipart + 1)
-        cvg_ipart = cls.run_cpp(T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1)
-        return ipart, cvg_ipart
 
     # @classmethod
     # def run_cpp_column_split(cls, combined_args):
