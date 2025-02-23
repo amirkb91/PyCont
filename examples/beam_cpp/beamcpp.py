@@ -215,6 +215,7 @@ class BeamCpp:
         energy_time = np.zeros((nsteps + 1, npartition))
         energy = 0
         cvg = [None] * npartition
+        H = pose = vel = None
 
         # Run all partitions, in parallel if user specifies
         if cls.nprocs > 1:
