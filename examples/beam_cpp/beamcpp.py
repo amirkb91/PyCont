@@ -79,7 +79,7 @@ class BeamCpp:
             cls.model_def["ModelDef"]["amplitude"] = 0.0
             cls.model_def["ModelDef"]["tau0"] = 0.0
             cls.model_def["ModelDef"]["tau1"] = 0.0
-            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 1.0
+            cls.cpp_params_sim["TimeIntegrationSolverParameters"]["rho"] = 0.9
         elif cont_params["continuation"]["forced"]:
             cls.model_def["ModelDef"]["amplitude"] = cont_params["forcing"]["amplitude"]
             cls.model_def["ModelDef"]["tau0"] = cont_params["forcing"]["tau0"]
@@ -99,7 +99,9 @@ class BeamCpp:
 
         subprocess.run("cd " + cls.cpp_path + "&&" + "./clean_dir.sh", shell=True)
         json.dump(cls.model_def, open(cls.cpp_path + "_" + cls.cpp_modelfile, "w"), indent=2)
-        cls.nprocs = nprocs  # number of CPU cores for splitting sens columns
+
+        cls.nprocs = nprocs  # number of CPU cores
+        cls.column_split = False  # split Jacobian columns in C++ code
 
     @classmethod
     def run_eig(cls):
@@ -134,7 +136,7 @@ class BeamCpp:
         cls.config_update(pose_base)
         cvg = cls.run_cpp(T * nperiod, X, nsteps * nperiod, sensitivity)
 
-        if cvg and (cls.nprocs == 1 or not sensitivity):
+        if cvg:
             simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
@@ -151,31 +153,32 @@ class BeamCpp:
                 J[:, N:] *= omega
                 J[:, -1] *= nperiod / omega
             simdata.close()
-        elif cvg and (cls.nprocs > 1 and sensitivity):
-            for i in range(1, cls.nprocs + 1):
-                suffix = f"_{i:03d}"
-                simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
-                sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
-                _N = np.shape(sens_H_i)[1] // 2
-                sens_H_i[:, _N:] *= omega
-                if i == 1:
-                    energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
-                    periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
-                    periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][
-                        cls.free_dof
-                    ]
-                    pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-                    vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-                    pose = pose_time[:, 0]
-                    vel = vel_time[:, 0]
-                    H = np.concatenate([periodicity_inc, periodicity_vel])
-                    dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
-                    sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
-                sens_H_inc = np.concatenate((sens_H_inc, sens_H_i[:, :_N]), axis=1)
-                sens_H_vel = np.concatenate((sens_H_vel, sens_H_i[:, _N:]), axis=1)
-                simdata.close()
-            sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
-            J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
+
+        # elif cvg and cls.column_split:
+        #     for i in range(1, cls.nprocs + 1):
+        #         suffix = f"_{i:03d}"
+        #         simdata = h5py.File(cls.cpp_path + cls.simout_file + suffix + ".h5", "r")
+        #         sens_H_i = simdata["/Sensitivity/Monodromy"][:, :-1]
+        #         _N = np.shape(sens_H_i)[1] // 2
+        #         sens_H_i[:, _N:] *= omega
+        #         if i == 1:
+        #             energy = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
+        #             periodicity_inc = simdata["/dynamic_analysis/Periodicity/INC"][cls.free_dof]
+        #             periodicity_vel = simdata["/dynamic_analysis/Periodicity/VELOCITY"][
+        #                 cls.free_dof
+        #             ]
+        #             pose_time = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+        #             vel_time = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+        #             pose = pose_time[:, 0]
+        #             vel = vel_time[:, 0]
+        #             H = np.concatenate([periodicity_inc, periodicity_vel])
+        #             dHdtau = simdata["/Sensitivity/Monodromy"][:, -1] * nperiod * 1 / omega
+        #             sens_H_inc = sens_H_vel = np.empty((2 * cls.ndof_free, 0))
+        #         sens_H_inc = np.concatenate((sens_H_inc, sens_H_i[:, :_N]), axis=1)
+        #         sens_H_vel = np.concatenate((sens_H_vel, sens_H_i[:, _N:]), axis=1)
+        #         simdata.close()
+        #     sens_H = np.concatenate((sens_H_inc, sens_H_vel), axis=1)
+        #     J = np.concatenate((sens_H, dHdtau.reshape(-1, 1)), axis=1)
 
         if not fulltime:
             return H, J, pose, vel, energy, cvg
@@ -205,54 +208,53 @@ class BeamCpp:
 
         # Initialisations
         J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        M_all = np.empty(npartition, dtype=object)
+        M_all = np.empty((npartition, twoN, twoN + 1))
         pose_time = np.zeros((cls.ndof_config, (nsteps + 1) * npartition))
         vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
         acc_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
-        energy = 0
         energy_time = np.zeros((nsteps + 1, npartition))
-        H = pose = vel = None
+        energy = 0
         cvg = [None] * npartition
+        H = pose = vel = None
 
-        for ipart in range(npartition):
-            # index values required for looping the partitions
-            i0, i1 = ipart * twoN, (ipart + 1) * twoN
-            j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
+        # Run all partitions, in parallel if user specifies
+        if cls.nprocs > 1:
+            with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
+                results = list(
+                    executor.map(
+                        cls.run_partition,
+                        range(npartition),
+                        [Xtilde] * npartition,
+                        pose_base.T,
+                        [T] * npartition,
+                        [delta_S] * npartition,
+                        [nsteps] * npartition,
+                        [sensitivity] * npartition,
+                    )
+                )
+        else:
+            results = []
+            for ipart in range(npartition):
+                res = cls.run_partition(
+                    ipart, Xtilde, pose_base[:, ipart], T, delta_S, nsteps, sensitivity
+                )
+                results.append(res)
+
+        # Collect results
+        for res in results:
+            ipart, cvg_ipart, E, pose_seg, vel_seg, acc_seg, energy_time_seg, M = res
             p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
-
-            X = Xtilde[i0:i1].copy()
-            cls.config_update(pose_base[:, ipart])
-            cvg[ipart] = cls.run_cpp(T * delta_S, X, nsteps, sensitivity)
-            if cvg[ipart]:
-                simdata = h5py.File(cls.cpp_path + cls.simout_file + ".h5", "r")
-                E = np.max(simdata["/dynamic_analysis/FEModel/energy"][:, :])
-                energy = np.max([energy, E])
-                pose_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
-                vel_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
-                acc_time[:, p0:p1] = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
-                energy_time[:, ipart] = simdata["/dynamic_analysis/FEModel/energy"][:, :]
-                M = simdata["/Sensitivity/Monodromy"][:]
-                # cpp gives M - I when apply_SE_correction=false
-                M[:twoN, :twoN] += np.eye(twoN)
-                simdata.close()
-                if cls.SEbeam:
-                    # Jacobian can only be computed after all partitions are solved because
-                    # it requires the periodicity vector
-                    M_all[ipart] = M
-                else:
-                    # VK beam Jacobian composed of M and eye blocks
-                    J[i0:i1, i0:i1] = M[:, :-1]
-                    J[i0:i1, j0:j1] += -np.eye(twoN)
-                    J[i0:i1, -1] = M[:, -1] * delta_S  # scale time derivative
-
+            cvg[ipart] = cvg_ipart
+            energy = max(energy, E)
+            pose_time[:, p0:p1] = pose_seg
+            vel_time[:, p0:p1] = vel_seg
+            acc_time[:, p0:p1] = acc_seg
+            energy_time[:, ipart] = energy_time_seg
+            M_all[ipart] = M
         cvg = all(cvg)
 
+        # Compute periodicity and Jacobian
         if cvg:
-            # solution pose and vel at time 0 for each partition
-            pose = pose_time[:, indices_start]
-            vel = vel_time[:, indices_start]
-
-            # Periodicity condition for all partitions
             if cls.SEbeam:
                 H1 = cls.periodicity_INC_SE_local(
                     pose_time[:, indices_start[block_order]],
@@ -284,7 +286,20 @@ class BeamCpp:
                     vel_time[:, indices_start[block_order]],
                     vel_time[:, indices_end],
                 )
+                # Jacobian computation for VK beam
+                for ipart in range(npartition):
+                    i0, i1 = ipart * twoN, (ipart + 1) * twoN
+                    j0, j1 = (ipart + 1) % npartition * twoN, (
+                        ((ipart + 1) % npartition) + 1
+                    ) * twoN
+                    J[i0:i1, i0:i1] = M_all[ipart, :, :-1]
+                    J[i0:i1, j0:j1] += -np.eye(twoN)
+                    J[i0:i1, -1] = M_all[ipart, :, -1] * delta_S  # scale time derivative
+
             H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
+            # solution pose and vel at time 0 for each partition
+            pose = pose_time[:, indices_start]
+            vel = vel_time[:, indices_start]
 
         if not fulltime:
             return H, J, pose, vel, energy, cvg
@@ -295,13 +310,40 @@ class BeamCpp:
             return H, J, p3d, v3d, a3d, energy_time, cvg
 
     @classmethod
-    def run_cpp(cls, T, X, nsteps, sensitivity):
+    def run_partition(cls, ipart, Xtilde, pose_base_column, T, delta_S, nsteps, sensitivity):
+        N = cls.ndof_free
+        twoN = 2 * N
+        i0, i1 = ipart * twoN, (ipart + 1) * twoN
+        X = Xtilde[i0:i1].copy()
+
+        cls.config_update(pose_base_column, run_id=ipart + 1)
+        cvg_ipart = cls.run_cpp(T * delta_S, X, nsteps, sensitivity, run_id=ipart + 1)
+
+        # Read the output
+        suffix = f"_{ipart+1:03d}"
+        filepath = cls.cpp_path + cls.simout_file + suffix + ".h5"
+        with h5py.File(filepath, "r") as simdata:
+            energy_arr = simdata["/dynamic_analysis/FEModel/energy"][:]
+            E = np.max(energy_arr)
+            pose_seg = simdata["/dynamic_analysis/FEModel/POSE/MOTION"][:]
+            vel_seg = simdata["/dynamic_analysis/FEModel/VELOCITY/MOTION"][:]
+            acc_seg = simdata["/dynamic_analysis/FEModel/ACCELERATION/MOTION"][:]
+            energy_time_seg = simdata["/dynamic_analysis/FEModel/energy"][:]
+            M = simdata["/Sensitivity/Monodromy"][:]
+            # cpp gives M - I when apply_SE_correction=false
+            M[:twoN, :twoN] += np.eye(twoN)
+
+        return ipart, cvg_ipart, E, pose_seg, vel_seg, acc_seg, energy_time_seg, M
+
+    @classmethod
+    def run_cpp(cls, T, X, nsteps, sensitivity, run_id=None):
         inc = np.zeros(cls.ndof_all)
         vel = np.zeros(cls.ndof_all)
         inc[cls.free_dof] = X[: cls.ndof_free]
         vel[cls.free_dof] = X[cls.ndof_free :]
 
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "a")
+        suffix = f"_{run_id:03d}" if run_id is not None else ""
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + suffix + ".h5", "a")
         icdata["/" + cls.analysis_name + "/FEModel/INC/MOTION"] = inc.reshape(-1, 1)
         icdata["/" + cls.analysis_name + "/FEModel/VELOCITY/MOTION"] = vel.reshape(-1, 1)
         icdata.close()
@@ -309,7 +351,8 @@ class BeamCpp:
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["number_of_steps"] = nsteps
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["time"] = T
 
-        if cls.nprocs == 1 or not sensitivity:
+        # Note that multiple shooting first point does single shooting, so check run_id
+        if run_id is None:
             cpp_params_sim = dp(cls.cpp_params_sim)  # don't want pop to permanently pop dict
             if not sensitivity:
                 cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
@@ -324,56 +367,87 @@ class BeamCpp:
                 stderr=open(cls.cpp_path + "cpp.err", "w"),
             )
             cvg = not bool(cpprun.returncode)
-        elif cls.nprocs > 1 and sensitivity:
-            # Calculate the basic split size and the number of splits that need an extra column
-            basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)
-            start_indices = np.arange(cls.nprocs) * basic_split_size + np.minimum(
-                np.arange(cls.nprocs), extra_splits
-            )
-            end_indices = np.roll(start_indices, -1)
-            end_indices[-1] = cls.ndof_free  # Correct the last end index
-            split_indices = zip(start_indices, end_indices)
 
-            with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
-                convergence = list(
-                    executor.map(cls.run_cpp_parallel, zip(split_indices, range(1, cls.nprocs + 1)))
-                )
-            cvg = np.all(convergence)
+        elif run_id is not None:
+            cpp_params_sim = dp(cls.cpp_params_sim)
+            if not sensitivity:
+                cpp_params_sim["TimeIntegrationSolverParameters"].pop("direct_sensitivity")
+
+            cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
+                cls.simout_file + suffix
+            )
+            cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
+                cls.ic_file + suffix
+            )
+            json.dump(
+                cpp_params_sim,
+                open(
+                    cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"
+                ),
+                indent=2,
+            )
+
+            cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json"  # fmt: skip
+            cpprun = subprocess.run(
+                cmd,
+                shell=True,
+                stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
+                stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
+            )
+            cvg = not bool(cpprun.returncode)
+
+        # elif cls.column_split:
+        #     # Calculate the basic split size and the number of splits that need an extra column
+        #     basic_split_size, extra_splits = divmod(cls.ndof_free, cls.nprocs)
+        #     start_indices = np.arange(cls.nprocs) * basic_split_size + np.minimum(
+        #         np.arange(cls.nprocs), extra_splits
+        #     )
+        #     end_indices = np.roll(start_indices, -1)
+        #     end_indices[-1] = cls.ndof_free  # Correct the last end index
+        #     split_indices = zip(start_indices, end_indices)
+
+        #     with ProcessPoolExecutor(max_workers=cls.nprocs) as executor:
+        #         convergence = list(
+        #             executor.map(
+        #                 cls.run_cpp_column_split, zip(split_indices, range(1, cls.nprocs + 1))
+        #             )
+        #         )
+        #     cvg = np.all(convergence)
 
         return cvg
 
-    @classmethod
-    def run_cpp_parallel(cls, combined_args):
-        (start_index, end_index), run_id = combined_args
+    # @classmethod
+    # def run_cpp_column_split(cls, combined_args):
+    #     (start_index, end_index), run_id = combined_args
 
-        requested_cols = np.array([start_index, end_index]).tolist()
-        suffix = f"_{run_id:03d}"
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
-            "requested_cols"
-        ] = requested_cols
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
-            cls.simout_file + suffix
-        )
-        cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
-            cls.ic_file + suffix
-        )
-        json.dump(
-            cls.cpp_params_sim,
-            open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
-            indent=2,
-        )
-        shutil.copyfile(
-            cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5"
-        )
+    #     requested_cols = np.array([start_index, end_index]).tolist()
+    #     suffix = f"_{run_id:03d}"
+    #     cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][
+    #         "requested_cols"
+    #     ] = requested_cols
+    #     cls.cpp_params_sim["TimeIntegrationSolverParameters"]["Logger"]["file_name"] = (
+    #         cls.simout_file + suffix
+    #     )
+    #     cls.cpp_params_sim["TimeIntegrationSolverParameters"]["initial_conditions"]["file_name"] = (
+    #         cls.ic_file + suffix
+    #     )
+    #     json.dump(
+    #         cls.cpp_params_sim,
+    #         open(cls.cpp_path + "_" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json", "w"),
+    #         indent=2,
+    #     )
+    #     shutil.copyfile(
+    #         cls.cpp_path + cls.ic_file + ".h5", cls.cpp_path + cls.ic_file + suffix + ".h5"
+    #     )
 
-        cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json"  # fmt: skip
-        cpprun = subprocess.run(
-            cmd,
-            shell=True,
-            stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
-            stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
-        )
-        return not bool(cpprun.returncode)
+    #     cmd = "cd " + cls.cpp_path + "&&" + cls.cpp_exe + " _" + cls.cpp_modelfile + " _" + cls.cpp_paramfile_sim.split(".")[0] + suffix + ".json"  # fmt: skip
+    #     cpprun = subprocess.run(
+    #         cmd,
+    #         shell=True,
+    #         stdout=open(cls.cpp_path + "cpp" + suffix + ".out", "w"),
+    #         stderr=open(cls.cpp_path + "cpp" + suffix + ".err", "w"),
+    #     )
+    #     return not bool(cpprun.returncode)
 
     @classmethod
     def partition_singleshooting_solution(cls, tau, Xtilde, pose_base, cont_params):
@@ -399,9 +473,10 @@ class BeamCpp:
         return Xsol, pose
 
     @classmethod
-    def config_update(cls, pose):
+    def config_update(cls, pose, run_id=None):
         # update beam configuration by writing initial conditions pose
-        icdata = h5py.File(cls.cpp_path + cls.ic_file + ".h5", "w")
+        suffix = f"_{run_id:03d}" if run_id is not None else ""
+        icdata = h5py.File(cls.cpp_path + cls.ic_file + suffix + ".h5", "w")
         icdata["/" + cls.analysis_name + "/FEModel/POSE/MOTION"] = pose.reshape(-1, 1)
         icdata.close()
 
