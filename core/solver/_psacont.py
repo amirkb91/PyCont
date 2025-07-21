@@ -33,7 +33,6 @@ def psacont(self):
     # continuation parameters
     step = cont_params_cont["s0"]
     direction = cont_params_cont["dir"]
-    stepsign = -1 * direction * np.sign(tgt[-1])  # corrections are always added
 
     # boolean masks to select inc and vel from X (has no effect on single shooting)
     inc_mask = np.mod(np.arange(X.size), twoN) < N
@@ -43,8 +42,8 @@ def psacont(self):
     itercont = 1
     while True:
         # prediction step along tangent
-        tau_pred = tau + tgt[-1] * step * stepsign
-        X_pred = X + tgt[:-1] * step * stepsign
+        tau_pred = tau + tgt[-1] * step * direction
+        X_pred = X + tgt[:-1] * step * direction
 
         if (
             omega / tau_pred > cont_params_cont["fmax"]
@@ -96,7 +95,7 @@ def psacont(self):
                 res=residual,
                 freq=omega / tau_pred,
                 energy=energy,
-                step=stepsign * step,
+                step=direction * step,
             )
 
             # apply corrections orthogonal to tangent
@@ -116,18 +115,17 @@ def psacont(self):
         if cvg_cont:
             # find new tangent with converged solution
             if frml == "secant":
-                # Find difference between solutions at current and previous step
-                # For non-Lie group formulations, this is already equal to X_pred, since pose-pose_base = X_pred[:N]
-                # For Lie group formulations, relative inc between pose and pose_base should be found with log map
+                # As X[inc_mask] = 0 after convergence, X_pred[inc_mask] is already equal to
+                # the difference between current and previous solutions
                 tgt_next = np.concatenate(
                     (X_pred[inc_mask], (X_pred - X)[vel_mask], [tau_pred - tau])
                 )
-            else:
-                if frml == "peeters":
-                    # remove tgt from Jacobian and fix period component to 1
-                    J[-1, :] = 0.0
-                    J[-1, -1] = 1
-                Z = np.zeros((np.shape(J)[0], 1))
+                tgt_next /= spl.norm(tgt_next)
+                tgt_inner = np.dot(tgt_next, tgt)
+                direction = np.sign(direction * tgt_inner)
+            elif frml == "keller":
+                # we already have J[-1, :] = tgt
+                Z = np.zeros((J.shape[0], 1))
                 Z[-1] = 1.0
                 if not forced:
                     tgt_next = spl.lstsq(
@@ -135,38 +133,45 @@ def psacont(self):
                     )[0][:, 0]
                 elif forced:
                     tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
-            tgt_next /= spl.norm(tgt_next)
-            tgt /= spl.norm(tgt)
-            # tgt_next /= spl.norm(tgt_next[-1])
+                tgt_next /= spl.norm(tgt_next)
+                tgt_inner = np.dot(tgt_next, tgt)
+                # safeguard: if numerical error yields a negative dot product, flip the tangent
+                if tgt_inner < 0:
+                    tgt_next = -tgt_next
+            elif frml == "peeters":
+                J[-1, :] = 0.0
+                J[-1, -1] = 1.0
+                Z = np.zeros((J.shape[0], 1))
+                Z[-1] = 1.0
+                if not forced:
+                    tgt_next = spl.lstsq(
+                        J, Z, cond=None, check_finite=False, lapack_driver="gelsd"
+                    )[0][:, 0]
+                elif forced:
+                    tgt_next = spl.solve(J, Z, check_finite=False)[:, 0]
+                tgt_next /= spl.norm(tgt_next)
+                tgt_inner = np.dot(tgt_next, tgt)
+                direction = np.sign(direction * tgt_inner)
 
             # calculate beta and check against betamax if requested, fail convergence if check fails
-            dot_product = np.dot(tgt_next, tgt)
-            dot_product = np.clip(dot_product, -1.0, 1.0)
-            beta = np.degrees(np.arccos(dot_product))
+            beta = np.rad2deg(np.arccos(np.clip(tgt_inner, -1.0, 1.0)))
             # beta below found using tangent of first partition + T only
-            # beta_first_partition = np.degrees(
-            #     np.arccos(
-            #         (tgt_next[np.r_[0:twoN, -1]].T @ tgt[np.r_[0:twoN, -1]]) /
-            #         (spl.norm(tgt[np.r_[0:twoN, -1]]) * spl.norm(tgt_next[np.r_[0:twoN, -1]]))
-            #     )
+            # beta = np.rad2deg(
+            #     np.arccos(np.dot(tgt_next[np.r_[0:twoN, -1]], tgt[np.r_[0:twoN, -1]]))
             # )
 
             if cont_params_cont["betacontrol"] and beta > cont_params_cont["betamax"]:
                 print("Beta exceeds maximum angle.")
                 cvg_cont = False
-            else:
-                # Adjust tangent vector and stepsign to maintain correct direction
-                if dot_product < 0:
-                    tgt_next = -tgt_next
-                    stepsign = -stepsign
 
+            else:
                 self.log.screenout(
                     iter=itercont,
                     correct=itercorrect,
                     res=residual,
                     freq=omega / tau_pred,
                     energy=energy,
-                    step=stepsign * step,
+                    step=direction * step,
                     beta=beta,
                 )
                 self.log.store(
@@ -177,7 +182,7 @@ def psacont(self):
                     sol_energy=energy,
                     sol_beta=beta,
                     sol_itercorrect=itercorrect,
-                    sol_step=stepsign * step,
+                    sol_step=direction * step,
                 )
 
                 tau = tau_pred
