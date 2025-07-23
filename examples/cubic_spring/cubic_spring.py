@@ -15,6 +15,8 @@ class Cubic_Spring:
     ndof_all = 2
     ndof_fix = 0
     ndof_free = 2
+    nnodes_all = 2
+    config_per_node = 1
 
     @classmethod
     def model_ode(cls, t, X):
@@ -209,6 +211,11 @@ class Cubic_Spring:
             "ndof_all": cls.ndof_all,
             "ndof_fix": cls.ndof_fix,
             "ndof_free": cls.ndof_free,
+            "nnodes_all": cls.nnodes_all,
+            "config_per_node": cls.config_per_node,
+            "dof_per_node": cls.ndof_free,
+            "n_dim": 1,
+            "SEbeam": False            
         }
 
     # @classmethod

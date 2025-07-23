@@ -16,6 +16,8 @@ class Duffing:
     ndof_all = 1
     ndof_fix = 0
     ndof_free = 1
+    nnodes_all = 1
+    config_per_node = 1    
 
     @classmethod
     def forcing_parameters(cls, cont_params):
@@ -147,6 +149,11 @@ class Duffing:
             "ndof_all": cls.ndof_all,
             "ndof_fix": cls.ndof_fix,
             "ndof_free": cls.ndof_free,
+            "nnodes_all": cls.nnodes_all,
+            "config_per_node": cls.config_per_node,
+            "dof_per_node": cls.ndof_free,
+            "n_dim": 1,
+            "SEbeam": False
         }
 
     # Central Difference methods can be used to validate the values from ode

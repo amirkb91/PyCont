@@ -17,7 +17,7 @@ class StartingPoint:
     def get_startingpoint(self):
         # eigen solution is always required for dof data
         self.eig, self.frq, self.pose0 = self.prob.icfunction()
-        self.pose_ref = self.pose0.copy()
+        self.pose_ref = np.copy(self.pose0)
 
         if self.prob.cont_params["first_point"]["from_eig"]:
             self.eig_start()

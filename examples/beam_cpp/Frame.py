@@ -1,5 +1,5 @@
 import numpy as np
-from SO3 import UnitQuaternion, tilde
+from .SO3 import UnitQuaternion, tilde
 
 
 class Frame:
