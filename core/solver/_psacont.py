@@ -17,7 +17,7 @@ def psacont(self):
     dofdata = self.prob.doffunction()
     N = dofdata["ndof_free"]
     twoN = 2 * N
-    cvg_sol = namedtuple("converged_solution", "X, T, H, J")
+    cvg_sol = namedtuple("converged_solution", "X, PAR, H, J")
 
     # first point converged solution
     X = self.X0
@@ -26,9 +26,27 @@ def psacont(self):
     tgt = self.tgt0
     omega = 1.0
     tau = self.T0
+    amp = self.F0
     if cont_params["shooting"]["scaling"]:
         omega = 1 / self.T0
         tau = 1.0
+
+    # Set up parameter continuation abstraction
+    cont_parameter = cont_params["forcing"]["continuation_parameter"]
+    if cont_parameter == "frequency":
+        param_current = tau
+        param_name = "frequency"
+        def get_param_value(): return tau
+        def set_param_value(val): nonlocal tau; tau = val
+        def get_period(): return tau
+        def get_amplitude(): return amp
+    elif cont_parameter == "amplitude":
+        param_current = amp
+        param_name = "amplitude"
+        def get_param_value(): return amp
+        def set_param_value(val): nonlocal amp; amp = val
+        def get_period(): return tau
+        def get_amplitude(): return amp
 
     # continuation parameters
     step = cont_params_cont["s0"]
@@ -42,14 +60,15 @@ def psacont(self):
     itercont = 1
     while True:
         # prediction step along tangent
-        tau_pred = tau + tgt[-1] * step * direction
+        param_pred = param_current + tgt[-1] * step * direction
         X_pred = X + tgt[:-1] * step * direction
+        set_param_value(param_pred)
 
         if (
-            omega / tau_pred > cont_params_cont["fmax"]
-            or omega / tau_pred < cont_params_cont["fmin"]
+            omega / get_period() > cont_params_cont["fmax"]
+            or omega / get_period() < cont_params_cont["fmin"]
         ):
-            print(f"Frequency {omega / tau_pred:.2e} Hz outside of specified boundary.")
+            print(f"Frequency {omega / get_period():.2e} Hz outside of specified boundary.")
             break
 
         # correction step
@@ -61,7 +80,7 @@ def psacont(self):
                 sensitivity = False
 
             [H, Jsim, pose, vel, energy, cvg_zerof] = self.prob.zerofunction(
-                omega, tau_pred, X_pred, pose_base, cont_params, sensitivity=sensitivity
+                omega, amp, tau, X_pred, pose_base, cont_params, sensitivity=sensitivity
             )
             if not cvg_zerof:
                 cvg_cont = False
@@ -74,13 +93,13 @@ def psacont(self):
             if not sensitivity:
                 # Broyden's Jacobian update
                 deltaX = (
-                    np.append(X_pred, tau_pred / omega) - np.append(soldata.X, soldata.T)
+                    np.append(X_pred, get_param_value() / omega) - np.append(soldata.X, soldata.PAR)
                 ).reshape(-1, 1)
                 deltaf = H - soldata.H
                 Jsim = soldata.J + 1 / spl.norm(deltaX) * (deltaf - soldata.J @ deltaX) @ deltaX.T
 
             J = np.block([[Jsim], [self.h, np.zeros((self.nphase, 1))], [tgt]])
-            soldata = cvg_sol(X_pred.copy(), tau_pred / omega, H.copy(), Jsim.copy())
+            soldata = cvg_sol(X_pred.copy(), get_param_value() / omega, H.copy(), Jsim.copy())
 
             if residual < cont_params_cont["tol"] and itercorrect >= cont_params_cont["itermin"]:
                 cvg_cont = True
@@ -93,7 +112,7 @@ def psacont(self):
                 iter=itercont,
                 correct=itercorrect,
                 res=residual,
-                freq=omega / tau_pred,
+                freq=omega / get_period(),
                 energy=energy,
                 step=direction * step,
             )
@@ -108,7 +127,8 @@ def psacont(self):
                 dxt = spl.lstsq(Jcr, -Z, cond=None, check_finite=False, lapack_driver="gelsd")[0]
             elif forced:
                 dxt = spl.solve(Jcr, -Z, check_finite=False)
-            tau_pred += dxt[-1, 0]
+            param_new = get_param_value() + dxt[-1, 0]
+            set_param_value(param_new)
             dx = dxt[:-1, 0]
             X_pred += dx
 
@@ -118,7 +138,7 @@ def psacont(self):
                 # As X[inc_mask] = 0 after convergence, X_pred[inc_mask] is already equal to
                 # the difference between current and previous solutions
                 tgt_next = np.concatenate(
-                    (X_pred[inc_mask], (X_pred - X)[vel_mask], [tau_pred - tau])
+                    (X_pred[inc_mask], (X_pred - X)[vel_mask], [get_param_value() - param_current])
                 )
                 tgt_next /= spl.norm(tgt_next)
                 tgt_inner = np.dot(tgt_next, tgt)
@@ -169,7 +189,7 @@ def psacont(self):
                     iter=itercont,
                     correct=itercorrect,
                     res=residual,
-                    freq=omega / tau_pred,
+                    freq=omega / get_period(),
                     energy=energy,
                     step=direction * step,
                     beta=beta,
@@ -177,7 +197,7 @@ def psacont(self):
                 self.log.store(
                     sol_pose=pose,
                     sol_vel=vel,
-                    sol_T=tau_pred / omega,
+                    sol_T=get_period() / omega,
                     sol_tgt=tgt_next,
                     sol_energy=energy,
                     sol_beta=beta,
@@ -185,7 +205,7 @@ def psacont(self):
                     sol_step=direction * step,
                 )
 
-                tau = tau_pred
+                param_current = get_param_value()
                 X = X_pred.copy()
                 tgt = tgt_next.copy()
                 # update pose_base and set inc to zero, pose will have included inc from current sol

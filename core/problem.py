@@ -47,12 +47,13 @@ class Prob:
                 "multiple": {"npartition": 3, "nsteps_per_partition": 100},
             },
             "forcing": {
+                "continuation_parameter": "frequency",
                 "amplitude": 1,
+                "frequency": 1,
                 "phase_ratio": 0.5,
                 "tau0": 1e-4,
                 "tau1": 1e-4,
-                "rho_GA": 0.95,
-                "starting_freq_scale": 0.7,
+                "rho_GA": 0.95
             },
             "first_point": {
                 "from_eig": True,
