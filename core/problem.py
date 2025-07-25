@@ -76,7 +76,7 @@ class Prob:
             if key not in data:
                 data[key] = value
             elif isinstance(value, dict):
-                self.fill_defaults(data.get(key, {}), value)
+                data[key] = self.fill_defaults(data[key], value)
         return data
 
     def add_doffunction(self, fxn):
