@@ -32,6 +32,7 @@ def psacont(self):
         tau = 1.0
 
     # Set up parameter continuation abstraction
+    # fmt: off
     cont_parameter = cont_params["forcing"]["continuation_parameter"]
     if cont_parameter == "frequency":
         param_current = tau
@@ -47,10 +48,11 @@ def psacont(self):
         def set_param_value(val): nonlocal amp; amp = val
         def get_period(): return tau
         def get_amplitude(): return amp
+    # fmt: on
 
     # continuation parameters
     step = cont_params_cont["s0"]
-    direction = cont_params_cont["dir"]
+    direction = cont_params_cont["dir"] * np.sign(tgt[-1])
 
     # boolean masks to select inc and vel from X (has no effect on single shooting)
     inc_mask = np.mod(np.arange(X.size), twoN) < N
@@ -65,10 +67,12 @@ def psacont(self):
         set_param_value(param_pred)
 
         if (
-            omega / get_period() > cont_params_cont["fmax"]
-            or omega / get_period() < cont_params_cont["fmin"]
+            omega * get_param_value() > cont_params_cont["ContParMax"]
+            or omega * get_param_value() < cont_params_cont["ContParMin"]
         ):
-            print(f"Frequency {omega / get_period():.2e} Hz outside of specified boundary.")
+            print(
+                f"Continuation Parameter {omega * get_param_value():.2e} outside of specified boundary."
+            )
             break
 
         # correction step
@@ -113,6 +117,7 @@ def psacont(self):
                 correct=itercorrect,
                 res=residual,
                 freq=omega / get_period(),
+                amp=get_amplitude(),
                 energy=energy,
                 step=direction * step,
             )
@@ -190,6 +195,7 @@ def psacont(self):
                     correct=itercorrect,
                     res=residual,
                     freq=omega / get_period(),
+                    amp=get_amplitude(),
                     energy=energy,
                     step=direction * step,
                     beta=beta,
@@ -198,6 +204,7 @@ def psacont(self):
                     sol_pose=pose,
                     sol_vel=vel,
                     sol_T=get_period() / omega,
+                    sol_amp=get_amplitude(),
                     sol_tgt=tgt_next,
                     sol_energy=energy,
                     sol_beta=beta,

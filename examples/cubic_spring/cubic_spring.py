@@ -215,7 +215,7 @@ class Cubic_Spring:
             "config_per_node": cls.config_per_node,
             "dof_per_node": cls.ndof_free,
             "n_dim": 1,
-            "SEbeam": False            
+            "SEbeam": False,
         }
 
     # @classmethod

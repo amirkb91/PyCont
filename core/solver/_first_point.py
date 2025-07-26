@@ -129,6 +129,7 @@ def first_point(self):
                 correct=iter_firstpoint,
                 res=residual,
                 freq=1 / self.T0,
+                amp=self.F0,
                 energy=energy,
             )
 
@@ -156,6 +157,7 @@ def first_point(self):
         sol_pose=self.pose,
         sol_vel=vel,
         sol_T=self.T0,
+        sol_amp=self.F0,
         sol_tgt=self.tgt0,
         sol_energy=energy,
         sol_itercorrect=iter_firstpoint,

@@ -17,7 +17,7 @@ class Duffing:
     ndof_fix = 0
     ndof_free = 1
     nnodes_all = 1
-    config_per_node = 1    
+    config_per_node = 1
 
     @classmethod
     def forcing_parameters(cls, cont_params):
@@ -105,7 +105,7 @@ class Duffing:
         # Jacobian construction depends on continuation parameter
         dHdX0 = M - np.eye(2)
         gX_T = cls.model_ode(T, Xsol[-1, :], T, F)
-        
+
         if continuation_parameter == "frequency":
             # For frequency continuation, include period sensitivity (dH/dT)
             dHdT = gX_T + dXdT
@@ -159,7 +159,7 @@ class Duffing:
             "config_per_node": cls.config_per_node,
             "dof_per_node": cls.ndof_free,
             "n_dim": 1,
-            "SEbeam": False
+            "SEbeam": False,
         }
 
     # Central Difference methods can be used to validate the values from ode

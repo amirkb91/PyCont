@@ -34,8 +34,8 @@ class Prob:
                 "smax": 1e-1,
                 "betacontrol": False,
                 "betamax": 20,
-                "fmin": 20,
-                "fmax": 100,
+                "ContParMin": 20,
+                "ContParMax": 100,
                 "Emax": 1e5,
                 "phase_index_unforced": "allvel",
             },
@@ -53,7 +53,7 @@ class Prob:
                 "phase_ratio": 0.5,
                 "tau0": 1e-4,
                 "tau1": 1e-4,
-                "rho_GA": 0.95
+                "rho_GA": 0.95,
             },
             "first_point": {
                 "from_eig": True,
