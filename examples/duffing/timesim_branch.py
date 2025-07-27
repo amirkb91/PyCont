@@ -28,6 +28,7 @@ data = h5py.File(str(file), "r")
 pose = data["/Config/POSE"][:]
 vel = data["/Config/VELOCITY"][:]
 T = data["/T"][:]
+F = data["/Force_Amp"][:]
 par = data["/Parameters"]
 par = json.loads(par[()])
 data.close()
@@ -58,8 +59,8 @@ if run_bif == "y":
 with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         X = np.array([0.0, vel[0, i]])
-        [_, J, pose_time[:, :, i], vel_time[:, :, i], _, _] = Duffing.time_solve(
-            1.0, T[i], X, pose[0, i], par
+        [_, J, pose_time[:, :, i], vel_time[:, :, i], acc_time[:, :, i], _, _] = Duffing.time_solve(
+            1.0, F[i], T[i], X, pose[0, i], par, fulltime=True
         )
         if run_bif == "y":
             M = J[:, :-1] + np.eye(2)
@@ -70,13 +71,6 @@ with alive_bar(n_solpoints) as bar:
             Flip[i] = bifurcation_out[3]
             Neimark_Sacker[i] = bifurcation_out[4]
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
-        # Acceleration
-        acc_time[:, :, i] = (
-            Duffing.F * np.cos(2 * np.pi / T[i] * time[i, :] + Duffing.phi)
-            - Duffing.delta * vel_time[:, :, i]
-            - Duffing.alpha * pose_time[:, :, i]
-            - Duffing.beta * pose_time[:, :, i] ** 3
-        )
         bar()
 
 # write to file

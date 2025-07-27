@@ -86,7 +86,7 @@ class Logger:
             elif key == "freq":
                 screen["Freq"] = f"{value:.4f}".ljust(self.linewidth)
             elif key == "amp":
-                screen["Amp"] = f"{value:.4e}".ljust(self.linewidth)
+                screen["Amp"] = f"{value:.4f}".ljust(self.linewidth)
             elif key == "energy":
                 screen["Energy"] = f"{value:.4e}".ljust(self.linewidth)
             elif key == "step":

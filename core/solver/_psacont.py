@@ -41,6 +41,7 @@ def psacont(self):
         def set_param_value(val): nonlocal tau; tau = val
         def get_period(): return tau
         def get_amplitude(): return amp
+        def get_cont_param_for_bounds(): return 1 / tau  # actual frequency
     elif cont_parameter == "amplitude":
         param_current = amp
         param_name = "amplitude"
@@ -48,11 +49,14 @@ def psacont(self):
         def set_param_value(val): nonlocal amp; amp = val
         def get_period(): return tau
         def get_amplitude(): return amp
+        def get_cont_param_for_bounds(): return amp
     # fmt: on
 
     # continuation parameters
     step = cont_params_cont["s0"]
-    direction = cont_params_cont["dir"] * np.sign(tgt[-1])
+    direction = (
+        cont_params_cont["dir"] * np.sign(tgt[-1]) * (-1 if cont_parameter == "frequency" else 1)
+    )
 
     # boolean masks to select inc and vel from X (has no effect on single shooting)
     inc_mask = np.mod(np.arange(X.size), twoN) < N
@@ -67,11 +71,11 @@ def psacont(self):
         set_param_value(param_pred)
 
         if (
-            omega * get_param_value() > cont_params_cont["ContParMax"]
-            or omega * get_param_value() < cont_params_cont["ContParMin"]
+            get_cont_param_for_bounds() > cont_params_cont["ContParMax"]
+            or get_cont_param_for_bounds() < cont_params_cont["ContParMin"]
         ):
             print(
-                f"Continuation Parameter {omega * get_param_value():.2e} outside of specified boundary."
+                f"Continuation Parameter {get_cont_param_for_bounds():.2e} outside of specified boundary."
             )
             break
 

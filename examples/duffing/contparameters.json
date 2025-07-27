@@ -13,12 +13,12 @@
     "s0": 0.005,
     "nadapt": 1,
     "smin": 1e-05,
-    "smax": 0.1,
+    "smax": 0.2,
     "betacontrol": false,
     "betamax": 20,
     "ContParMin": 0,
-    "ContParMax": 10,
-    "Emax": 1000,
+    "ContParMax": 8,
+    "Emax": 10000,
     "phase_index_unforced": "allvel"
   },
   "shooting": {
@@ -36,10 +36,10 @@
   },
   "forcing": {
     "continuation_parameter": "amplitude",
-    "amplitude": 0.1,
-    "frequency": 0.3,
-    "phase_ratio": 0.5,
-    "tau0": 0.05,
+    "amplitude": 0.01,
+    "frequency": 0.477464829275686,
+    "phase_ratio": 0,
+    "tau0": 0.1,
     "tau1": 0,
     "rho_GA": 1.0
   },

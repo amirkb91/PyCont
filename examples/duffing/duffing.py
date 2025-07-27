@@ -5,11 +5,11 @@ from scipy.integrate import odeint, simps
 class Duffing:
     """
     fixed parameters of the model
-    xddot + delta*xdot + alpha*x + beta*x^3 = F*cos(2pi/T*t + phi)
+    xddot + delta*xdot + alpha*x + beta*x^3 = F*sin(2pi/T*t)
     """
 
-    alpha, beta = 1.0, 1.0
-    delta, phi = 0.0, 0.0
+    alpha, beta = 1.0, 4.0
+    delta = 0.0
 
     # finite element data, 1 dof model
     free_dof = np.array([0])
@@ -26,7 +26,6 @@ class Duffing:
         """
         if cont_params["continuation"]["forced"]:
             cls.delta = cont_params["forcing"]["tau0"]
-            cls.phi = cont_params["forcing"]["phase_ratio"] * np.pi
 
     @classmethod
     def model_ode(cls, t, X, T, F):
@@ -36,7 +35,7 @@ class Duffing:
         x = X[0]
         xdot = X[1]
         f = cls.delta * xdot + cls.alpha * x + cls.beta * x**3
-        force = F * np.cos(2 * np.pi / T * t + cls.phi)
+        force = F * np.sin(2 * np.pi / T * t)
         Xdot = np.array([xdot, -f + force])
         return Xdot
 
@@ -53,9 +52,9 @@ class Duffing:
         x = X0[0]
         xdot = X0[1]
         f = cls.delta * xdot + cls.alpha * x + cls.beta * x**3
-        force = F * np.cos(2 * np.pi / T * t + cls.phi)
-        dforce_dT = F * np.sin(2 * np.pi / T * t + cls.phi) * 2 * np.pi * t / T**2
-        dforce_dF = np.cos(2 * np.pi / T * t + cls.phi)
+        force = F * np.sin(2 * np.pi / T * t)
+        dforce_dT = F * np.cos(2 * np.pi / T * t) * (-2 * np.pi * t / T**2)
+        dforce_dF = np.sin(2 * np.pi / T * t)
         Xdot = np.array([xdot, -f + force])
         dgdX = np.array([[0, 1], [-cls.alpha - 3 * cls.beta * x**2, -cls.delta]])
         dgdT = np.array([0, dforce_dT])
@@ -81,7 +80,7 @@ class Duffing:
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, F, T, X, pose_base, cont_params, sensitivity=True):
+    def time_solve(cls, omega, F, T, X, pose_base, cont_params, sensitivity=True, fulltime=False):
         """
         Time simulation of the model and sensitivity analysis of periodicity function
         """
@@ -124,7 +123,7 @@ class Duffing:
             0.5 * (Xsol[:, 1] ** 2 + cls.alpha * Xsol[:, 0] ** 2)
             + 0.25 * cls.beta * Xsol[:, 0] ** 4
         )
-        force_vel = F * np.cos(2 * np.pi / T * t + cls.phi) * Xsol[:, 1]
+        force_vel = F * np.sin(2 * np.pi / T * t) * Xsol[:, 1]
         damping_vel = cls.delta * Xsol[:, 1] ** 2
         E1 = np.array(
             [simps(force_vel[: i + 1] - damping_vel[: i + 1], t[: i + 1]) for i in range(len(t))]
@@ -132,18 +131,23 @@ class Duffing:
         E = E0 + E1
         energy = np.max(E)
 
-        # # Acceleration
-        # Xddot = (
-        #     F * np.cos(2 * np.pi / T * t + cls.phi) - cls.delta * Xsol[:, 1] -
-        #     cls.alpha * Xsol[:, 0] - cls.beta * Xsol[:, 0]**3
-        # )
+        # Acceleration
+        Xddot = (
+            F * np.sin(2 * np.pi / T * t)
+            - cls.delta * Xsol[:, 1]
+            - cls.alpha * Xsol[:, 0]
+            - cls.beta * Xsol[:, 0] ** 3
+        )
 
         # # Lagrangian
         # L = (
         #     0.5 * Xsol[:, 1]**2 - 0.5 * cls.alpha * Xsol[:, 0]**2 - 0.25 * cls.beta * Xsol[:, 0]**4
         # )
 
-        return H, J, pose, vel, energy, True
+        if not fulltime:
+            return H, J, pose, vel, energy, True
+        else:
+            return H, J, Xsol[:, 0], Xsol[:, 1], Xddot, energy, True
 
     @classmethod
     def get_fe_data(cls):
