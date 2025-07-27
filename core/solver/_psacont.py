@@ -33,7 +33,7 @@ def psacont(self):
 
     # Set up parameter continuation abstraction
     # fmt: off
-    cont_parameter = cont_params["forcing"]["continuation_parameter"]
+    cont_parameter = cont_params["continuation"]["continuation_parameter"]
     if cont_parameter == "frequency":
         param_current = tau
         param_name = "frequency"

@@ -86,7 +86,7 @@ class Duffing:
         """
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
-        continuation_parameter = cont_params["forcing"]["continuation_parameter"]
+        continuation_parameter = cont_params["continuation"]["continuation_parameter"]
 
         # Add position to increment and do time sim to get solution and sensitivities
         X0 = X + np.array([pose_base, 0])

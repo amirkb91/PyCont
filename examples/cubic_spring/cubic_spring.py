@@ -19,7 +19,7 @@ class Cubic_Spring:
     config_per_node = 1
 
     @classmethod
-    def model_ode(cls, t, X):
+    def model_ode(cls, t, X, T, F):
         # State equation of the mass spring system. Xdot(t) = g(X(t))
         x = X[: cls.ndof_free]
         xdot = X[cls.ndof_free :]
@@ -29,7 +29,7 @@ class Cubic_Spring:
         return Xdot
 
     @classmethod
-    def model_sens_ode(cls, t, ic):
+    def model_sens_ode(cls, t, ic, T, F):
         # Augemented ODE of system + Monodromy, to be solved together
         # System: Xdot(t) = g(X(t))
         # Monodromy: dXdX0dot = dg(X)dX . dXdX0
@@ -71,20 +71,22 @@ class Cubic_Spring:
         return eig, frq, pose0
 
     @classmethod
-    def time_solve(cls, omega, T, X, pose_base, cont_params, sensitivity=True, fulltime=False):
+    def time_solve(cls, omega, F, T, X, pose_base, cont_params, sensitivity=True, fulltime=False):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         N = cls.ndof_free
         twoN = 2 * N
 
-        # Compute initial conditions add increment to pose
+        # Add position to increment and do time sim to get solution and sensitivities
         X0 = X + np.concatenate((pose_base, np.zeros(N)))
-        all_ic = np.concatenate((X0, np.eye(twoN).flatten()))
-
-        # Solve
         t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
-        sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
+        # Initial conditions for the augmented system, eye for monodromy
+        all_ic = np.concatenate((X0, np.eye(twoN).flatten()))
+        sol = np.array(
+            odeint(cls.model_sens_ode, all_ic, t, args=(T, F), rtol=rel_tol, tfirst=True)
+        )
+        # unpack solution
         Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
 
         # periodicity condition
@@ -93,7 +95,7 @@ class Cubic_Spring:
 
         # Jacobian
         dHdX0 = M - np.eye(twoN)
-        gX_T = cls.model_ode(None, Xsol[-1, :]) * nperiod
+        gX_T = cls.model_ode(None, Xsol[-1, :], T, F) * nperiod
         dHdT = gX_T
         J = np.concatenate((dHdX0, dHdT.reshape(-1, 1)), axis=1)
 
@@ -112,7 +114,7 @@ class Cubic_Spring:
 
     @classmethod
     def time_solve_multiple(
-        cls, omega, T, X, pose_base, cont_params, sensitivity=True, fulltime=False
+        cls, omega, F, T, X, pose_base, cont_params, sensitivity=True, fulltime=False
     ):
         npartition = cont_params["shooting"]["multiple"]["npartition"]
         nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]

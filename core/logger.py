@@ -130,7 +130,7 @@ class Logger:
         # Determine if we're doing amplitude continuation
         is_amplitude_continuation = (
             self.prob.cont_params["continuation"]["forced"]
-            and self.prob.cont_params["forcing"]["continuation_parameter"] == "amplitude"
+            and self.prob.cont_params["continuation"]["continuation_parameter"] == "amplitude"
         )
 
         if not self.ax.any():

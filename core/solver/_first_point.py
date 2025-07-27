@@ -20,7 +20,7 @@ def first_point(self):
                 raise Exception("Max number of iterations reached without convergence.")
 
             [H, J, self.pose, vel, energy, cvg_zerof] = self.prob.zerofunction_firstpoint(
-                1.0, self.T0, self.X0, self.pose0, cont_params
+                1.0, self.F0, self.T0, self.X0, self.pose0, cont_params
             )
             if not cvg_zerof:
                 raise Exception("Zero function failed.")
@@ -78,7 +78,7 @@ def first_point(self):
         if shooting_method == "single":
             # run sim to get data for storing solution
             [H, J, self.pose, vel, energy, _] = self.prob.zerofunction_firstpoint(
-                1.0, self.T0, self.X0, self.pose0, cont_params
+                1.0, self.F0, self.T0, self.X0, self.pose0, cont_params
             )
             residual = spl.norm(H)
             J = np.block([[J], [self.h, np.zeros((self.nphase, 1))], [np.zeros(np.shape(J)[1])]])

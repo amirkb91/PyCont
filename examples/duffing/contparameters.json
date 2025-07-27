@@ -3,6 +3,7 @@
     "forced": true,
     "method": "psa",
     "tangent": "keller",
+    "continuation_parameter": "amplitude",
     "dir": 1,
     "npts": 1000,
     "tol": 1e-06,
@@ -35,7 +36,6 @@
     }
   },
   "forcing": {
-    "continuation_parameter": "amplitude",
     "amplitude": 0.01,
     "frequency": 0.477464829275686,
     "phase_ratio": 0,
