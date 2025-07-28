@@ -63,7 +63,7 @@ with alive_bar(n_solpoints) as bar:
         X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
         if run_bif:
             [_, J, pose_time[:, :, i], vel_time[:, :, i], _, _, _] = BeamCpp.runsim_single(
-                1.0, T[i], X, pose[:, i], par, fulltime=True
+                1.0, None, T[i], X, pose[:, i], par, fulltime=True
             )
             M = J[:, :-1] + np.eye(2 * BeamCpp.ndof_free)
             bifurcation_out = bifurcation_functions(M)
@@ -74,13 +74,13 @@ with alive_bar(n_solpoints) as bar:
             Neimark_Sacker[i] = bifurcation_out[4]
         else:
             [_, _, pose_time[:, :, i], vel_time[:, :, i], _, _, _] = BeamCpp.runsim_single(
-                1.0, T[i], X, pose[:, i], par, sensitivity=False, fulltime=True
+                1.0, None, T[i], X, pose[:, i], par, sensitivity=False, fulltime=True
             )
         time[i, :] = np.linspace(0, T[i], nsteps + 1)
 
         for j in range(nsteps + 1):
             pose_nose = pose_time[node_config[:, 0], j, i]
-            pose_nose_inverse = pose_nose_inv = Frame.get_inverse(3, pose_nose)
+            pose_nose_inv = Frame.get_inverse(BeamCpp.n_dim, pose_nose)
             for k in range(BeamCpp.nnodes_all):
                 # Apply RB translation to fix the nose at the origin
                 # pose_time[node_config[:, k], j, i] = Frame.composition(3, pose_nose_inv, pose_time[node_config[:, k], j, i])
