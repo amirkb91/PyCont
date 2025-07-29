@@ -5,7 +5,7 @@ import numpy as np
 from copy import deepcopy as dp
 import shutil
 from concurrent.futures import ProcessPoolExecutor
-from Frame import Frame
+from core.math.Frame import Frame
 
 
 class BeamCpp:

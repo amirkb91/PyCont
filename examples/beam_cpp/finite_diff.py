@@ -1,7 +1,7 @@
 from core.problem import Prob
 
 from examples.beam_cpp.beamcpp import BeamCpp
-from Frame import Frame
+from core.math.Frame import Frame
 
 import numpy as np
 import h5py

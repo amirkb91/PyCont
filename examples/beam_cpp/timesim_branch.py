@@ -5,7 +5,7 @@ import sys, shutil
 import numpy as np
 from beamcpp import BeamCpp
 from postprocess.bifurcation import bifurcation_functions
-from Frame import Frame
+from core.math.Frame import Frame
 
 """ Run time simulations for all NNM solutions and store """
 

@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg as spl
 from collections import namedtuple
 from ._cont_step import cont_step
-from examples.beam_cpp.Frame import Frame
+from core.math.Frame import Frame
 
 import warnings
 
