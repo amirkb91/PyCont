@@ -2,7 +2,7 @@
   "continuation": {
     "forced": false,
     "method": "psa",
-    "tangent": "peeters",
+    "tangent": "keller",
     "continuation_parameter": "frequency",
     "dir": 1,
     "npts": 1500,
@@ -36,11 +36,11 @@
     }
   },
   "forcing": {
-    "amplitude": 0.1,
-    "frequency": 0.4,
+    "amplitude": 1.0,
+    "frequency": 0.01,
     "phase_ratio": 0.5,
     "tau0": 0.05,
-    "tau1": 0,
+    "tau1": 0.01,
     "rho_GA": 1.0
   },
   "first_point": {
@@ -60,6 +60,6 @@
   },
   "Logger": {
     "plot": true,
-    "file_name": "temp"
+    "file_name": "NNM"
   }
 }
