@@ -67,7 +67,7 @@ with alive_bar(n_solpoints) as bar:
         pose_time[:, :, i] = pose_time_series.T
         vel_time[:, :, i] = vel_time_series.T
         acc_time[:, :, i] = acc_time_series.T
-        
+
         if run_bif == "y":
             M = J[:, :-1] + np.eye(4)
             bifurcation_out = bifurcation_functions(M)
