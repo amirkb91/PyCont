@@ -121,9 +121,6 @@ class Beam_Spring:
         """
         # Natural frequencies are already defined as class parameters, convert to Hz
         frq = np.array([[cls.w_1 / (2 * np.pi)], [cls.w_2 / (2 * np.pi)]])
-
-        # In modal coordinates, the "eigenvectors" are just the identity matrix
-        # since each modal coordinate corresponds to one mode
         eig = np.eye(cls.ndof_free)
 
         # Initial position taken as zero for both modal coordinates

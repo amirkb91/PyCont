@@ -3,8 +3,7 @@ import json
 from alive_progress import alive_bar
 import sys, shutil
 import numpy as np
-from scipy.integrate import odeint
-from cubic_spring import Cubic_Spring
+from beam_spring import Beam_Spring
 from postprocess.bifurcation import bifurcation_functions
 
 """ Run time simulations for all points on solution branch and store """
@@ -48,7 +47,7 @@ acc_time = np.zeros([np.shape(vel)[0], nsteps + 1, n_solpoints])
 time = np.zeros([n_solpoints, nsteps + 1])
 
 # run sims
-Cubic_Spring.forcing_parameters(par)
+Beam_Spring.forcing_parameters(par)
 if run_bif == "y":
     Floquet = np.zeros([4, n_solpoints], dtype=np.complex128)
     Stability = np.zeros(n_solpoints)
@@ -60,7 +59,7 @@ with alive_bar(n_solpoints) as bar:
     for i in range(n_solpoints):
         # Initial conditions for 2-DOF system: [pos1, pos2, vel1, vel2]
         X = np.array([0.0, 0.0, vel[0, i], vel[1, i]])
-        [_, J, pose_time_series, vel_time_series, acc_time_series, _, _] = Cubic_Spring.time_solve(
+        [_, J, pose_time_series, vel_time_series, acc_time_series, _, _] = Beam_Spring.time_solve(
             1.0, F[i], T[i], X, pose[:, i], par, fulltime=True
         )
         # Store the time series data
