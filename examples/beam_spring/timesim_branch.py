@@ -79,18 +79,18 @@ with alive_bar(n_solpoints) as bar:
         [_, J, pose_time_series, vel_time_series, acc_time_series, _, _] = Beam_Spring.time_solve(
             1.0, F[i], T[i], X, pose[:, i], par, fulltime=True
         )
-        
+
         if store_physical == "y":
             # Convert modal coordinates to physical displacement at tip
             phi_L = Beam_Spring.phi_L  # Mode shapes at tip location
-            
+
             # Transform modal coordinates to physical displacement: u_tip = phi_L @ q
             physical_pose = phi_L @ pose_time_series.T  # Shape: (1, nsteps+1)
-            physical_vel = phi_L @ vel_time_series.T    # Shape: (1, nsteps+1)
-            
+            physical_vel = phi_L @ vel_time_series.T  # Shape: (1, nsteps+1)
+
             # For acceleration: a_tip = phi_L @ q_ddot
-            physical_acc = phi_L @ acc_time_series.T    # Shape: (1, nsteps+1)
-            
+            physical_acc = phi_L @ acc_time_series.T  # Shape: (1, nsteps+1)
+
             # Store physical displacement data
             pose_time[:, :, i] = physical_pose
             vel_time[:, :, i] = physical_vel
@@ -155,4 +155,4 @@ if run_bif == "y":
 time_data.close()
 
 print(f"\nCompleted! Data stored in: {new_file}")
-print("="*60)
+print("=" * 60)
