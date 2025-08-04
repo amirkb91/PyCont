@@ -19,7 +19,6 @@
     "betamax": 20,
     "ContParMin": 50,
     "ContParMax": 80,
-    "Emax": 10000,
     "phase_index_unforced": "allvel"
   },
   "shooting": {

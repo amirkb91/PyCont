@@ -17,7 +17,6 @@
     "betamax": 20,
     "fmin": 0.1,
     "fmax": 0.23,
-    "Emax": 1000000,
     "phase_index_unforced": "allvel"
   },
   "shooting": {
