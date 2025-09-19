@@ -34,7 +34,7 @@ if method == "single":
     # run sim
     x = vel[BeamCpp.free_dof]
     X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-    BeamCpp.runsim_single(1.0, T, X, pose, par, sensitivity=False)
+    BeamCpp.runsim_single(1.0, None, T, X, pose, par, sensitivity=False)
 
     # call plotbeam
     subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)
@@ -57,7 +57,7 @@ elif method == "multiple":
     X = np.concatenate([np.zeros((BeamCpp.ndof_free, npartition)), x])
     X = X.flatten(order="F")
     [_, _, pose_time, vel_time, acc_time, energy, _] = BeamCpp.runsim_multiple(
-        1.0, T, X, pose, par, fulltime=True
+        1.0, None, T, X, pose, par, fulltime=True
     )
 
     output_file = file.strip(".h5") + "_with_pointtime.h5"
@@ -76,6 +76,6 @@ elif method == "multiple":
     # # one more time sime with initial conditions of first partition for whole orbit so we can plot
     # x = vel[BeamCpp.free_dof, 0]
     # X = np.concatenate([np.zeros(BeamCpp.ndof_free), x])
-    # BeamCpp.runsim_single(1.0, T, X, pose[:, 0], par, sensitivity=False)
+    # BeamCpp.runsim_single(1.0, None, T, X, pose[:, 0], par, sensitivity=False)
     # # call plotbeam
     # subprocess.run("cd " + BeamCpp.cpp_path + "&&" + "python3 plotbeam.py ", shell=True)

@@ -16,6 +16,9 @@ elif prob.cont_params["shooting"]["method"] == "multiple":
     prob.add_zerofunction(Cubic_Spring.time_solve_multiple, Cubic_Spring.time_solve)
     prob.add_partitionfunction(Cubic_Spring.partition_singleshooting_solution)
 
+# Initialise forcing parameters if continuation is forced
+Cubic_Spring.forcing_parameters(prob.cont_params)
+
 # Continuation starting point
 start = StartingPoint(prob)
 start.get_startingpoint()

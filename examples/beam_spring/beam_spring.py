@@ -3,12 +3,21 @@ from scipy.integrate import odeint, simps
 import scipy.linalg as spl
 
 
-class Cubic_Spring:
-    # parameters of nonlinear system EoM    MX'' + CX' + KX + fnl = F*sin(2pi/T*t)
+class Beam_Spring:
+    # Nonlinear beam model with tip springs
+
+    # Beam paremeters for 2 mode system
+    k_nl = 4250000
+    w_1 = 91.734505484821950
+    w_2 = 3.066194429903638e02
+    zeta_1 = 0.0
+    zeta_2 = 0.0
+    phi_L = np.array([[-7.382136522799137, 7.360826867549465]])
+
+    # Modal Matrices
     M = np.eye(2)
-    C = np.zeros((2, 2))
-    K = np.array([[2, -1], [-1, 2]])
-    Knl = 0.5
+    C = np.array([[2 * zeta_1 * w_1, 0], [0, 2 * zeta_2 * w_2]])
+    K = np.array([[w_1**2, 0], [0, w_2**2]])
     Minv = spl.inv(M)
 
     # finite element data, 2 dof system
@@ -25,9 +34,9 @@ class Cubic_Spring:
         update parameters if continuation is forced
         """
         if cont_params["continuation"]["forced"]:
-            tau0 = cont_params["forcing"]["tau0"]
-            tau1 = cont_params["forcing"]["tau1"]
-            cls.C = tau0 * cls.M + tau1 * cls.K
+            zeta_1 = 0.03
+            zeta_2 = 0.09
+            cls.C = np.array([[2 * zeta_1 * cls.w_1, 0], [0, 2 * zeta_2 * cls.w_2]])
 
     @classmethod
     def model_ode(cls, t, X, T, F):
@@ -37,7 +46,8 @@ class Cubic_Spring:
         KX = cls.K @ x
         CXdot = cls.C @ xdot
         force = np.array([F * np.sin(2 * np.pi / T * t), 0])
-        fnl = np.array([cls.Knl * x[0] ** 3, 0])
+        phi_x = cls.phi_L @ x  # Physical displacement at nonlinear location
+        fnl = cls.k_nl * cls.phi_L.T @ (phi_x**3)
         Xdot = np.concatenate((xdot, cls.Minv @ (-KX - CXdot - fnl + force)))
         return Xdot
 
@@ -53,7 +63,8 @@ class Cubic_Spring:
         Minv = cls.Minv
         K = cls.K
         C = cls.C
-        knl = cls.Knl
+        k_nl = cls.k_nl
+        phi_L = cls.phi_L
         N = cls.ndof_free
         twoN = 2 * N
 
@@ -70,19 +81,25 @@ class Cubic_Spring:
         KX = K @ x
         CXdot = C @ xdot
         force = np.array([F * np.sin(2 * np.pi / T * t), 0])
-        fnl = np.array([cls.Knl * x[0] ** 3, 0])
+        phi_x = phi_L @ x  # Physical displacement at nonlinear location
+        fnl = k_nl * phi_L.T @ (phi_x**3)
 
         # Force derivatives
         dforce_dT = np.array([F * np.cos(2 * np.pi / T * t) * (-2 * np.pi * t / T**2), 0])
         dforce_dF = np.array([np.sin(2 * np.pi / T * t), 0])
 
         # System dynamics
-        Xdot = np.concatenate((xdot, cls.Minv @ (-KX - CXdot - fnl + force)))
+        Xdot = np.concatenate((xdot, Minv @ (-KX - CXdot - fnl + force)))
+
+        # Jacobian of nonlinear force with respect to modal coordinates
+        # fnl = k_nl * phi_L.T @ (phi_L @ x)^3
+        # dfnl/dx = k_nl * phi_L.T @ diag(3*(phi_L @ x)^2) @ phi_L
+        dfnl_dx = k_nl * phi_L.T @ (3 * phi_x**2 * phi_L)
 
         # Jacobian of system dynamics with respect to state
         dgdX = np.zeros((twoN, twoN))
         dgdX[:N, N:] = np.eye(N)  # dx/dt = xdot
-        dgdX[N:, :N] = -Minv @ (K + np.array([[knl * 3 * x[0] ** 2, 0], [0, 0]]))  # d(xddot)/dx
+        dgdX[N:, :N] = -Minv @ (K + dfnl_dx)  # d(xddot)/dx
         dgdX[N:, N:] = -Minv @ C  # d(xddot)/d(xdot)
 
         # Partial derivatives with respect to parameters
@@ -98,19 +115,21 @@ class Cubic_Spring:
 
     @classmethod
     def eigen_solve(cls):
-        # Continuation variables initial guess from eigenvalues
-        frq, eig = spl.eigh(cls.K, cls.M)
-        frq = np.sqrt(frq) / (2 * np.pi)
-        frq = frq.reshape(-1, 1)
+        """
+        For modal model: frequencies are already known, eigenvectors are identity
+        since we're working in modal coordinates
+        """
+        # Natural frequencies are already defined as class parameters, convert to Hz
+        frq = np.array([[cls.w_1 / (2 * np.pi)], [cls.w_2 / (2 * np.pi)]])
+        eig = np.eye(cls.ndof_free)
 
-        # initial position taken as zero for both dofs
+        # Initial position taken as zero for both modal coordinates
         pose0 = np.zeros(cls.ndof_free)
 
         return eig, frq, pose0
 
     @classmethod
     def time_solve(cls, omega, F, T, X, pose_base, cont_params, sensitivity=True, fulltime=False):
-        nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
         rel_tol = cont_params["shooting"]["rel_tol"]
         continuation_parameter = cont_params["continuation"]["continuation_parameter"]
@@ -119,7 +138,7 @@ class Cubic_Spring:
 
         # Add position to increment and do time sim to get solution and sensitivities
         X0 = X + np.concatenate((pose_base, np.zeros(N)))
-        t = np.linspace(0, T * nperiod, nsteps * nperiod + 1)
+        t = np.linspace(0, T, nsteps + 1)
         # Initial conditions for the augmented system: X0, eye for monodromy, zeros for time and force sens
         all_ic = np.concatenate((X0, np.eye(twoN).flatten(), np.zeros(twoN), np.zeros(twoN)))
         sol = np.array(
@@ -139,7 +158,7 @@ class Cubic_Spring:
 
         # Jacobian construction depends on continuation parameter
         dHdX0 = M - np.eye(twoN)
-        gX_T = cls.model_ode(T * nperiod, Xsol[-1, :], T, F) * nperiod
+        gX_T = cls.model_ode(T, Xsol[-1, :], T, F)
 
         if continuation_parameter == "frequency":
             # For frequency continuation, include period sensitivity (dH/dT)
@@ -154,11 +173,22 @@ class Cubic_Spring:
         pose = Xsol[0, :N]
         vel = Xsol[0, N:]
 
-        # Energy
+        # Energy calculation
+        # Kinetic energy: 0.5 * xdot^T * M * xdot
+        # Potential energy: 0.5 * x^T * K * x + (1/4) * k_nl * (phi_L @ x)^4
+
+        # The nonlinear force at the tip is a physical force: F_tip = k_nl * (phi_L @ x)**3.
+        # In the equations of motion, this physical force must be projected into modal coordinates
+        # as a vector using phi_L.T, so each mode receives a share of the tip force.
+        # However, the potential energy stored in the nonlinear spring is a scalar, and depends only
+        # on the physical tip displacement (u = phi_L @ x), not on its projection.
+        # Therefore, for energy, we use (1/4) * k_nl * (phi_L @ x)**4, without any projection.
+
+        phi_x_sol = cls.phi_L @ Xsol[:, :N].T
         E0 = (
             0.5 * np.einsum("ij,ij->i", Xsol[:, N:], np.dot(cls.M, Xsol[:, N:].T).T)
             + 0.5 * np.einsum("ij,ij->i", Xsol[:, :N], np.dot(cls.K, Xsol[:, :N].T).T)
-            + 0.25 * cls.Knl * Xsol[:, 0] ** 4
+            + 0.25 * cls.k_nl * phi_x_sol[0, :] ** 4
         )
         force_vec = np.array([F * np.sin(2 * np.pi / T * t), np.zeros_like(t)])
         force_vel = force_vec[0] * Xsol[:, N]
@@ -177,107 +207,14 @@ class Cubic_Spring:
             KX = cls.K @ x_i
             CXdot = cls.C @ xdot_i
             force_i = np.array([F * np.sin(2 * np.pi / T * t[i]), 0])
-            fnl_i = np.array([cls.Knl * x_i[0] ** 3, 0])
+            phi_x_i = cls.phi_L @ x_i
+            fnl_i = cls.k_nl * cls.phi_L.T @ (phi_x_i**3)
             acc_time[i, :] = cls.Minv @ (-KX - CXdot - fnl_i + force_i)
 
         if not fulltime:
             return H, J, pose, vel, energy, True
         else:
             return H, J, Xsol[:, :N], Xsol[:, N:], acc_time, energy, True
-
-    @classmethod
-    def time_solve_multiple(
-        cls, omega, F, T, X, pose_base, cont_params, sensitivity=True, fulltime=False
-    ):
-        npartition = cont_params["shooting"]["multiple"]["npartition"]
-        nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        N = cls.ndof_free
-        twoN = 2 * N
-        delta_S = 1 / npartition
-
-        # Precomputations
-        partition_extremeties = np.arange(npartition + 1) * (nsteps + 1)
-        indices_start = partition_extremeties[:npartition]
-        indices_end = indices_start - 1
-        block_order = (np.arange(npartition) + 1) % npartition
-
-        # Initialisations
-        t = np.linspace(0, T * delta_S, nsteps + 1)
-        eye_flat = np.eye(4).flatten()
-        J = np.zeros((npartition * twoN, npartition * twoN + 1))
-        pose_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
-        vel_time = np.zeros((cls.ndof_all, (nsteps + 1) * npartition))
-        E = np.zeros([nsteps + 1, npartition])
-        energy = 0
-
-        # Main loop for each partition
-        for ipart in range(npartition):
-            i0, i1 = ipart * twoN, (ipart + 1) * twoN
-            j0, j1 = (ipart + 1) % npartition * twoN, ((ipart + 1) % npartition + 1) * twoN
-            p0, p1 = partition_extremeties[ipart], partition_extremeties[ipart + 1]
-
-            # Compute initial conditions add increment to pose
-            X0 = X[i0:i1] + np.concatenate((pose_base[:, ipart], np.zeros(N)))
-            all_ic = np.concatenate((X0, eye_flat))
-
-            # Solve
-            sol = np.array(odeint(cls.model_sens_ode, all_ic, t, rtol=rel_tol, tfirst=True))
-            Xsol, M = sol[:, :twoN], sol[-1, twoN:].reshape(twoN, twoN)
-            pose_time[:, p0:p1] = Xsol[:, :N].T
-            vel_time[:, p0:p1] = Xsol[:, N:].T
-
-            # Monodromy and augmented Jacobian
-            dHdT = cls.model_ode(None, Xsol[-1, :]) * delta_S
-            J[i0:i1, i0:i1] = M
-            J[i0:i1, j0:j1] -= np.eye(twoN)
-            J[i0:i1, -1] = dHdT
-
-            # Energy
-            E[:, ipart] = (
-                0.5 * np.einsum("ij,ij->i", Xsol[:, N:], np.dot(cls.M, Xsol[:, N:].T).T)
-                + 0.5 * np.einsum("ij,ij->i", Xsol[:, :N], np.dot(cls.K, Xsol[:, :N].T).T)
-                + 0.25 * cls.Knl * Xsol[:, 0] ** 4
-            )
-            energy = np.max([energy, np.max(E)])
-
-        # Periodicity condition for all partitions
-        H1 = (
-            pose_time[cls.free_dof][:, indices_end[block_order]]
-            - pose_time[cls.free_dof][:, indices_start[block_order]]
-        )
-        H2 = (
-            vel_time[cls.free_dof][:, indices_end[block_order]]
-            - vel_time[cls.free_dof][:, indices_start[block_order]]
-        )
-        H = np.reshape(np.concatenate([H1, H2]), (-1, 1), order="F")
-
-        # solution pose and vel at time 0 for each partition
-        pose = pose_time[:, indices_start]
-        vel = vel_time[:, indices_start]
-
-        return H, J, pose, vel, energy, True
-
-    @classmethod
-    def partition_singleshooting_solution(cls, T, X, pose_base, cont_params):
-        npartition = cont_params["shooting"]["multiple"]["npartition"]
-        nsteps = cont_params["shooting"]["multiple"]["nsteps_per_partition"]
-        rel_tol = cont_params["shooting"]["rel_tol"]
-        N = cls.ndof_free
-        slicing_index = nsteps * np.arange(npartition)
-
-        # do time integration along whole orbit before slicing
-        X0 = X + np.concatenate((pose_base, np.zeros(N)))
-        t = np.linspace(0, T, nsteps * npartition + 1)
-        Xsol = np.array(odeint(cls.model_ode, X0, t, rtol=rel_tol, tfirst=True))
-        pose_time = Xsol[:, :N].T
-        vel_time = Xsol[:, N:].T
-        pose = pose_time[:, slicing_index]
-        vel = vel_time[:, slicing_index]
-        # set inc to zero as solution stored in pose, keep velocity
-        Xsol = np.concatenate((np.zeros((N, npartition)), vel))
-        Xsol = np.reshape(Xsol, (-1), order="F")
-        return Xsol, pose
 
     @classmethod
     def get_fe_data(cls):
@@ -292,20 +229,3 @@ class Cubic_Spring:
             "n_dim": 1,
             "SEbeam": False,
         }
-
-    # @classmethod
-    # def monodromy_centdiff(cls, t, X0):
-    #     # central difference calculation of the monodromy matrix
-    #     # can be used to check values from ode
-    #     eps = 1e-8
-    #     M = np.zeros([4, 4])
-    #     for i in range(4):
-    #         X0plus = X0.copy()
-    #         X0plus[i] += eps
-    #         XTplus = np.array(odeint(cls.system_ode, X0plus, t, tfirst=True))[-1, :]
-    #         X0mins = X0.copy()
-    #         X0mins[i] -= eps
-    #         XTmins = np.array(odeint(cls.system_ode, X0mins, t, tfirst=True))[-1, :]
-    #         m = (XTplus - XTmins) / (2 * eps)
-    #         M[:, i] = m
-    #     return M

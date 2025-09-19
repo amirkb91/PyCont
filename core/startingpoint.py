@@ -8,6 +8,7 @@ class StartingPoint:
         self.prob = prob
         self.X0 = None
         self.T0 = None
+        self.F0 = None
         self.pose0 = None
         self.pose_ref = None
         self.tgt0 = None
@@ -35,7 +36,10 @@ class StartingPoint:
         self.T0 = 1 / self.frq[nnm - 1, 0]
 
         if self.prob.cont_params["continuation"]["forced"]:
-            self.T0 /= self.prob.cont_params["forcing"]["starting_freq_scale"]
+            self.T0 = 1 / self.prob.cont_params["forcing"]["frequency"]
+            self.F0 = self.prob.cont_params["forcing"]["amplitude"]
+        else:
+            self.F0 = 0.0
 
     def restart(self):
         restartsol = h5py.File(

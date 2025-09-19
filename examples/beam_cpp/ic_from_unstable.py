@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from beamcpp import BeamCpp
 from postprocess.bifurcation import get_unstable_eigenvec
-from Frame import Frame
+from core.math.Frame import Frame
 
 """ Generate initial condition file to restart from by adding an unstable eigenvector """
 

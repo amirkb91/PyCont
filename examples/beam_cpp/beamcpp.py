@@ -5,7 +5,7 @@ import numpy as np
 from copy import deepcopy as dp
 import shutil
 from concurrent.futures import ProcessPoolExecutor
-from Frame import Frame
+from core.math.Frame import Frame
 
 
 class BeamCpp:
@@ -122,7 +122,7 @@ class BeamCpp:
 
     @classmethod
     def runsim_single(
-        cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
+        cls, omega, _, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
     ):
         nperiod = cont_params["shooting"]["single"]["nperiod"]
         nsteps = cont_params["shooting"]["single"]["nsteps_per_period"]
@@ -187,7 +187,7 @@ class BeamCpp:
 
     @classmethod
     def runsim_multiple(
-        cls, omega, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
+        cls, omega, _, tau, Xtilde, pose_base, cont_params, sensitivity=True, fulltime=False
     ):
         # multiple shooting sensitivity SE correction has to be done in Python
         cls.cpp_params_sim["TimeIntegrationSolverParameters"]["direct_sensitivity"][

@@ -11,6 +11,7 @@ class ConX:
         self.prob = prob
         self.X0 = start.X0
         self.T0 = start.T0
+        self.F0 = start.F0
         self.pose0 = start.pose0
         self.pose_ref = start.pose_ref
         self.tgt0 = start.tgt0
