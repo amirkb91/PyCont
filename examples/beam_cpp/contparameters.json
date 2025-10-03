@@ -12,13 +12,13 @@
     "itermax": 7,
     "iterjac": 1,
     "nadapt": 2,
-    "s0": 0.001,    
+    "s0": 1e-4,    
     "smin": 1e-06,
-    "smax": 0.0025,
+    "smax": 1e-2,
     "betacontrol": false,
     "betamax": 20,
-    "ContParMin": 50,
-    "ContParMax": 80,
+    "ContParMin": 1,
+    "ContParMax": 10,
     "phase_index_unforced": "allvel"
   },
   "shooting": {
@@ -59,6 +59,6 @@
   },
   "Logger": {
     "plot": true,
-    "file_name": "NNM1_Cclamped2D"
+    "file_name": "NNM1"
   }
 }
